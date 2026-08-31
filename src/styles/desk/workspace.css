@@ -67,3 +67,21 @@
   .rail-dest.is-on::before{left:0;right:0;top:auto;bottom:0;width:auto;height:1px}
   .rail-foot{margin-top:0;margin-left:auto;padding-top:0;border-top:none}
 }
+
+/* ---------- account menu ---------- */
+.acct{position:relative}
+.acct-trigger{background:none;border:none;padding:0;text-align:left;cursor:pointer;
+  font-size:11px;letter-spacing:.06em;color:var(--faint);
+  transition:color .15s ease}
+.acct-trigger:hover,.acct-trigger[aria-expanded="true"]{color:var(--text)}
+.acct-menu{position:absolute;bottom:calc(100% + 8px);left:0;z-index:60;min-width:150px;
+  display:flex;flex-direction:column;
+  border:1px solid var(--border-2);border-radius:3px;background:var(--bg2)}
+.acct-item{text-align:left;background:none;border:none;cursor:pointer;
+  padding:10px 13px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  transition:color .15s ease,background-color .15s ease}
+.acct-item:last-child{border-bottom:none}
+.acct-item:hover{background:rgba(255,255,255,.03);color:var(--text)}
+.acct-item.is-danger:hover{color:var(--red-bright)}

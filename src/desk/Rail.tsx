@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import BrandLockup from '../components/BrandLockup';
 import PopNumber from '../components/PopNumber';
-import { useDesk, signOut, money } from './deskStore';
-import { supabase } from '../lib/supabase';
+import AccountMenu from './AccountMenu';
+import { useDesk, money } from './deskStore';
 
 export type Destination = 'Markets' | 'Positions' | 'Personal';
 export const DESTINATIONS: Destination[] = ['Markets', 'Positions', 'Personal'];
@@ -10,12 +10,8 @@ export const DESTINATIONS: Destination[] = ['Markets', 'Positions', 'Personal'];
 export default function Rail({
   active, onChange,
 }: { active: Destination; onChange: (d: Destination) => void }) {
-  const { user, balance, positions, live } = useDesk();
+  const { balance, positions } = useDesk();
 
-  const doSignOut = () => {
-    if (live && supabase) supabase.auth.signOut(); // listener calls exitLive()
-    else signOut();
-  };
 
   return (
     <nav className="rail" role="tablist" aria-label="Workspace">
@@ -40,8 +36,7 @@ export default function Rail({
 
       <div className="rail-foot">
         <PopNumber text={money(balance)} className="rail-bal mono" />
-        <span className="rail-user mono">@{user?.handle}</span>
-        <button className="rail-signout" onClick={doSignOut}>Sign out</button>
+        <AccountMenu />
       </div>
     </nav>
   );
