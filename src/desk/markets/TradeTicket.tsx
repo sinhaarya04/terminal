@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { placeBet, money, useDesk, type DeskMarket, type Side } from '../deskStore';
+import { placeBet, money, useDesk, marketPhase, type DeskMarket, type Side } from '../deskStore';
+import { useNow } from '../../lib/useNow';
 import SuccessCheck from '../../components/SuccessCheck';
 
 export default function TradeTicket({
@@ -15,6 +16,7 @@ export default function TradeTicket({
   emptyHint?: string;
 }) {
   const { balance } = useDesk();
+  const now = useNow();
   const [amount, setAmount] = useState(25);
   const [busy, setBusy] = useState(false);
   // Monotonic nonce: overspending by the same amount twice produces an
@@ -45,11 +47,16 @@ export default function TradeTicket({
     );
   }
 
-  if (!market) {
+  // A market past its close (or already settled) can't take an order. Personal
+  // renders its own explanation for those, but the board reaches this component
+  // too, so the guard lives here rather than only in the caller.
+  if (!market || marketPhase(market, now) !== 'open') {
     return (
       <div className="pane-body pane-empty">
         <div className="kicker">Ticket</div>
-        <p className="pane-empty-sub">{emptyHint}</p>
+        <p className="pane-empty-sub">
+          {!market ? emptyHint : 'This market has closed and is no longer taking bets.'}
+        </p>
       </div>
     );
   }

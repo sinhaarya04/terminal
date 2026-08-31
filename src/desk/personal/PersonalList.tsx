@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { useDesk, joinByCode, money, type DeskMarket } from '../deskStore';
+import { useDesk, joinByCode, money, marketPhase, type DeskMarket } from '../deskStore';
+import { useNow } from '../../lib/useNow';
 
 export type PersonalSel = { kind: 'new' } | { kind: 'market'; m: DeskMarket };
 
@@ -7,6 +8,7 @@ export default function PersonalList({
   sel, onSelect,
 }: { sel: PersonalSel | null; onSelect: (s: PersonalSel) => void }) {
   const { custom } = useDesk();
+  const now = useNow();
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -41,10 +43,12 @@ export default function PersonalList({
         >
           <em className="li-code mono">
             {m.id}
-            {m.resolved && (
+            {m.resolved ? (
               <b className={`li-settled ${m.resolved === 'YES' ? 'is-yes' : 'is-no'}`}>
                 settled {m.resolved}
               </b>
+            ) : marketPhase(m, now) === 'closed' && (
+              <b className="li-settled is-flat">closed</b>
             )}
           </em>
           <span className="li-q">{m.q}</span>

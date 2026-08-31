@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TradeTicket from '../markets/TradeTicket';
-import { useDesk, type DeskMarket, type Side } from '../deskStore';
+import { useDesk, marketPhase, type DeskMarket, type Side } from '../deskStore';
+import { useNow } from '../../lib/useNow';
 
 export default function PersonalAction({
   created, market, onDone,
@@ -11,7 +12,9 @@ export default function PersonalAction({
   // bet) mutates the store, not that object, so the live record is re-read here
   // or a settled market would still be offered a buy ticket.
   const { custom } = useDesk();
+  const now = useNow();
   const live = market ? custom.find((m) => m.id === market.id) ?? market : null;
+  const phase = live ? marketPhase(live, now) : null;
 
   if (created) {
     const copy = () => {
@@ -31,12 +34,23 @@ export default function PersonalAction({
     );
   }
 
-  if (live?.resolved) {
+  if (phase === 'settled' && live) {
     return (
       <div className="pane-body pane-empty">
         <p className="mono">Market settled {live.resolved}</p>
         <p className="pane-empty-sub">
           This one is closed — winning shares have already paid out. Check Positions for what it returned.
+        </p>
+      </div>
+    );
+  }
+
+  if (phase === 'closed' && live) {
+    return (
+      <div className="pane-body pane-empty">
+        <p className="mono">Betting closed</p>
+        <p className="pane-empty-sub">
+          This market reached its close time. It pays out once @{live.owner} settles the result.
         </p>
       </div>
     );

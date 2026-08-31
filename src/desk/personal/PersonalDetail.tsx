@@ -1,8 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import DeskSpark from '../DeskSpark';
 import LiquidRange from '../../components/LiquidRange';
+import DateTimeField from '../../components/DateTimeField';
+import { endOfDay, formatClose, relativeClose } from '../../lib/closeTime';
+import { useNow } from '../../lib/useNow';
 import {
-  createMarket, resolveMarket, marketActivity, participants, useDesk,
+  createMarket, resolveMarket, marketActivity, participants, useDesk, marketPhase,
   money, type Activity, type DeskMarket, type Side,
 } from '../deskStore';
 import type { PersonalSel } from './PersonalList';
@@ -33,13 +36,27 @@ function MarketView({ code }: { code: string }) {
   const feed = marketActivity(code);
   const people = participants(code);
   const isOwner = m.owner === (user?.handle || 'you');
+  // Re-reads on the shared 30s tick, so a market crosses into `closed` on its
+  // own rather than waiting for the next click.
+  const now = useNow();
+  const phase = marketPhase(m, now);
 
   return (
     <div className="pane-body">
       <div className="kicker">
-        {m.cat} · closes {m.closes} · by {m.owner}
+        {m.cat} · closes {m.closesAt != null ? formatClose(m.closesAt) : m.closes} · by {m.owner}
+        {m.closesAt != null && phase !== 'settled' && (
+          <span className="close-rel"> · {relativeClose(m.closesAt, now)}</span>
+        )}
       </div>
       <h2 className="detail-h">{m.q}</h2>
+
+      {phase === 'closed' && (
+        <p className="settled-banner mono" role="status">
+          Closed — betting has stopped.{' '}
+          {isOwner ? 'Settle it below to pay everyone out.' : `Waiting on @${m.owner} to settle it.`}
+        </p>
+      )}
 
       {m.resolved && (
         <p className={`settled-banner mono ${m.resolved === 'YES' ? 'is-yes' : 'is-no'}`} role="status">
@@ -57,7 +74,7 @@ function MarketView({ code }: { code: string }) {
 
       <Participants people={people} owner={m.owner} />
 
-      {isOwner && !m.resolved && <SettleBox code={code} q={m.q} />}
+      {isOwner && phase !== 'settled' && <SettleBox code={code} q={m.q} />}
 
       <Feed feed={feed} />
     </div>
@@ -172,7 +189,9 @@ function Feed({ feed }: { feed: Activity[] }) {
 function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('Private');
-  const [closes, setCloses] = useState('');
+  // Every market gets a close now, defaulting to tomorrow night. Optional free
+  // text is what produced markets that never ended.
+  const [closesAt, setClosesAt] = useState<number>(() => endOfDay(1));
   const [yes, setYes] = useState(50);
   const [busy, setBusy] = useState(false);
 
@@ -180,9 +199,11 @@ function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
     e.preventDefault();
     if (!q.trim() || busy) return;
     setBusy(true);
-    const m = await createMarket({ q, cat, closes, yes });
+    // `closes` stays the human label on the record; `closesAt` is what the
+    // lifecycle actually reads.
+    const m = await createMarket({ q, cat, closes: formatClose(closesAt), yes, closesAt });
     setBusy(false);
-    setQ(''); setCloses(''); setYes(50);
+    setQ(''); setClosesAt(endOfDay(1)); setYes(50);
     onCreated(m);
   };
 
@@ -203,16 +224,10 @@ function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
         <span className="tk-label mono">Category</span>
         <input className="tk-input" value={cat} maxLength={16} onChange={(e) => setCat(e.target.value)} />
       </label>
-      <label className="tk-field">
+      <div className="tk-field">
         <span className="tk-label mono">Closes</span>
-        <input
-          className="tk-input"
-          value={closes}
-          maxLength={12}
-          placeholder="Sun"
-          onChange={(e) => setCloses(e.target.value)}
-        />
-      </label>
+        <DateTimeField value={closesAt} onChange={setClosesAt} label="Market close date and time" />
+      </div>
       <div className="tk-field">
         <span className="tk-label mono">Opening Yes odds · {yes}¢</span>
         <LiquidRange

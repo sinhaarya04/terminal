@@ -5,6 +5,7 @@
 
 import { useSyncExternalStore } from 'react';
 import * as db from './terminalDb';
+import { endOfDay } from '../lib/closeTime';
 
 const KEY = 'ex_desk_v1';
 const START_BALANCE = 1000; // fake E[X] credits handed to every new desk
@@ -33,7 +34,23 @@ export type DeskMarket = {
   owner?: string;    // handle of the creator
   pool?: number;     // total fake $ staked in a custom market
   resolved?: Side;   // set when the owner settles it; blocks further betting
+  // When betting stops, epoch ms. Private markets only — the public board fills
+  // `closes` with a display string that was never a date. Absent means the
+  // market never closes on its own, which is how every market behaved before
+  // close dates existed.
+  closesAt?: number;
 };
+
+/** open → closed → settled. Derived from the clock every time it's asked
+ *  rather than stored, so it stays right across reloads, sleeping laptops and
+ *  two tabs disagreeing — none of which a setTimeout survives. */
+export type MarketPhase = 'open' | 'closed' | 'settled';
+
+export function marketPhase(m: DeskMarket, now: number = Date.now()): MarketPhase {
+  if (m.resolved) return 'settled';
+  if (m.closesAt != null && now >= m.closesAt) return 'closed';
+  return 'open';
+}
 
 /** One line of a private market's history — who did what, when. Private markets
  *  are played with people you know, so the feed is the point: without it a
@@ -114,7 +131,9 @@ function fresh(): DeskState {
   return {
     user: null, seenIntro: false, balance: START_BALANCE, positions: [],
     markets: SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] })),
-    custom: [{ ...SEED_CUSTOM, spark: [...SEED_CUSTOM.spark] }],
+    // computed at seed time, like seedActivity, so the demo market is always a
+    // few days from closing rather than frozen at whenever this shipped
+    custom: [{ ...SEED_CUSTOM, spark: [...SEED_CUSTOM.spark], closesAt: endOfDay(3) }],
     joined: [SEED_CUSTOM.id], activity: seedActivity(), live: false,
   };
 }
@@ -242,9 +261,11 @@ export function marketActivity(code: string): Activity[] {
 /** Buy `dollars` worth of one side of a market at its current price. */
 export async function placeBet(m: DeskMarket, side: Side, dollars: number): Promise<boolean> {
   if (dollars <= 0 || dollars > state.balance) return false;
-  // A settled market has already paid out; taking more money for it would be
-  // selling a share that can never be worth anything.
-  if (getMarket(m.id)?.resolved || m.resolved) return false;
+  // Betting is an `open`-only action: a settled market has already paid out, and
+  // a closed one is waiting on its result. Either way the share being sold could
+  // never come to anything. Checked against the stored record, since `m` may be
+  // a snapshot taken before the market closed.
+  if (marketPhase(getMarket(m.id) ?? m) !== 'open') return false;
 
   if (state.live) {
     try {
@@ -283,8 +304,15 @@ function applyBet(m: DeskMarket, side: Side, dollars: number, newBalance: number
   set({ balance: round2(newBalance), positions });
 }
 
-export async function createMarket(input: { q: string; cat: string; closes: string; yes: number }): Promise<DeskMarket> {
+export async function createMarket(
+  input: { q: string; cat: string; closes: string; yes: number; closesAt?: number },
+): Promise<DeskMarket> {
   const yes = clamp(Math.round(input.yes), 2, 98);
+  // A popover left open across midnight could hand us a time that has already
+  // passed, which would create a market born closed.
+  const closesAt = input.closesAt != null && input.closesAt > Date.now()
+    ? input.closesAt
+    : undefined;
   const code = state.live ? (await db.rpcCreateMarket({ ...input, yes })) ?? genCode() : genCode();
   const m: DeskMarket = {
     id: code,
@@ -292,6 +320,7 @@ export async function createMarket(input: { q: string; cat: string; closes: stri
     cat: input.cat.trim() || 'Private',
     yes,
     closes: input.closes.trim() || 'TBD',
+    closesAt,
     spark: [yes, yes, yes, yes, yes],
     custom: true,
     owner: state.user?.handle || 'you',
