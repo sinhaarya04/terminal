@@ -23,14 +23,14 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 | 5 · Positions panes | ✅ done | `fbeb1d0` |
 | 6 · Personal panes | ✅ done | `ebdc82a` |
 | 7 · Delete superseded components, `panes.css` | ✅ done | `ccce3c0` |
-| 8 · Skeleton transition | ⬜ | — |
-| 9 · Error shake | ⬜ | — |
-| 10 · Success check | ⬜ | — |
-| 11 · Number pop-in | ⬜ | — |
-| 12 · Accordion category groups | ⬜ | — |
-| 13 · Dropdown (account menu + slide-over) | ⬜ | — |
-| 14 · Restyle sign-in and intro | ⬜ | — |
-| 15 · Pre-ship checklist | ⬜ | — |
+| 8 · Skeleton transition | ⬜ **not done** | — |
+| 9 · Error shake | ✅ done | `a085e12` |
+| 10 · Success check | ✅ done | `e1b0f5b` |
+| 11 · Number pop-in | ✅ done | `a085e12` |
+| 12 · Accordion category groups | ✅ done | `f064dee` |
+| 13 · Dropdown (account menu + slide-over) | ⬜ **not done** | — |
+| 14 · Restyle sign-in and intro | ✅ done | `(this commit)` |
+| 15 · Pre-ship checklist | 🟡 partial — see "Outstanding" | — |
 
 **Plan:** `docs/superpowers/plans/2026-08-30-desk-workspace-redesign.md` — full text of every task.
 **Spec:** `docs/superpowers/specs/2026-08-30-desk-workspace-redesign-design.md` — the approved design.
@@ -82,6 +82,25 @@ A green build proves nothing about whether a transition looks right. The browser
    `className="brand rail-brand"` for exactly this reason.
 8. **Tasks 4-6 render markup styled by `panes.css`, which was brought forward from Task 7** so
    each task stayed visually verifiable. Task 7 kept only the deletions.
+
+## Outstanding
+
+**Task 8 (skeleton) and Task 13 (dropdown) are not done.** Neither blocks the redesign:
+- *Skeleton* attaches to `Desk.tsx`'s `checking` state, which is only truthy when Supabase env
+  vars are set. In guest mode it never renders, so it could not be verified in this session.
+- *Dropdown* would move Sign out / Reset demo into an account menu in the rail, and drive the
+  mid-width action pane's slide-over through a four-phase mount. Both work today without it.
+
+**Known gaps from the Task 15 sweep:**
+- `MultiLineChart`'s `<svg class="mchart">` has neither `aria-hidden` nor an accessible name.
+  It is a data chart, not decoration, so hiding it is the wrong fix — it wants a `role="img"`
+  and a summary label. Left alone because the spec puts `MultiLineChart.tsx` off limits.
+- Mid (900–1199px) and narrow (<900px) layouts are **unverified in a real browser**. The code
+  paths exist and typecheck; nobody has looked at them. `resize_window` dropped the extension
+  connection every time it was tried.
+- The tab was backgrounded for most verification, which freezes CSS transitions at their start
+  value. Animations were confirmed by reading computed styles with `transition:none` (the
+  brief's own diagnostic) rather than by eye. **Someone should watch them run once.**
 
 ## Scope boundary — do not cross it
 

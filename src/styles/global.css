@@ -109,22 +109,6 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .desk-h1{margin:16px 0 10px;font-size:29px;font-weight:600;letter-spacing:-.015em}
 .desk-sub{margin:0 auto;max-width:40ch;font-size:14.5px;line-height:1.6;color:var(--muted)}
 .desk-field{display:block;text-align:left;margin-top:26px}
-.desk-field-row{display:flex;gap:14px}.desk-field-row .desk-field{flex:1;margin-top:18px}
-.desk-label{display:block;font-size:12px;letter-spacing:.02em;color:var(--faint);margin-bottom:8px}
-.desk-input{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;
-  color:var(--text);font-size:15.5px;padding:13px 15px;font-family:var(--font);transition:border-color .2s,background .2s}
-.desk-code-in,.desk-bal,.mono{font-family:var(--mono)}
-.desk-input::placeholder{color:var(--faint)}
-.desk-input:focus{outline:none;border-color:rgba(225,29,42,.6);background:rgba(255,255,255,.05)}
-.desk-range{width:100%;accent-color:var(--red-bright);margin-top:6px}
-.desk-btn{width:100%;margin-top:24px;padding:14px 18px;border-radius:10px;font-size:14.5px;font-weight:600;
-  letter-spacing:.01em;cursor:pointer;border:1px solid var(--red);background:var(--red);color:#fff;transition:.18s}
-.desk-btn:hover{filter:brightness(1.08)}
-.desk-btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
-.desk-btn-red{background:var(--red);border-color:var(--red);color:#fff}
-.desk-btn-green{background:var(--green);border-color:var(--green);color:#04140d}
-.desk-btn-outline{background:transparent;border-color:var(--border-2);color:var(--text)}
-.desk-btn-outline:hover{border-color:rgba(225,29,42,.6);color:#fff;filter:none}
 .desk-fine{margin-top:18px;font-size:12px;color:var(--faint)}
 
 /* ---- intro ---- */
