@@ -65,36 +65,3 @@
   }
   .t-skel-skeleton.is-pulsing > * { animation: none !important; }
 }
-
-/* ── Project layer: Calendar agenda ──────────────────────────────────────── */
-
-.cal-skel {
-  /* Point the snippet's tunables at the shared motion scale. */
-  --reveal-dur: var(--duration-slow);
-  --reveal-blur: var(--blur-small);
-  --reveal-ease: var(--ease-in-out);
-  /* A real network wait, not a demo replay: keep breathing until data lands. */
-  --pulse-count: infinite;
-}
-
-/* The snippet stacks both layers absolutely, which is right when the slot has
-   a known height. The agenda's height is data-driven, so keep exactly one
-   layer in flow at a time: the skeleton owns the height while loading, the
-   real events own it from the moment the reveal starts. `position` doesn't
-   animate, so that handoff is instant and the cross-fade rides on top of it —
-   the list settles to its true height once, not twice. */
-.cal-skel > .t-skel-skeleton { position: relative; inset: auto; pointer-events: none; }
-.cal-skel > .t-skel-content { position: absolute; inset: 0; }
-.cal-skel.is-revealed > .t-skel-skeleton { position: absolute; inset: 0 0 auto; }
-.cal-skel.is-revealed > .t-skel-content { position: relative; inset: auto; }
-
-/* Placeholder bars. Sized in `em` inside the real `.cal-*` elements, so each
-   line box keeps the exact height of the text it stands in for. */
-.cal-skel-bar {
-  display: inline-block;
-  vertical-align: middle;
-  height: 0.72em;
-  min-height: 8px;
-  border-radius: 3px;
-  background: var(--border);
-}

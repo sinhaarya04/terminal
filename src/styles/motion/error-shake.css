@@ -1,25 +1,11 @@
 /* error-shake — transitions.dev
-   Applied to the two magic-link login forms (Login.tsx, PokerLogin.tsx).
+   Applied to the trade ticket's stake field (TradeTicket.tsx).
    Tunables (--shake-*, --revert-*) live in _root.css; do not redeclare them here.
 
    ── Project integration ────────────────────────────────────────
-   No motion is defined in this first block — it only bridges the
-   snippet to the site palette. The snippet's `.t-input` rule owns
-   border-color alone, so the fields' existing background tween is
-   restored here at higher specificity, and the error border is
-   named in the E[X] palette (--down, the same red the .auth-error
-   / .pk-msg.err text already uses). Everything below this block is
-   the transitions.dev snippet, verbatim. */
-.auth-input.t-input {
-  transition:
-    border-color 150ms ease-out,
-    background   160ms ease;
-}
-.auth-input.t-input.is-error {
-  transition:
-    border-color var(--revert-dur, 280ms) ease-out,
-    background   160ms ease;
-}
+   No motion is defined in this first rule — it only names the error
+   border in the E[X] palette (--down, the same red the .is-no text
+   uses). Everything below it is the transitions.dev snippet, verbatim. */
 .t-input.is-error {
   border-color: var(--down);
 }

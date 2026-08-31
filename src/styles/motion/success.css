@@ -53,19 +53,3 @@
   .t-success-check { animation: none !important; opacity: 1; }
   .t-success-check svg path { animation: none !important; stroke-dashoffset: 0 !important; }
 }
-
-/* ── Project instance: Join waitlist success ──────────────────────
-   Sizing + color only; the snippet above owns all the motion. */
-.wl-check { align-self: flex-start; color: var(--green); }
-.wl-check svg { width: 34px; height: 34px; }
-
-/* The form is swapped out for the success panel, so the check would
-   otherwise animate inside a panel that hard-cut in. Simple cross-fade
-   (opacity only) to carry the swap; no movement of its own. */
-.wl-done { animation: wl-done-fade var(--duration-very-slow) var(--ease-smooth-out) both; }
-@keyframes wl-done-fade { from { opacity: 0; } to { opacity: 1; } }
-
-@media (prefers-reduced-motion: reduce) {
-  /* No motion, but the green check + message still land fully visible. */
-  .wl-done { animation: none !important; opacity: 1; }
-}

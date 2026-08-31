@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/global.css';
 import './styles/motion/_root.css';
-import './styles/motion/accordion.css';
 import './styles/motion/skeleton.css';
 import './styles/motion/nav-menu.css';
 import './styles/motion/number.css';
