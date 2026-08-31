@@ -1,0 +1,94 @@
+/* Pane contents: list rows, detail surfaces, ticket.
+   Brought forward from Task 7 so Tasks 4-6 are visually verifiable — rendering
+   pane markup with no stylesheet leaves raw UA buttons on screen. Task 7 still
+   owns deleting the superseded components and the legacy desk block. */
+
+/* ---------- list rows ---------- */
+.grp{margin-bottom:18px}
+.grp-h{display:flex;align-items:center;justify-content:space-between;
+  font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+  padding:0 0 8px;border-bottom:1px solid var(--border)}
+.grp-n{color:var(--faint)}
+.li{display:block;width:100%;text-align:left;background:none;cursor:pointer;
+  border:none;border-bottom:1px solid rgba(255,255,255,.06);padding:11px 12px 11px 11px;
+  position:relative;transition:background-color .15s ease}
+.li:hover{background:rgba(255,255,255,.02)}
+.li.is-on{background:rgba(255,59,59,.05)}
+.li.is-on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--red-bright)}
+.li-code{display:block;font-style:normal;font-size:9.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+.li-live{display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--red-bright);margin-left:7px;vertical-align:middle}
+.li-q{display:block;font-size:13px;line-height:1.4;color:var(--text)}
+.li-pnl{display:block;margin-top:5px;font-size:11.5px}
+.li-new .li-q{color:var(--red-bright);font-family:var(--mono);font-size:12px;letter-spacing:.08em}
+
+/* ---------- detail ---------- */
+.detail-h{font-size:20px;font-weight:500;line-height:1.3;letter-spacing:-.01em;margin:0 0 16px}
+.detail-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px;
+  font-size:11.5px;color:var(--muted)}
+.leg{display:inline-flex;align-items:center;gap:7px}
+.leg b{color:var(--text);font-weight:500}
+.dot{width:5px;height:5px;border-radius:50%;flex:none;display:inline-block}
+.detail-outcomes{margin-top:18px}
+.oc{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;
+  padding:10px 0;border-top:1px solid rgba(255,255,255,.06)}
+.oc:first-child{border-top:none}
+.oc-name{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text);min-width:0}
+.oc-meta{font-size:11px;color:var(--faint)}
+.oc-p{font-size:11.5px;font-weight:500;padding:6px 12px;border-radius:3px;min-width:62px;
+  text-align:center;background:transparent;border:1px solid var(--border-2);cursor:pointer;
+  color:var(--muted);transition:border-color .15s ease,color .15s ease}
+.oc-p.is-yes{color:var(--green);border-color:rgba(52,211,153,.30)}
+.oc-p.is-yes:hover{border-color:var(--green)}
+.oc-p.is-no{color:var(--down);border-color:rgba(248,113,113,.28)}
+.oc-p.is-no:hover{border-color:var(--down)}
+.detail-news{display:grid;grid-template-columns:auto 1fr;gap:10px;margin-top:18px;
+  padding-top:14px;border-top:1px solid var(--border)}
+.detail-news-mark{color:var(--red-bright);font-size:12px;line-height:1.5}
+.detail-news p{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.detail-vol{margin-top:14px;font-size:11px;letter-spacing:.08em;color:var(--faint)}
+
+/* ---------- ticket ---------- */
+.tk-q{font-size:14px;line-height:1.4;margin:0 0 5px;color:var(--text)}
+.tk-code{font-size:10.5px;letter-spacing:.08em;color:var(--faint);margin-bottom:16px}
+.tk-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.tk-side{padding:9px;border-radius:3px;background:transparent;cursor:pointer;
+  border:1px solid var(--border-2);color:var(--faint);
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;
+  transition:border-color .15s ease,color .15s ease}
+.tk-side.is-yes.is-on{color:var(--green);border-color:rgba(52,211,153,.45)}
+.tk-side.is-no.is-on{color:var(--down);border-color:rgba(248,113,113,.42)}
+.tk-field{display:block;margin-bottom:12px}
+.tk-label{display:block;font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:7px}
+.tk-input{width:100%;background:transparent;border:1px solid var(--border);border-radius:3px;
+  color:var(--text);font-size:14px;padding:10px 12px;font-family:var(--font);
+  transition:border-color .18s ease}
+.tk-input.mono{font-family:var(--mono)}
+.tk-input::placeholder{color:var(--faint)}
+.tk-input:focus{outline:none;border-color:rgba(225,29,42,.6)}
+.tk-range{width:100%;accent-color:var(--red-bright)}
+.tk-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
+.tk-chip{padding:8px 0;border-radius:3px;border:1px solid var(--border-2);background:transparent;
+  color:var(--muted);font-size:11.5px;cursor:pointer;
+  transition:border-color .14s ease,color .14s ease}
+.tk-chip:hover:not(:disabled){border-color:rgba(225,29,42,.6);color:var(--text)}
+.tk-chip:disabled{opacity:.35;cursor:not-allowed}
+.tk-calc{border-top:1px solid var(--border);padding-top:14px;font-size:11.5px;display:grid;gap:8px}
+.tk-calc>div{display:flex;justify-content:space-between}
+.tk-calc span{color:var(--faint);letter-spacing:.08em}
+.tk-calc b{color:var(--text);font-weight:500}
+.tk-err{margin-top:12px;font-size:11.5px;color:var(--down)}
+.tk-go{width:100%;margin-top:16px}
+
+/* ---------- join + share code (used from Task 6) ---------- */
+.join{margin-top:24px;padding-top:18px;border-top:1px solid var(--border)}
+.join-go{width:100%;margin-top:10px}
+.join-msg{margin-top:10px;font-size:11.5px;line-height:1.5}
+.code-pill{display:inline-flex;align-items:center;gap:14px;margin:4px 0 12px;
+  padding:14px 20px;border-radius:3px;border:1px solid var(--border-2);background:transparent;
+  color:var(--text);font-size:22px;letter-spacing:.16em;font-weight:600;cursor:pointer;
+  font-family:var(--mono);transition:border-color .16s ease}
+.code-pill:hover{border-color:rgba(225,29,42,.6)}
+.code-pill-hint{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}

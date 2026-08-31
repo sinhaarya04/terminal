@@ -10,6 +10,7 @@ import './styles/motion/number.css';
 import './styles/motion/error-shake.css';
 import './styles/motion/success.css';
 import './styles/desk/workspace.css';
+import './styles/desk/panes.css';
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
