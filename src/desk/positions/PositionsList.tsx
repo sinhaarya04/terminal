@@ -27,7 +27,10 @@ export default function PositionsList({
 
   return (
     <div className="pane-body">
-      <div className="kicker">Portfolio · {rows.length} open</div>
+      <div className="kicker">
+        Portfolio · {rows.filter((r) => !r.p.settled).length} open
+        {rows.some((r) => r.p.settled) && ` · ${rows.filter((r) => r.p.settled).length} settled`}
+      </div>
       {rows.map((r) => {
         const m = getMarket(r.p.marketId);
         return (
@@ -38,10 +41,12 @@ export default function PositionsList({
           >
             <em className="li-code mono">
               {r.p.marketId} · <span className={r.p.side === 'YES' ? 'is-yes' : 'is-no'}>{r.p.side}</span>
+              {r.p.settled && <b className="li-settled is-flat">closed</b>}
             </em>
-            <span className="li-q">{m?.q || r.p.marketId}</span>
+            <span className={`li-q ${r.p.settled ? 'is-dim' : ''}`}>{m?.q || r.p.marketId}</span>
             <span className={`li-pnl mono ${r.pnl >= 0 ? 'is-yes' : 'is-no'}`}>
               {r.pnl >= 0 ? '+' : ''}{money(r.pnl)}
+              {r.p.settled && <em className="li-final mono">final</em>}
             </span>
           </button>
         );

@@ -19,6 +19,20 @@ export default function CloseTicket({
     );
   }
 
+  // A settled position is already cashed out; offsetting it would place a live
+  // bet on a market that can no longer move (placeBet rejects it anyway).
+  if (row.p.settled) {
+    return (
+      <div className="pane-body pane-empty">
+        <div className="kicker">Close out</div>
+        <p className="mono">Already settled</p>
+        <p className="pane-empty-sub">
+          This market resolved {row.p.settled.outcome} and paid {money(row.p.settled.payout)}. Nothing left to close.
+        </p>
+      </div>
+    );
+  }
+
   const m = getMarket(row.p.marketId);
   const opposite = row.p.side === 'YES' ? 'NO' : 'YES';
 

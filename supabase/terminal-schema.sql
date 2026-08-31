@@ -27,8 +27,13 @@ create table if not exists public.term_markets (
   yes        numeric not null default 50,     -- current YES price in cents
   pool       numeric not null default 0,      -- total credits staked
   is_private boolean not null default true,
+  resolved    text check (resolved in ('YES','NO')),  -- null = still open
+  resolved_at timestamptz,
   created_at timestamptz not null default now()
 );
+-- Existing deployments predate settlement; add the columns in place.
+alter table public.term_markets add column if not exists resolved    text;
+alter table public.term_markets add column if not exists resolved_at timestamptz;
 
 -- ---------- bets: drives positions + P&L ----------
 create table if not exists public.term_bets (
@@ -177,6 +182,46 @@ begin
 end;
 $$;
 
+-- ---------- settle a private market ----------
+-- Owner-only and once-only, both enforced here rather than in the client: the
+-- client check is a courtesy, this is the gate. Every share of the winning side
+-- pays $1, losing shares pay nothing, and each holder's balance moves in the
+-- same statement that stamps the market resolved.
+create or replace function public.term_resolve_market(p_code text, p_outcome text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_uid      uuid := auth.uid();
+  v_owner    uuid;
+  v_resolved text;
+begin
+  if v_uid is null then raise exception 'not signed in'; end if;
+  if p_outcome not in ('YES','NO') then raise exception 'bad outcome'; end if;
+
+  select owner, resolved into v_owner, v_resolved
+    from public.term_markets where code = p_code for update;
+  if v_owner is null then raise exception 'no such market'; end if;
+  if v_owner <> v_uid then raise exception 'only the owner can settle this market'; end if;
+  if v_resolved is not null then raise exception 'already settled'; end if;
+
+  -- Credit every holder of the winning side $1 per share, in one pass.
+  update public.term_profiles p
+     set balance = p.balance + w.payout
+    from (
+      select user_id, sum(shares) as payout
+        from public.term_bets
+       where market_code = p_code and side = p_outcome
+       group by user_id
+    ) w
+   where p.id = w.user_id;
+
+  update public.term_markets
+     set resolved = p_outcome,
+         resolved_at = now(),
+         yes = case when p_outcome = 'YES' then 100 else 0 end
+   where code = p_code;
+end;
+$$;
+
 -- Mark the intro video as watched (so it never replays for this account).
 create or replace function public.term_set_seen_intro()
 returns void language plpgsql security definer set search_path = public as $$
@@ -188,4 +233,5 @@ $$;
 grant execute on function public.term_create_market(text,text,text,numeric) to authenticated;
 grant execute on function public.term_upsert_public_market(text,text,text,numeric) to authenticated;
 grant execute on function public.term_place_bet(text,text,numeric) to authenticated;
+grant execute on function public.term_resolve_market(text,text) to authenticated;
 grant execute on function public.term_set_seen_intro() to authenticated;

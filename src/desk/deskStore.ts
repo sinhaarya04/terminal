@@ -16,6 +16,10 @@ export type Position = {
   side: Side;
   shares: number;   // 1 share pays $1 if the side wins
   cost: number;     // total $ paid (cost basis)
+  // Set once the market settles. The position stops marking to market and is
+  // worth exactly what it paid out, so Positions can show a closed row with a
+  // final P&L instead of a price that will never move again.
+  settled?: { outcome: Side; payout: number };
 };
 
 export type DeskMarket = {
@@ -28,6 +32,20 @@ export type DeskMarket = {
   custom?: boolean;  // true for user-created markets
   owner?: string;    // handle of the creator
   pool?: number;     // total fake $ staked in a custom market
+  resolved?: Side;   // set when the owner settles it; blocks further betting
+};
+
+/** One line of a private market's history — who did what, when. Private markets
+ *  are played with people you know, so the feed is the point: without it a
+ *  market is a price with no evidence anyone else is there. */
+export type Activity = {
+  id: string;
+  code: string;      // market share code the event belongs to
+  handle: string;
+  kind: 'create' | 'join' | 'bet' | 'resolve';
+  side?: Side;       // bet + resolve
+  dollars?: number;  // bet only
+  at: number;        // epoch ms
 };
 
 export type DeskState = {
@@ -38,6 +56,7 @@ export type DeskState = {
   markets: DeskMarket[];  // public demo markets (prices move as you trade)
   custom: DeskMarket[];   // markets this browser created or joined by code
   joined: string[];       // share codes joined
+  activity: Activity[];   // newest-first feed across all private markets
   live: boolean;          // true = real Supabase account; false = guest/localStorage demo
   userId?: string;        // Supabase auth user id (live mode only)
 };
@@ -55,7 +74,9 @@ const SEED_PUBLIC: DeskMarket[] = [
 ];
 
 // A demo market that already exists so "enter a share code" works out of the
-// box — try code EX-DEMO on the Personal tab before creating your own.
+// box — try code EX-DEMO on the Personal tab before creating your own. It also
+// ships in every fresh desk (see `fresh()`): landing on Personal with an empty
+// list and no way to see what a private market looks like taught nothing.
 const SEED_CUSTOM: DeskMarket = {
   id: 'EX-DEMO',
   q: 'Will our intramural team win its next match?',
@@ -68,11 +89,33 @@ const SEED_CUSTOM: DeskMarket = {
   pool: 120,
 };
 
+// Backdated so the demo market reads as a going concern rather than something
+// that happened at page load. Minutes before now, newest last.
+const SEED_ACTIVITY: [string, Activity['kind'], number, Side | undefined, number | undefined][] = [
+  ['oracle', 'create', 310, undefined, undefined],
+  ['oracle', 'bet', 295, 'YES', 40],
+  ['dmitri', 'join', 180, undefined, undefined],
+  ['dmitri', 'bet', 176, 'NO', 25],
+  ['priya', 'join', 92, undefined, undefined],
+  ['priya', 'bet', 88, 'YES', 55],
+];
+
+function seedActivity(): Activity[] {
+  const now = Date.now();
+  return SEED_ACTIVITY
+    .map(([handle, kind, minsAgo, side, dollars], i) => ({
+      id: `seed-${i}`, code: SEED_CUSTOM.id, handle, kind, side, dollars,
+      at: now - minsAgo * 60_000,
+    }))
+    .sort((a, b) => b.at - a.at);
+}
+
 function fresh(): DeskState {
   return {
     user: null, seenIntro: false, balance: START_BALANCE, positions: [],
     markets: SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] })),
-    custom: [], joined: [], live: false,
+    custom: [{ ...SEED_CUSTOM, spark: [...SEED_CUSTOM.spark] }],
+    joined: [SEED_CUSTOM.id], activity: seedActivity(), live: false,
   };
 }
 
@@ -137,6 +180,9 @@ export async function hydrateLive(userId: string) {
     ...state, live: true, userId,
     user: { handle: profile.handle }, seenIntro: profile.seenIntro, balance: profile.balance,
     positions: bets, markets, custom: mine, joined: mine.map((m) => m.id),
+    // The server has no activity table yet, so live mode starts with an empty
+    // feed rather than inventing one. Local events still append as you play.
+    activity: [],
   };
   listeners.forEach((l) => l());
 }
@@ -164,9 +210,41 @@ export function resetDesk() {
   listeners.forEach((l) => l());
 }
 
+/** Append one event to the private-market feed. Only private markets have a
+ *  feed — the public board's crowd is implied by its volume, not named. */
+function recordActivity(e: Omit<Activity, 'id' | 'at' | 'handle'> & { handle?: string }) {
+  const ev: Activity = {
+    id: `${e.code}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    at: Date.now(),
+    handle: e.handle || state.user?.handle || 'you',
+    ...e,
+  };
+  set({ activity: [ev, ...state.activity].slice(0, 200) });
+}
+
+/** Everyone who has shown up in a market's feed, most recently active first. */
+export function participants(code: string): { handle: string; at: number }[] {
+  const seen = new Map<string, number>();
+  for (const a of state.activity) {
+    if (a.code !== code) continue;
+    if (!seen.has(a.handle)) seen.set(a.handle, a.at);
+  }
+  return [...seen.entries()]
+    .map(([handle, at]) => ({ handle, at }))
+    .sort((a, b) => b.at - a.at);
+}
+
+/** A market's feed, newest first. */
+export function marketActivity(code: string): Activity[] {
+  return state.activity.filter((a) => a.code === code);
+}
+
 /** Buy `dollars` worth of one side of a market at its current price. */
 export async function placeBet(m: DeskMarket, side: Side, dollars: number): Promise<boolean> {
   if (dollars <= 0 || dollars > state.balance) return false;
+  // A settled market has already paid out; taking more money for it would be
+  // selling a share that can never be worth anything.
+  if (getMarket(m.id)?.resolved || m.resolved) return false;
 
   if (state.live) {
     try {
@@ -198,6 +276,7 @@ function applyBet(m: DeskMarket, side: Side, dollars: number, newBalance: number
     state = { ...state, [m.custom ? 'custom' : 'markets']: [...(m.custom ? state.custom : state.markets), { ...m }] } as DeskState;
   }
   bumpMarketPrice(m.id, newYes);
+  if (m.custom) recordActivity({ code: m.id, kind: 'bet', side, dollars });
   if (m.custom) {
     state = { ...state, custom: state.custom.map((c) => (c.id === m.id ? { ...c, pool: round2((c.pool || 0) + dollars) } : c)) };
   }
@@ -219,7 +298,51 @@ export async function createMarket(input: { q: string; cat: string; closes: stri
     pool: 0,
   };
   set({ custom: [m, ...state.custom], joined: [code, ...state.joined] });
+  recordActivity({ code, kind: 'create' });
   return m;
+}
+
+/** Settle a private market. Only its owner may call this, and only once.
+ *
+ *  Payout is the standard binary-market rule: every share of the winning side
+ *  pays $1, every share of the losing side pays $0. The position isn't deleted
+ *  — it's stamped `settled` so Positions can show what it finally paid instead
+ *  of a live price for a market that no longer moves.
+ *
+ *  Returns the amount credited to this desk, or null if the call wasn't allowed.
+ */
+export async function resolveMarket(code: string, outcome: Side): Promise<number | null> {
+  const m = state.custom.find((x) => x.id === code);
+  if (!m || m.resolved) return null;
+  if (m.owner !== (state.user?.handle || 'you')) return null;
+
+  if (state.live) {
+    try { await db.rpcResolveMarket(code, outcome); }
+    catch { return null; }
+  }
+
+  let credited = 0;
+  const positions = state.positions.map((pos) => {
+    if (pos.marketId !== code || pos.settled) return pos;
+    const payout = pos.side === outcome ? round2(pos.shares) : 0;
+    credited = round2(credited + payout);
+    return { ...pos, settled: { outcome, payout } };
+  });
+
+  // Price goes to the certainty the outcome now has, so any chart or sparkline
+  // ends where the market actually landed rather than at its last guess.
+  const settledYes = outcome === 'YES' ? 100 : 0;
+  const roll = (arr: DeskMarket[]) => arr.map((c) => (
+    c.id === code ? { ...c, resolved: outcome, yes: settledYes, spark: [...c.spark.slice(-9), settledYes] } : c
+  ));
+  set({
+    positions,
+    balance: round2(state.balance + credited),
+    custom: roll(state.custom),
+    markets: roll(state.markets),
+  });
+  recordActivity({ code, kind: 'resolve', side: outcome });
+  return credited;
 }
 
 /** Look up a share code among created markets + the built-in demo seed. */
@@ -236,11 +359,13 @@ export function findByCode(code: string): DeskMarket | null {
 export async function joinByCode(code: string): Promise<DeskMarket | null> {
   const m = state.live ? await db.getMarketByCode(code) : findByCode(code);
   if (!m) return null;
-  if (!state.custom.some((x) => x.id === m.id)) {
+  const isNew = !state.custom.some((x) => x.id === m.id);
+  if (isNew) {
     set({ custom: [m, ...state.custom], joined: [m.id, ...state.joined] });
   } else if (!state.joined.includes(m.id)) {
     set({ joined: [m.id, ...state.joined] });
   }
+  if (isNew) recordActivity({ code: m.id, kind: 'join' });
   return m;
 }
 
@@ -278,6 +403,7 @@ function genCode(): string {
 
 /** Current mark-to-market value of a position at a market's live price. */
 export function positionValue(p: Position, m: DeskMarket | undefined): number {
+  if (p.settled) return p.settled.payout;   // final, not a live mark
   if (!m) return p.cost;
   const price = p.side === 'YES' ? m.yes : 100 - m.yes;
   return round2(p.shares * (price / 100));

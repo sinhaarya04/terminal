@@ -1,6 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import DeskSpark from '../DeskSpark';
-import { createMarket, money, type DeskMarket } from '../deskStore';
+import LiquidRange from '../../components/LiquidRange';
+import {
+  createMarket, resolveMarket, marketActivity, participants, useDesk,
+  money, type Activity, type DeskMarket, type Side,
+} from '../deskStore';
 import type { PersonalSel } from './PersonalList';
 
 export default function PersonalDetail({
@@ -15,19 +19,153 @@ export default function PersonalDetail({
     );
   }
   if (sel.kind === 'new') return <CreateForm onCreated={onCreated} />;
+  return <MarketView code={sel.m.id} />;
+}
 
-  const m = sel.m;
+// Reads the market out of the store rather than trusting the selection, so a
+// settle (or someone's bet) repaints this pane instead of showing the snapshot
+// that was current when the row was clicked.
+function MarketView({ code }: { code: string }) {
+  const { custom, user } = useDesk();
+  const m = custom.find((x) => x.id === code);
+  if (!m) return <div className="pane-body pane-empty"><p className="mono">Market not found</p></div>;
+
+  const feed = marketActivity(code);
+  const people = participants(code);
+  const isOwner = m.owner === (user?.handle || 'you');
+
   return (
     <div className="pane-body">
-      <div className="kicker">{m.cat} · closes {m.closes} · by {m.owner}</div>
+      <div className="kicker">
+        {m.cat} · closes {m.closes} · by {m.owner}
+      </div>
       <h2 className="detail-h">{m.q}</h2>
+
+      {m.resolved && (
+        <p className={`settled-banner mono ${m.resolved === 'YES' ? 'is-yes' : 'is-no'}`} role="status">
+          Settled {m.resolved} · shares of {m.resolved} paid $1.00, the other side paid nothing
+        </p>
+      )}
+
       {m.spark && <DeskSpark pts={m.spark} up={m.spark[m.spark.length - 1] >= m.spark[0]} id={`pv-${m.id}`} />}
+
       <div className="tk-calc mono">
         <div><span>POOL</span><b className="is-yes">{money(m.pool || 0)}</b></div>
         <div><span>YES</span><b>{m.yes}¢</b></div>
         <div><span>NO</span><b>{100 - m.yes}¢</b></div>
       </div>
+
+      <Participants people={people} owner={m.owner} />
+
+      {isOwner && !m.resolved && <SettleBox code={code} q={m.q} />}
+
+      <Feed feed={feed} />
     </div>
+  );
+}
+
+function Participants({ people, owner }: { people: { handle: string; at: number }[]; owner?: string }) {
+  if (people.length === 0) return null;
+  return (
+    <section className="pv-block">
+      <div className="pv-head mono">In this market · {people.length}</div>
+      <ul className="pv-people">
+        {people.map((p) => (
+          <li key={p.handle} className="pv-person">
+            <span className="pv-dot" aria-hidden="true" />
+            <span className="pv-handle mono">@{p.handle}</span>
+            {p.handle === owner && <em className="pv-tag mono">owner</em>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Settling pays real credits out, and there is no undo, so the outcome needs a
+// second deliberate click rather than one stray one.
+function SettleBox({ code, q }: { code: string; q: string }) {
+  const [pending, setPending] = useState<Side | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const confirm = async () => {
+    if (!pending || busy) return;
+    setBusy(true);
+    const credited = await resolveMarket(code, pending);
+    setBusy(false);
+    if (credited === null) { setErr('Could not settle this market.'); setPending(null); }
+  };
+
+  return (
+    <section className="pv-block pv-settle">
+      <div className="pv-head mono">Settle this market</div>
+      {pending ? (
+        <>
+          <p className="pv-confirm">
+            Settle <b>{pending}</b> for “{q}”? Every share of {pending} pays $1.00 and the
+            other side pays nothing. This can't be undone.
+          </p>
+          <div className="pv-settle-row">
+            <button className="btn btn-red pv-btn" type="button" onClick={confirm} disabled={busy}>
+              {busy ? 'Settling…' : `Confirm ${pending}`}
+            </button>
+            <button className="pv-cancel" type="button" onClick={() => setPending(null)} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="pv-sub">Pick the outcome that actually happened. Holders are paid immediately.</p>
+          <div className="pv-settle-row">
+            <button className="tk-side is-yes pv-btn" type="button" onClick={() => setPending('YES')}>YES</button>
+            <button className="tk-side is-no pv-btn" type="button" onClick={() => setPending('NO')}>NO</button>
+          </div>
+        </>
+      )}
+      {err && <p className="join-msg mono is-no" role="alert">{err}</p>}
+    </section>
+  );
+}
+
+const ago = (at: number) => {
+  const mins = Math.max(0, Math.round((Date.now() - at) / 60_000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
+};
+
+function line(a: Activity) {
+  switch (a.kind) {
+    case 'create':  return 'opened the market';
+    case 'join':    return 'joined';
+    case 'resolve': return `settled it ${a.side}`;
+    case 'bet':     return `bought ${a.side} · ${money(a.dollars || 0)}`;
+  }
+}
+
+function Feed({ feed }: { feed: Activity[] }) {
+  return (
+    <section className="pv-block">
+      <div className="pv-head mono">Activity</div>
+      {feed.length === 0 ? (
+        <p className="pv-sub">Nothing yet. Share the code and the first bet shows up here.</p>
+      ) : (
+        <ul className="pv-feed">
+          {feed.map((a) => (
+            <li key={a.id} className={`pv-ev ${a.kind === 'resolve' ? 'is-settle' : ''}`}>
+              <span className="pv-handle mono">@{a.handle}</span>
+              <span className={`pv-what ${a.side === 'YES' ? 'is-yes' : a.side === 'NO' ? 'is-no' : ''}`}>
+                {line(a)}
+              </span>
+              <span className="pv-when mono">{ago(a.at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -75,17 +213,16 @@ function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
           onChange={(e) => setCloses(e.target.value)}
         />
       </label>
-      <label className="tk-field">
+      <div className="tk-field">
         <span className="tk-label mono">Opening Yes odds · {yes}¢</span>
-        <input
-          className="tk-range"
-          type="range"
+        <LiquidRange
+          value={yes}
           min={5}
           max={95}
-          value={yes}
-          onChange={(e) => setYes(Number(e.target.value))}
+          onChange={setYes}
+          label={`Opening Yes odds, ${yes} cents`}
         />
-      </label>
+      </div>
       <button className="btn btn-red tk-go" type="submit" disabled={!q.trim() || busy}>
         {busy ? 'Creating…' : 'Generate share code'}
       </button>

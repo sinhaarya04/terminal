@@ -18,7 +18,7 @@ export default function PersonalList({
       onSelect({ kind: 'market', m });
       setCode('');
     } else {
-      setMsg({ ok: false, text: 'No market for that code. Try EX-DEMO.' });
+      setMsg({ ok: false, text: 'No market for that code.' });
     }
   };
 
@@ -39,9 +39,17 @@ export default function PersonalList({
           className={`li ${sel?.kind === 'market' && sel.m.id === m.id ? 'is-on' : ''}`}
           onClick={() => onSelect({ kind: 'market', m })}
         >
-          <em className="li-code mono">{m.id}</em>
+          <em className="li-code mono">
+            {m.id}
+            {m.resolved && (
+              <b className={`li-settled ${m.resolved === 'YES' ? 'is-yes' : 'is-no'}`}>
+                settled {m.resolved}
+              </b>
+            )}
+          </em>
           <span className="li-q">{m.q}</span>
-          <span className="li-pnl mono is-yes">{money(m.pool || 0)}</span>
+          {/* an empty pool is not a gain — only colour it once there's money in */}
+          <span className={`li-pnl mono ${(m.pool || 0) > 0 ? 'is-yes' : 'is-flat'}`}>{money(m.pool || 0)}</span>
         </button>
       ))}
 

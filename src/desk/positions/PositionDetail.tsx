@@ -25,13 +25,20 @@ export default function PositionDetail({ row }: { row: PositionRow | null }) {
         <DeskSpark pts={m.spark} up={m.spark[m.spark.length - 1] >= m.spark[0]} id={`pos-${row.key}`} />
       )}
 
+      {row.p.settled && (
+        <p className={`settled-banner mono ${row.p.settled.outcome === row.p.side ? 'is-yes' : 'is-no'}`} role="status">
+          Market settled {row.p.settled.outcome} · this position paid {money(row.p.settled.payout)}
+        </p>
+      )}
+
       <div className="tk-calc mono">
         <div><span>SIDE</span><b className={row.p.side === 'YES' ? 'is-yes' : 'is-no'}>{row.p.side}</b></div>
         <div><span>SHARES</span><b>{row.p.shares.toFixed(1)}</b></div>
         <div><span>ENTRY</span><b>{entry.toFixed(0)}¢</b></div>
-        <div><span>MARK</span><b>{mark}¢</b></div>
+        {/* a settled position has no mark — the outcome replaced the price */}
+        <div><span>{row.p.settled ? 'PAID' : 'MARK'}</span><b>{row.p.settled ? '100¢ / 0¢' : `${mark}¢`}</b></div>
         <div><span>COST</span><b>{money(row.p.cost)}</b></div>
-        <div><span>VALUE</span><b>{money(row.value)}</b></div>
+        <div><span>{row.p.settled ? 'PAYOUT' : 'VALUE'}</span><b>{money(row.value)}</b></div>
         <div><span>P&amp;L</span><b className={row.pnl >= 0 ? 'is-yes' : 'is-no'}>
           {row.pnl >= 0 ? '+' : ''}{money(row.pnl)}</b></div>
       </div>

@@ -4,11 +4,15 @@ import SuccessCheck from '../../components/SuccessCheck';
 
 export default function TradeTicket({
   market, side, onSide, onDone,
+  // The board picks an outcome out of several; a private market has only the
+  // one question, so each caller names its own nothing-selected state.
+  emptyHint = 'Choose an outcome to build an order.',
 }: {
   market: DeskMarket | null;
   side: Side;
   onSide: (s: Side) => void;
   onDone: () => void;
+  emptyHint?: string;
 }) {
   const { balance } = useDesk();
   const [amount, setAmount] = useState(25);
@@ -45,7 +49,7 @@ export default function TradeTicket({
     return (
       <div className="pane-body pane-empty">
         <div className="kicker">Ticket</div>
-        <p className="pane-empty-sub">Choose an outcome to build an order.</p>
+        <p className="pane-empty-sub">{emptyHint}</p>
       </div>
     );
   }

@@ -6,7 +6,7 @@ import type { DeskMarket } from './deskStore';
 
 export type LiveProfile = { handle: string; balance: number; seenIntro: boolean };
 
-type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; yes: number; pool: number; is_private: boolean };
+type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; yes: number; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | null };
 type BetRow = { market_code: string; side: 'YES' | 'NO'; shares: number; cost: number };
 
 const flatSpark = (yes: number) => [yes, yes, yes, yes, yes];
@@ -15,6 +15,7 @@ function rowToMarket(r: MarketRow): DeskMarket {
   return {
     id: r.code, q: r.question, cat: r.cat, yes: Number(r.yes), closes: r.closes || 'TBD',
     spark: flatSpark(Number(r.yes)), custom: r.is_private, owner: r.owner ? 'member' : 'house', pool: Number(r.pool),
+    resolved: r.resolved ?? undefined,
   };
 }
 
@@ -87,4 +88,12 @@ export async function rpcPlaceBet(code: string, side: 'YES' | 'NO', dollars: num
 export async function rpcSetSeenIntro(): Promise<void> {
   if (!supabase) return;
   await supabase.rpc('term_set_seen_intro');
+}
+
+/** Settle a private market. The RPC enforces owner-only + once-only server-side
+ *  and credits every winning share $1; this client call just triggers it. */
+export async function rpcResolveMarket(code: string, outcome: 'YES' | 'NO'): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.rpc('term_resolve_market', { p_code: code, p_outcome: outcome });
+  if (error) throw error;
 }

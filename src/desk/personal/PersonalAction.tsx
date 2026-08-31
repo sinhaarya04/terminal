@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import TradeTicket from '../markets/TradeTicket';
-import type { DeskMarket, Side } from '../deskStore';
+import { useDesk, type DeskMarket, type Side } from '../deskStore';
 
 export default function PersonalAction({
   created, market, onDone,
 }: { created: DeskMarket | null; market: DeskMarket | null; onDone: () => void }) {
   const [side, setSide] = useState<Side>('YES');
   const [copied, setCopied] = useState(false);
+  // `market` is the row that was clicked — a snapshot. Settling (or anyone's
+  // bet) mutates the store, not that object, so the live record is re-read here
+  // or a settled market would still be offered a buy ticket.
+  const { custom } = useDesk();
+  const live = market ? custom.find((m) => m.id === market.id) ?? market : null;
 
   if (created) {
     const copy = () => {
@@ -26,5 +31,21 @@ export default function PersonalAction({
     );
   }
 
-  return <TradeTicket market={market} side={side} onSide={setSide} onDone={onDone} />;
+  if (live?.resolved) {
+    return (
+      <div className="pane-body pane-empty">
+        <p className="mono">Market settled {live.resolved}</p>
+        <p className="pane-empty-sub">
+          This one is closed — winning shares have already paid out. Check Positions for what it returned.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <TradeTicket
+      market={live} side={side} onSide={setSide} onDone={onDone}
+      emptyHint="Pick a market on the left to bet on it."
+    />
+  );
 }

@@ -61,7 +61,81 @@
 .tk-input.mono{font-family:var(--mono)}
 .tk-input::placeholder{color:var(--faint)}
 .tk-input:focus{outline:none;border-color:rgba(225,29,42,.6)}
-.tk-range{width:100%;accent-color:var(--red-bright)}
+/* ---- liquid odds slider (components/LiquidRange.tsx) ----
+   The native control is invisible but still the control: it sits on top of the
+   liquid at zero opacity and owns focus, keyboard and AT semantics. Everything
+   below it is painted decoration, so it must never eat a pointer event. */
+.lq-range{position:relative;height:22px;width:100%}
+.lq-groove{position:absolute;left:0;right:0;top:calc(50% - 1.5px);height:3px;
+  border-radius:2px;background:var(--border-2)}
+/* liquid-gooey sets `position:relative;isolation:isolate` inline on this node,
+   which beats a class — so it can't be made absolute. Left in flow it collapses
+   to zero height (its children are absolute / display:contents) and the fill and
+   thumb then resolve against a zero-height box, landing above the groove. Giving
+   it the full height makes its box match .lq-range, which is the containing
+   block everything here is measured against. */
+.lq-liquid{height:100%;pointer-events:none}
+.lq-fill{position:absolute;left:0;top:calc(50% - 1.5px);height:3px;
+  min-width:3px;border-radius:2px;background:var(--red-bright)}
+.lq-thumb{position:absolute;top:calc(50% - 8px);width:16px;height:16px;
+  border-radius:50%;background:var(--red-bright)}
+/* The input keeps its hit area and keyboard behaviour; only its paint is
+   dropped, so the liquid underneath is what you see. */
+.lq-input{position:absolute;inset:0;width:100%;height:100%;margin:0;
+  opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none;background:transparent}
+.lq-input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px}
+.lq-input::-moz-range-thumb{width:20px;height:20px;border:0;opacity:0}
+/* focus lands on the invisible input, so the ring has to be drawn on the group */
+.lq-range:focus-within .lq-groove{box-shadow:0 0 0 4px rgba(225,29,42,.18)}
+@media (prefers-reduced-motion:reduce){
+  /* the goo is a motion effect; hold the shapes still but keep them visible */
+  .lq-liquid{filter:none}
+}
+
+/* ---- private-market detail: who's here, what happened, settling ---- */
+.pv-block{margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
+.pv-head{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+.pv-sub{font-size:12.5px;line-height:1.55;color:var(--muted);margin:0}
+
+.pv-people{list-style:none;display:flex;flex-wrap:wrap;gap:8px}
+.pv-person{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;
+  border:1px solid var(--border);border-radius:999px;background:var(--glass)}
+.pv-dot{width:5px;height:5px;border-radius:50%;background:var(--green);flex:none}
+.pv-handle{font-size:11.5px;color:var(--text)}
+.pv-tag{font-style:normal;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+
+.pv-feed{list-style:none;display:grid;gap:1px}
+.pv-ev{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:10px;
+  padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12.5px}
+.pv-ev:last-child{border-bottom:0}
+.pv-ev .pv-handle{font-size:11.5px;color:var(--muted)}
+.pv-what{color:var(--text);min-width:0}
+.pv-when{font-size:10.5px;color:var(--faint);white-space:nowrap}
+.pv-ev.is-settle .pv-what{font-weight:500}
+
+.pv-settle{border-top-color:rgba(225,29,42,.28)}
+.pv-settle-row{display:flex;align-items:center;gap:12px;margin-top:12px}
+.pv-btn{flex:1}
+/* quiet text button beside the confirm — carries no weight of its own so the
+   destructive action stays the only thing that reads as a button */
+.pv-cancel{flex:none;background:none;border:0;padding:6px 2px;cursor:pointer;
+  font-family:var(--font);font-size:12.5px;color:var(--muted);transition:color .18s ease}
+.pv-cancel:hover:not(:disabled){color:var(--text)}
+.pv-cancel:disabled{color:var(--faint);cursor:default}
+.pv-confirm{font-size:12.5px;line-height:1.6;color:var(--muted);margin:0}
+.pv-confirm b{color:var(--text);font-weight:600}
+
+.settled-banner{margin:0 0 16px;padding:9px 12px;border-radius:3px;font-size:11px;
+  line-height:1.5;letter-spacing:.02em;border:1px solid var(--border);background:var(--glass)}
+.settled-banner.is-yes{border-color:rgba(52,211,153,.32)}
+.settled-banner.is-no{border-color:rgba(248,113,113,.32)}
+
+.li-settled{display:inline-block;margin-left:7px;font-weight:500;font-size:9px;
+  letter-spacing:.1em;text-transform:uppercase}
+.li-final{display:block;font-style:normal;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);margin-top:2px}
+.is-flat{color:var(--faint)}
+.li-q.is-dim{color:var(--muted)}
 .tk-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
 .tk-chip{padding:8px 0;border-radius:3px;border:1px solid var(--border-2);background:transparent;
   color:var(--muted);font-size:11.5px;cursor:pointer;
