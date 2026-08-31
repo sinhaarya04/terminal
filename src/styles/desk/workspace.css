@@ -8,7 +8,7 @@
 /* ---------- rail ---------- */
 .rail{display:flex;flex-direction:column;gap:26px;width:172px;padding:22px 18px;
   border-right:1px solid var(--border)}
-.rail-brand{display:block}
+.rail-brand{flex-direction:column;align-items:flex-start;gap:10px}
 .rail-dests{display:flex;flex-direction:column;gap:2px}
 .rail-dest{position:relative;text-align:left;background:none;border:none;cursor:pointer;
   font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;

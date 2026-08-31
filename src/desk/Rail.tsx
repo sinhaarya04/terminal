@@ -18,7 +18,7 @@ export default function Rail({
 
   return (
     <nav className="rail" role="tablist" aria-label="Workspace">
-      <Link to="/" className="rail-brand" aria-label="Back to E[X]"><BrandLockup /></Link>
+      <Link to="/" className="brand rail-brand" aria-label="Back to E[X]"><BrandLockup /></Link>
 
       <div className="rail-dests">
         {DESTINATIONS.map((d) => (
