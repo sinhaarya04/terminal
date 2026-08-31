@@ -21,7 +21,7 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 | 3 · Repair `.btn`/`.btn-red`, normalise foundation radius | ✅ done | `e43bcb1` |
 | 4 · Workspace shell + Markets panes | ✅ done | `4b4513a` |
 | 5 · Positions panes | ✅ done | `fbeb1d0` |
-| 6 · Personal panes | ✅ done | `8f0a4c1` |
+| 6 · Personal panes | ✅ done | `ebdc82a` |
 | 7 · Delete superseded components, `panes.css` | ✅ done | `ccce3c0` |
 | 8 · Skeleton transition | ⬜ | — |
 | 9 · Error shake | ⬜ | — |
@@ -65,16 +65,23 @@ A green build proves nothing about whether a transition looks right. The browser
 2. **`.btn`, `.btn-red`, `.kicker`, `.h-sec`, `.lead`, `.wrap` already exist** in `global.css`
    (lines 31–52). Do not re-add them. The desk's problem was never that the wipe was missing —
    it was that the desk used `.desk-btn` (a solid red fill) and never used `.btn-red` at all.
-3. **`global.css` is now 355 lines**: foundation (lines 1–86) + the desk block (lines 88–355)
-   that Task 7 replaces with `src/styles/desk/panes.css`.
+3. **`global.css` is now 169 lines** (down from 1408): foundation, plus the sign-in and intro
+   blocks that Task 14 still restyles, plus shared chart/spark primitives. Desk styling lives in
+   `src/styles/desk/workspace.css` and `panes.css`.
 4. **The motion sheets carry inert bridge layers** targeting the old marketing site
    (`.cal-skel`, `.wl-check`, `.faq-summary`, `.auth-input`, `.stat`). Leave them alone; do not
    wire the desk to them.
 5. **Three motion sheets put their `prefers-reduced-motion` block mid-file**, not at the end,
    because a bridge layer follows. That is correct. Task 15 checks each sheet *contains* one.
-6. Baseline screenshots for visual comparison: `.superpowers/baseline/{markets,personal}.jpg`.
-   Note the Personal baseline was captured mid-`transition:color .18s`, so its active tab label
-   looks muted — that is a capture artifact, not a style.
+6. Baseline screenshots: `.superpowers/baseline/{markets,personal}.jpg`. These predate the
+   redesign and are no longer comparable — the layout has intentionally changed. Keep them only
+   as a record of the old desk.
+7. **`BrandLockup` styling depends on a `.brand` ancestor** (`.brand .ex`, `.brand .div`,
+   `.brand .neu-logo` in global.css). Any container rendering it must include `brand` in its
+   className or the wordmark silently loses its serif and red brackets. `Rail` uses
+   `className="brand rail-brand"` for exactly this reason.
+8. **Tasks 4-6 render markup styled by `panes.css`, which was brought forward from Task 7** so
+   each task stayed visually verifiable. Task 7 kept only the deletions.
 
 ## Scope boundary — do not cross it
 
