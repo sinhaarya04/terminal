@@ -92,3 +92,7 @@
   font-family:var(--mono);transition:border-color .16s ease}
 .code-pill:hover{border-color:rgba(225,29,42,.6)}
 .code-pill-hint{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+
+/* the shake sheet toggles .t-error-msg via opacity+visibility, so it holds its
+   own line in the ticket; give it a consistent block box so nothing jumps */
+.tk-field .t-error-msg{display:block;margin-top:8px}

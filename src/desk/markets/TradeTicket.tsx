@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { placeBet, money, useDesk, type DeskMarket, type Side } from '../deskStore';
 
 export default function TradeTicket({
@@ -12,6 +12,20 @@ export default function TradeTicket({
   const { balance } = useDesk();
   const [amount, setAmount] = useState(25);
   const [busy, setBusy] = useState(false);
+  // Monotonic nonce: overspending by the same amount twice produces an
+  // identical error state, so an effect keyed only on `tooMuch` would never
+  // re-run and the shake would fire once, ever.
+  const [nonce, setNonce] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!nonce) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.classList.remove('is-shaking');   // `t-input` and `is-error` stay put
+    void el.offsetWidth;                 // forces layout; without it nothing replays
+    el.classList.add('is-shaking');
+  }, [nonce]);
 
   if (!market) {
     return (
@@ -29,7 +43,8 @@ export default function TradeTicket({
   const invalid = amount <= 0 || tooMuch;
 
   const confirm = async () => {
-    if (invalid || busy) return;
+    if (busy) return;
+    if (invalid) { setNonce((n) => n + 1); return; }   // shake rather than fail silently
     setBusy(true);
     const ok = await placeBet(market, side, amount);
     setBusy(false);
@@ -53,10 +68,17 @@ export default function TradeTicket({
         <button className={`tk-side is-no ${side === 'NO' ? 'is-on' : ''}`} onClick={() => onSide('NO')}>NO</button>
       </div>
 
-      <label className="tk-field">
+      <label className={`tk-field t-input-wrap ${tooMuch ? 'is-error' : ''}`}>
         <span className="tk-label mono">Amount ($)</span>
-        <input className="tk-input mono" type="number" min={1} value={amount}
-          onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} />
+        <input
+          ref={inputRef}
+          className={`tk-input mono t-input ${tooMuch ? 'is-error' : ''}`}
+          type="number"
+          min={1}
+          value={amount}
+          onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
+        />
+        <span className="t-error-msg tk-err mono" role="alert">Not enough credits.</span>
       </label>
       <div className="tk-chips">{chip(10)}{chip(25)}{chip(50)}{chip(100)}</div>
 
@@ -68,9 +90,7 @@ export default function TradeTicket({
         <div><span>BALANCE AFTER</span><b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b></div>
       </div>
 
-      {tooMuch && <p className="tk-err mono" role="alert">Not enough credits.</p>}
-
-      <button className="btn btn-red tk-go" disabled={invalid || busy} onClick={confirm}>
+      <button className="btn btn-red tk-go" disabled={amount <= 0 || busy} onClick={confirm}>
         {busy ? 'Placing…' : `Buy ${side} · ${money(amount)}`}
       </button>
     </div>

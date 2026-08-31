@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import BrandLockup from '../components/BrandLockup';
+import PopNumber from '../components/PopNumber';
 import { useDesk, signOut, money } from './deskStore';
 import { supabase } from '../lib/supabase';
 
@@ -38,7 +39,7 @@ export default function Rail({
       </div>
 
       <div className="rail-foot">
-        <span className="rail-bal mono">{money(balance)}</span>
+        <PopNumber text={money(balance)} className="rail-bal mono" />
         <span className="rail-user mono">@{user?.handle}</span>
         <button className="rail-signout" onClick={doSignOut}>Sign out</button>
       </div>
