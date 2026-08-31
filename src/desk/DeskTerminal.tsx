@@ -6,7 +6,9 @@ import MarketDetail from './markets/MarketDetail';
 import TradeTicket from './markets/TradeTicket';
 import { ensureMarket, type DeskMarket, type Side } from './deskStore';
 import { outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
-import DeskPositions from './DeskPositions';
+import PositionsList, { type PositionRow } from './positions/PositionsList';
+import PositionDetail from './positions/PositionDetail';
+import CloseTicket from './positions/CloseTicket';
 import DeskPersonal from './DeskPersonal';
 
 export default function DeskTerminal() {
@@ -14,6 +16,7 @@ export default function DeskTerminal() {
   const [focus, setFocus] = useState<PaneKey>('list');
   const [ev, setEv] = useState<MarketEvent | null>(null);
   const [order, setOrder] = useState<{ m: DeskMarket; side: Side } | null>(null);
+  const [posRow, setPosRow] = useState<PositionRow | null>(null);
 
   const pickOutcome = (o: Outcome, side: Side) => {
     if (!ev) return;
@@ -50,7 +53,16 @@ export default function DeskTerminal() {
             }
           />
         )}
-        {dest === 'Positions' && <DeskPositions />}
+        {dest === 'Positions' && (
+          <Workspace
+            focus={focus}
+            onFocus={setFocus}
+            list={<PositionsList selectedKey={posRow?.key ?? null}
+              onSelect={(r) => { setPosRow(r); setFocus('detail'); }} />}
+            detail={<PositionDetail row={posRow} />}
+            action={<CloseTicket row={posRow} onDone={() => { setPosRow(null); setFocus('list'); }} />}
+          />
+        )}
         {dest === 'Personal' && <DeskPersonal />}
       </main>
     </div>
