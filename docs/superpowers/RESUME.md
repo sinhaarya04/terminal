@@ -12,17 +12,17 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 
 ---
 
-## State as of 2026-08-30 21:50 MDT
+## State as of 2026-08-31 01:45 MDT
 
 | Task | Status | Commit |
 |---|---|---|
 | 1 · Motion foundation (hooks, `Reveal`, motion sheets) | ✅ done | `a10c9f3` |
 | 2 · Purge `global.css` 1408 → 355 lines | ✅ done | `6fa2be3` |
 | 3 · Repair `.btn`/`.btn-red`, normalise foundation radius | ✅ done | `e43bcb1` |
-| 4 · Workspace shell + Markets panes | ⬜ next | — |
-| 5 · Positions panes | ⬜ | — |
-| 6 · Personal panes | ⬜ | — |
-| 7 · Delete superseded components, `panes.css` | ⬜ | — |
+| 4 · Workspace shell + Markets panes | ✅ done | `4b4513a` |
+| 5 · Positions panes | ✅ done | `fbeb1d0` |
+| 6 · Personal panes | ✅ done | `8f0a4c1` |
+| 7 · Delete superseded components, `panes.css` | ✅ done | `ccce3c0` |
 | 8 · Skeleton transition | ⬜ | — |
 | 9 · Error shake | ⬜ | — |
 | 10 · Success check | ⬜ | — |
