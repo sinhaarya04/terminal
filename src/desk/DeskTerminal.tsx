@@ -9,7 +9,9 @@ import { outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
 import PositionsList, { type PositionRow } from './positions/PositionsList';
 import PositionDetail from './positions/PositionDetail';
 import CloseTicket from './positions/CloseTicket';
-import DeskPersonal from './DeskPersonal';
+import PersonalList, { type PersonalSel } from './personal/PersonalList';
+import PersonalDetail from './personal/PersonalDetail';
+import PersonalAction from './personal/PersonalAction';
 
 export default function DeskTerminal() {
   const [dest, setDest] = useState<Destination>('Markets');
@@ -17,6 +19,8 @@ export default function DeskTerminal() {
   const [ev, setEv] = useState<MarketEvent | null>(null);
   const [order, setOrder] = useState<{ m: DeskMarket; side: Side } | null>(null);
   const [posRow, setPosRow] = useState<PositionRow | null>(null);
+  const [pSel, setPSel] = useState<PersonalSel | null>(null);
+  const [created, setCreated] = useState<DeskMarket | null>(null);
 
   const pickOutcome = (o: Outcome, side: Side) => {
     if (!ev) return;
@@ -63,7 +67,19 @@ export default function DeskTerminal() {
             action={<CloseTicket row={posRow} onDone={() => { setPosRow(null); setFocus('list'); }} />}
           />
         )}
-        {dest === 'Personal' && <DeskPersonal />}
+        {dest === 'Personal' && (
+          <Workspace
+            focus={focus}
+            onFocus={setFocus}
+            list={<PersonalList sel={pSel}
+              onSelect={(s) => { setPSel(s); setCreated(null); setFocus('detail'); }} />}
+            detail={<PersonalDetail sel={pSel}
+              onCreated={(m) => { setCreated(m); setPSel({ kind: 'market', m }); setFocus('action'); }} />}
+            action={<PersonalAction created={created}
+              market={pSel?.kind === 'market' ? pSel.m : null}
+              onDone={() => { setCreated(null); setFocus('detail'); }} />}
+          />
+        )}
       </main>
     </div>
   );
