@@ -26,7 +26,20 @@ the board is deliberately left alone.
 | Precision | Date **and** time |
 | Which markets | Private markets only; public board unchanged |
 | Picker | Custom: preset chips + month grid + time row |
-| Where "closed" is decided | Derived on read, plus a server guard |
+| Where "closed" is decided | Derived on read, in the client |
+
+### There is no backend
+
+The project has no Supabase credentials — none locally, and **no environment
+variables at all on the Vercel project** — so `supabase` is `null` in every
+environment and `state.live` is never true. The `if (state.live)` branches in
+`deskStore` and everything in `terminalDb.ts` are unreachable today.
+
+This feature is therefore built entirely client-side, against the same
+localStorage store the rest of the desk uses. No SQL, no RPC, no schema
+migration. The existing `supabase/terminal-schema.sql` is left as it is —
+it documents the shape for whenever a backend does arrive — but nothing here
+adds to it, and no part of this design depends on it.
 
 ### Why derived rather than timers
 
@@ -41,9 +54,9 @@ single shared 30-second ticker drives the relative labels ("in 3h"), which is
 also what flips the UI into its closed state within half a minute of the moment.
 One interval for the whole app, not one per market.
 
-The client check is a courtesy; `term_place_bet` is the gate. That is the split
-already used for settlement in `term_resolve_market`, and it means a live-mode
-user cannot buy into a closed market by moving their system clock.
+With no server, the client is the only gate. `placeBet` refuses a closed market
+and that is the end of it — someone with devtools can move their own play-money
+balance around regardless, which is already true of every number in this demo.
 
 ## Data model
 
@@ -56,14 +69,10 @@ closesAt?: number;   // epoch ms. Authoritative for private markets.
 `closes: string` stays exactly as it is — the public board still uses it, and
 old private markets fall back to it for display.
 
-Schema:
-
-```sql
-alter table public.term_markets add column if not exists closes_at timestamptz;
-```
-
-`term_create_market` gains `p_closes_at timestamptz`. `rowToMarket` maps the
-column to `closesAt` (ms) and leaves `closes` alone.
+`closesAt` persists with the rest of the desk state in localStorage under
+`ex_desk_v1`. `load()` already spreads the saved object over `fresh()`, so a
+desk saved before this change simply has no `closesAt` and reads as open — no
+migration, no version bump.
 
 ## Lifecycle
 
