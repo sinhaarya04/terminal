@@ -5,9 +5,13 @@
 
 /* ---------- list rows ---------- */
 .grp{margin-bottom:18px}
-.grp-h{display:flex;align-items:center;justify-content:space-between;
+.grp-hh{margin:0}
+.grp-h{display:flex;align-items:center;justify-content:space-between;width:100%;
   font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
-  padding:0 0 8px;border-bottom:1px solid var(--border)}
+  padding:0 0 8px;border:none;border-bottom:1px solid var(--border);
+  background:none;cursor:pointer;font-family:var(--mono);
+  transition:color .15s ease}
+.grp-h:hover{color:var(--text)}
 .grp-n{color:var(--faint)}
 .li{display:block;width:100%;text-align:left;background:none;cursor:pointer;
   border:none;border-bottom:1px solid rgba(255,255,255,.06);padding:11px 12px 11px 11px;
@@ -22,6 +26,8 @@
 .li-q{display:block;font-size:13px;line-height:1.4;color:var(--text)}
 .li-pnl{display:block;margin-top:5px;font-size:11.5px}
 .li-new .li-q{color:var(--red-bright);font-family:var(--mono);font-size:12px;letter-spacing:.08em}
+/* no padding on the panel or its inner: with grid-template-rows:0fr any padding
+   survives the collapse as a residual strip. Spacing comes from .grp's margin. */
 
 /* ---------- detail ---------- */
 .detail-h{font-size:20px;font-weight:500;line-height:1.3;letter-spacing:-.01em;margin:0 0 16px}
