@@ -128,8 +128,23 @@
    ============================================================ */
 .grid-wrap{padding:26px clamp(18px,3vw,34px) 40px;max-width:1600px;margin:0 auto}
 
-.grid-filters{display:flex;flex-wrap:wrap;gap:0 4px;margin-bottom:20px;
+/* filters and the view toggle share one rule, so the underline runs the width */
+.grid-bar{display:flex;align-items:flex-end;gap:16px;margin-bottom:20px;
   border-bottom:1px solid var(--border)}
+.grid-filters{display:flex;flex-wrap:wrap;gap:0 4px;min-width:0;flex:1}
+
+.view-toggle{display:flex;gap:0;margin-left:auto;flex:none;padding-bottom:6px}
+.view-btn{display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:24px;cursor:pointer;background:transparent;
+  border:1px solid var(--border);color:var(--faint);
+  transition:color .15s ease,border-color .15s ease,background-color .15s ease}
+.view-btn:first-child{border-radius:3px 0 0 3px}
+.view-btn:last-child{border-radius:0 3px 3px 0;margin-left:-1px}
+.view-btn:hover{color:var(--text)}
+.view-btn.is-on{color:var(--text);border-color:var(--border-2);background:rgba(255,255,255,.04)}
+.view-btn svg{fill:currentColor}
+.u-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .grid-filter{position:relative;background:none;border:none;cursor:pointer;
   padding:9px 12px 10px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--faint);display:inline-flex;align-items:center;gap:7px;
@@ -206,4 +221,44 @@
   .mscreen{animation:none}
   .mkt{transition:border-color .16s ease,background-color .16s ease}
   .mkt:hover{transform:none}
+}
+
+/* ---------- markets list view ---------- */
+.mlist{display:flex;flex-direction:column}
+.mlist-head,.mrow{display:grid;
+  grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) 56px 84px 92px;
+  gap:18px;align-items:center}
+.mlist-head{padding:0 12px 9px;font-size:9.5px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border)}
+.mlist-head .r,.mrow .r{text-align:right}
+
+.mrow{width:100%;text-align:left;background:none;cursor:pointer;
+  border:none;border-bottom:1px solid rgba(255,255,255,.06);
+  padding:13px 12px;font-family:var(--font);color:var(--text);
+  transition:background-color .15s ease}
+.mrow:hover{background:rgba(255,255,255,.025)}
+.mrow:focus-visible{outline:2px solid var(--red-bright);outline-offset:-2px}
+
+.mrow-main{min-width:0}
+.mrow-meta{display:flex;align-items:center;gap:7px;font-size:9.5px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+.mrow-live{width:5px;height:5px;border-radius:50%;background:var(--red-bright);flex:none}
+.mrow-title{display:block;font-size:13.5px;line-height:1.35;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+
+.mrow-lead{min-width:0}
+.mrow-name{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+  margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow-more{font-style:normal;font-size:10px;color:var(--faint);flex:none}
+.mrow-bar{display:block;height:2px;background:rgba(255,255,255,.07);overflow:hidden}
+.mrow-bar i{display:block;height:100%}
+
+.mrow-pct{font-size:13px;font-variant-numeric:tabular-nums}
+.mrow-vol,.mrow-upd{font-size:10.5px;letter-spacing:.06em;color:var(--faint)}
+
+@media(max-width:899px){
+  .mlist-head{display:none}
+  .mrow{grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:start}
+  .mrow-lead{grid-column:1/-1}
+  .mrow-vol,.mrow-upd{display:none}
 }

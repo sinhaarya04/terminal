@@ -90,10 +90,15 @@ with a Polymarket/Kalshi-style grid of square preview cards; clicking one expand
 market screen (chart + outcomes + docked ticket) with a back control. Rationale: the split-pane
 list only showed a handful of markets at a time, and the ask was to make them all visible.
 
+The board offers **both**: a grid/list toggle sits at the right of the filter row, and the
+choice persists per viewer in `localStorage` under `ex.markets.view` (wrapped in try/catch —
+private windows and blocked site data both throw on access).
+
 Consequences:
-- `MarketsList.tsx` is deleted, and with it Task 12's accordion category groups — the grid uses
-  a filter tab row instead. `accordion.css` is now unused by the desk; it is left in place
-  because nothing else costs anything and a future disclosure can use it.
+- `MarketsList.tsx` (the old sidebar) is deleted, and with it Task 12's accordion category
+  groups — both views filter by tab row instead. The new list view is a full-width table, not
+  the old pane. `accordion.css` is now unused by the desk; it is left in place because it costs
+  nothing and a future disclosure can use it.
 - Markets no longer uses `Workspace`. Positions and Personal still do, so the three-pane
   skeleton and its drill-down are still live and still need to keep working.
 
