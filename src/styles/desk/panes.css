@@ -151,7 +151,6 @@
 .grid-filter.is-on{color:var(--text)}
 .grid-filter.is-on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;
   height:1px;background:var(--red-bright)}
-.grid-filter-dot{width:5px;height:5px;border-radius:50%;background:var(--red-bright);flex:none}
 
 .grid{display:grid;gap:14px;
   grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
@@ -265,6 +264,7 @@
    ::before duplicate stays glyph-aligned with the text under it. */
 .mkt-live .t-shimmer,
 .mrow-meta .t-shimmer,
+.grid-filter .t-shimmer,
 .kicker .t-shimmer{
   --shimmer-base:var(--red);
   --shimmer-highlight:#ffc2c2;

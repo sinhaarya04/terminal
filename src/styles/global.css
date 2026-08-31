@@ -61,13 +61,10 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .b2{width:54vw;height:54vw;right:-12%;top:-8%;background:radial-gradient(circle at 50% 50%,rgba(200,30,45,.80),rgba(200,30,45,0) 66%);opacity:.40;animation:drift2 34s ease-in-out infinite alternate;animation-delay:-7s}
 .b3{width:48vw;height:48vw;left:16%;bottom:-26%;background:radial-gradient(circle at 50% 50%,rgba(140,20,28,.9),rgba(140,20,28,0) 64%);opacity:.46;animation:drift3 31s ease-in-out infinite alternate;animation-delay:-13s}
 /* phones: fewer, softer blobs — the 85px blur + screen blending is a real GPU/battery cost */
-@media(max-width:680px){
-  .blob{filter:blur(60px)}
-  }
+@media(max-width:680px){.blob{filter:blur(60px)}}
 @keyframes drift1{0%{transform:translate(0,0) scale(1) rotate(0deg)}100%{transform:translate(8vw,6vh) scale(1.28) rotate(26deg)}}
 @keyframes drift2{0%{transform:translate(0,0) scale(1.12) rotate(0deg)}100%{transform:translate(-7vw,9vh) scale(.84) rotate(-24deg)}}
 @keyframes drift3{0%{transform:translate(0,0) scale(.9) rotate(0deg)}100%{transform:translate(6vw,-8vh) scale(1.22) rotate(20deg)}}
-@keyframes drift4{0%{transform:translate(0,0) scale(1) rotate(0deg)}100%{transform:translate(-6vw,-5vh) scale(1.18) rotate(-32deg)}}
 @media(prefers-reduced-motion:reduce){.blob{animation:none!important}}
 /* liquid-glass blob backdrop, contained to the header, fading into the page below */
 .about-fluid{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
@@ -77,7 +74,6 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .about-fluid .b1{left:-6%;top:-30%}
 .about-fluid .b2{right:-10%;top:-24%}
 .about-fluid .b3{left:24%;top:-10%}
-.about-fluid 
 /* ============================================================
    /terminal — full-screen demo desk (modest red/dark/glass)
    ============================================================ */
@@ -108,12 +104,32 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 /* ---- intro ---- */
 .desk-intro{position:fixed;inset:0;background:#050609;display:flex;align-items:center;justify-content:center;z-index:50}
 .desk-intro-video{width:100%;height:100%;object-fit:cover}
+/* the lockup is 64px on desktop; at phone widths that overflows a 390px screen
+   once the .3em-tracked tagline sits under it */
+@media(max-width:560px){
+  .desk-intro-lockup{font-size:44px}
+  .desk-intro-tag{font-size:10px;letter-spacing:.2em;padding:0 20px}
+  .desk-intro-load{margin-top:26px;font-size:12px}
+  .desk-intro-rings span{width:360px;height:360px;margin:-180px 0 0 -180px}
+  .desk-skip{top:16px;right:16px}
+}
+/* the intro is decoration; under reduced motion DeskIntro returns null, but the
+   rules are neutralised too in case the markup is ever reused */
+@media(prefers-reduced-motion:reduce){
+  .desk-intro-rings span,.desk-intro-lockup,.desk-dots i{animation:none}
+  .desk-intro-lockup{transform:none;opacity:1}
+}
 .desk-intro-fallback{position:relative;text-align:center}
 .desk-intro-rings{position:absolute;left:50%;top:50%}
-.desk-intro-rings span{position:absolute;left:50%;top:50%;border:1px solid rgba(225,29,42,.4);border-radius:50%;
-  transform:translate(-50%,-50%);animation:deskRing 2.8s ease-out infinite}
+/* fixed box scaled by transform. Animating width/height instead forced layout
+   on every frame, three rings at once — the single most expensive thing the app
+   was doing, and it ran behind a full-screen video. */
+.desk-intro-rings span{position:absolute;left:50%;top:50%;width:540px;height:540px;
+  margin:-270px 0 0 -270px;border:1px solid rgba(225,29,42,.4);border-radius:50%;
+  transform:scale(.167);opacity:0;will-change:transform,opacity;
+  animation:deskRing 2.8s ease-out infinite}
 .desk-intro-rings span:nth-child(2){animation-delay:.95s}.desk-intro-rings span:nth-child(3){animation-delay:1.9s}
-@keyframes deskRing{0%{width:90px;height:90px;opacity:.8}100%{width:540px;height:540px;opacity:0}}
+@keyframes deskRing{0%{transform:scale(.167);opacity:.8}100%{transform:scale(1);opacity:0}}
 .desk-intro-lockup{position:relative;font-family:var(--serif);font-size:64px;font-weight:500;letter-spacing:.03em;animation:deskPop .8s cubic-bezier(.2,.9,.3,1.2) both}
 @keyframes deskPop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
 .desk-intro-tag{margin-top:16px;font-size:12px;letter-spacing:.3em;color:var(--faint)}

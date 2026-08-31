@@ -46,7 +46,7 @@ export default function MarketsGrid({ onOpen }: { onOpen: (ev: MarketEvent) => v
               className={`grid-filter mono ${filter === f ? 'is-on' : ''}`}
               onClick={() => setFilter(f)}
             >
-              {f === 'Live' && <i className="grid-filter-dot" />}{f}
+              {f === 'Live' ? <span className="t-shimmer" data-text="Live">Live</span> : f}
             </button>
           ))}
         </nav>
