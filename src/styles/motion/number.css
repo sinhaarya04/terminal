@@ -1,0 +1,50 @@
+/* number — transitions.dev
+   Number pop-in (02-number-pop-in.md). Tunable variables live in
+   _root.css (--digit-*); this file only carries the snippet + the
+   scoped tuning for the credibility stats. */
+
+@keyframes t-digit-pop-in {
+  0%   {
+    transform: translate(
+      calc(var(--digit-distance) * var(--digit-dir-x)),
+      calc(var(--digit-distance) * var(--digit-dir-y))
+    );
+    opacity: 0;
+    filter: blur(var(--digit-blur));
+  }
+  100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+}
+
+.t-digit-group {
+  display: inline-flex;
+  align-items: baseline;
+}
+.t-digit {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+.t-digit-group.is-animating .t-digit {
+  animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+}
+.t-digit-group.is-animating .t-digit[data-stagger="1"] {
+  animation-delay: var(--digit-stagger);
+}
+.t-digit-group.is-animating .t-digit[data-stagger="2"] {
+  animation-delay: calc(var(--digit-stagger) * 2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-digit-group .t-digit { animation: none !important; }
+}
+
+/* Stats tuning — these are credibility numbers on a finance page, so the
+   default overshoot ease is traded for the site's smooth-out curve and the
+   travel/stagger are tightened. Scoped token overrides only; the snippet
+   above stays verbatim. */
+.stat .t-digit-group {
+  --digit-dur: var(--duration-very-slow);
+  --digit-distance: var(--distance-small);
+  --digit-stagger: var(--duration-stagger);
+  --digit-blur: var(--blur-small);
+  --digit-ease: var(--ease-smooth-out);
+}

@@ -1,0 +1,47 @@
+/* nav-menu — transitions.dev
+   Menu dropdown (05-menu-dropdown.md) applied to the mobile nav panel.
+   The `:root` tunables already ship in ./_root.css — not re-pasted here.
+   Bound to the shared motion-token scale so the open reads as
+   --duration-fast (250ms) and the close as the quicker --duration-quick
+   (150ms): closes are always snappier than opens. */
+.t-dropdown {
+  --dropdown-open-dur: var(--duration-fast);
+  --dropdown-close-dur: var(--duration-quick);
+  --dropdown-pre-scale: var(--scale-medium);
+  --dropdown-closing-scale: var(--scale-tiny);
+  --dropdown-ease: var(--ease-smooth-out);
+}
+
+.t-dropdown {
+  transform-origin: top left;
+  transform: scale(var(--dropdown-pre-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dropdown-open-dur) var(--dropdown-ease),
+    opacity   var(--dropdown-open-dur) var(--dropdown-ease);
+  will-change: transform, opacity;
+}
+.t-dropdown[data-origin="top-right"]     { transform-origin: top right; }
+.t-dropdown[data-origin="top-center"]    { transform-origin: top center; }
+.t-dropdown[data-origin="bottom-left"]   { transform-origin: bottom left; }
+.t-dropdown[data-origin="bottom-center"] { transform-origin: bottom center; }
+.t-dropdown[data-origin="bottom-right"]  { transform-origin: bottom right; }
+
+.t-dropdown.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-dropdown.is-closing {
+  transform: scale(var(--dropdown-closing-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dropdown-close-dur) var(--dropdown-ease),
+    opacity   var(--dropdown-close-dur) var(--dropdown-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-dropdown { transition: none !important; }
+}

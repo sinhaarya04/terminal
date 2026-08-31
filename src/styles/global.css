@@ -1402,3 +1402,7 @@ a.cal-event:hover{background:rgba(255,255,255,.03);padding-left:12px}
 .desk-or{display:flex;align-items:center;gap:12px;margin:18px 0 6px;color:var(--faint);font-size:12px}
 .desk-or::before,.desk-or::after{content:"";height:1px;flex:1;background:var(--border)}
 .desk-card .desk-field + .desk-field{margin-top:14px}
+
+.reveal{opacity:0;transform:translateY(22px);
+  transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}

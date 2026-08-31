@@ -1,0 +1,100 @@
+/* skeleton — transitions.dev (14-skeleton-reveal.md)
+   Used by the Calendar page agenda: pulsing placeholder rows while the Google
+   Calendar fetch is in flight, then a cross-fade + cross-blur to the real
+   events. Motion tokens live in _root.css — not re-declared here. */
+
+/* ── Snippet, verbatim ───────────────────────────────────────────────────── */
+
+/* The wrap stacks two layers on the same coordinates. The
+   skeleton owns the cold pulse + the fade-out side of the
+   reveal; the content owns the fade-in side. They share the
+   same duration / ease so the swap reads as one motion. */
+.t-skel { position: relative; }
+.t-skel-skeleton,
+.t-skel-content {
+  position: absolute;
+  inset: 0;
+}
+
+.t-skel-skeleton {
+  z-index: 1;
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel-content {
+  z-index: 2;
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel.is-revealed .t-skel-skeleton {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+}
+.t-skel.is-revealed .t-skel-content {
+  opacity: 1;
+  filter: blur(0);
+}
+/* Snap-back when replaying: kill transitions so the reverse
+   (revealed → skeleton) is instant. Drop `.is-resetting`
+   after a forced reflow and the next reveal animates again. */
+.t-skel.is-resetting .t-skel-skeleton,
+.t-skel.is-resetting .t-skel-content {
+  transition: none !important;
+}
+
+/* Pulse: place the animation on the bar/avatar children, not
+   on the skeleton itself, so the skeleton's opacity / filter
+   stay free for the cross-fade transition above. */
+.t-skel-skeleton.is-pulsing > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+@keyframes t-skel-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: var(--pulse-min); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-skel-skeleton, .t-skel-content {
+    transition: none !important;
+  }
+  .t-skel-skeleton.is-pulsing > * { animation: none !important; }
+}
+
+/* ── Project layer: Calendar agenda ──────────────────────────────────────── */
+
+.cal-skel {
+  /* Point the snippet's tunables at the shared motion scale. */
+  --reveal-dur: var(--duration-slow);
+  --reveal-blur: var(--blur-small);
+  --reveal-ease: var(--ease-in-out);
+  /* A real network wait, not a demo replay: keep breathing until data lands. */
+  --pulse-count: infinite;
+}
+
+/* The snippet stacks both layers absolutely, which is right when the slot has
+   a known height. The agenda's height is data-driven, so keep exactly one
+   layer in flow at a time: the skeleton owns the height while loading, the
+   real events own it from the moment the reveal starts. `position` doesn't
+   animate, so that handoff is instant and the cross-fade rides on top of it —
+   the list settles to its true height once, not twice. */
+.cal-skel > .t-skel-skeleton { position: relative; inset: auto; pointer-events: none; }
+.cal-skel > .t-skel-content { position: absolute; inset: 0; }
+.cal-skel.is-revealed > .t-skel-skeleton { position: absolute; inset: 0 0 auto; }
+.cal-skel.is-revealed > .t-skel-content { position: relative; inset: auto; }
+
+/* Placeholder bars. Sized in `em` inside the real `.cal-*` elements, so each
+   line box keeps the exact height of the text it stands in for. */
+.cal-skel-bar {
+  display: inline-block;
+  vertical-align: middle;
+  height: 0.72em;
+  min-height: 8px;
+  border-radius: 3px;
+  background: var(--border);
+}

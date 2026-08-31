@@ -1,0 +1,95 @@
+/* accordion — transitions.dev (21-accordion.md)
+   The --acc-* tunables live in ./_root.css; do not re-declare them here.
+   Loaded after global.css so these rules layer on the existing .faq styles. */
+
+/* ── snippet, verbatim from 21-accordion.md ─────────────────────────── */
+
+/* grid-template-rows 0fr → 1fr gives a clean height animation
+   with no JS measurement; the inner element clips overflow. */
+.t-acc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--acc-collapse) var(--acc-ease);
+}
+.t-acc[data-open="true"] .t-acc-panel {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--acc-expand) var(--acc-ease);
+}
+.t-acc-panel-inner {
+  overflow: hidden;
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    opacity var(--acc-collapse) var(--acc-ease),
+    filter var(--acc-collapse) var(--acc-ease);
+}
+.t-acc[data-open="true"] .t-acc-panel-inner {
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--acc-expand) var(--acc-ease),
+    filter var(--acc-expand) var(--acc-ease);
+}
+/* Flip the chevron vertically to turn the "v" into a "^".
+   scaleY(-1) about the centre passes through a flat line at
+   the midpoint (same look as a `d:` path morph) but animates
+   in every browser, unlike CSS `d:` morphing (Chromium only).
+   The chevron path is symmetric about the 16x16 viewBox
+   centre, so the flip lands exactly on the "^"; non-scaling
+   -stroke keeps the stroke width constant through the flip.
+   NOTE: the FAQ keeps its existing "+" mark (.faq-plus) instead of the
+   reference chevron, so nothing matches these three rules today. They are
+   kept verbatim so any future .t-acc gets the tuned chevron for free. */
+.t-acc-chevron {
+  display: inline-flex;
+  transform: scaleY(1);
+  transform-origin: center;
+  transition: transform var(--acc-chevron) var(--acc-ease);
+}
+.t-acc-chevron path { vector-effect: non-scaling-stroke; }
+.t-acc[data-open="true"] .t-acc-chevron {
+  transform: scaleY(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-acc-panel, .t-acc-panel-inner, .t-acc-chevron {
+    transition: none !important;
+  }
+}
+
+/* ── FAQ bridge ──────────────────────────────────────────────────────
+   A native <details> can't animate its height, so .faq-item is now
+   <div class="faq-item t-acc"> + <button class="faq-summary">. global.css
+   still owns .faq, .faq-item borders, .faq-plus and .faq-item p; the rules
+   below only restate the two pieces that were bound to <summary> and to
+   [open], so the section renders pixel-identically at rest. */
+.faq-item .faq-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  padding: 22px 4px;
+  background: none;
+  border: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  font-size: 17.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: inherit;
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+.faq-item .faq-summary:hover,
+.faq-item[data-open="true"] .faq-summary {
+  color: var(--red-bright);
+}
+/* the "+" drops its vertical bar to become a "−" — same rule global.css
+   ships for .faq-item[open], rebound to the data-open hook. */
+.faq-item[data-open="true"] .faq-plus::after {
+  transform: translate(-50%, -50%) scaleY(0);
+}
