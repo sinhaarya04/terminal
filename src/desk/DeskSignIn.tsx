@@ -37,13 +37,13 @@ export default function DeskSignIn() {
 
       <div className="desk-card">
         <div className="desk-lockup">E<span className="desk-brack">[</span>X<span className="desk-brack">]</span></div>
-        <div className="desk-kicker">The Terminal</div>
+        <div className="kicker desk-kicker">The Terminal</div>
 
         {phase === 'sent' ? (
           <>
             <h1 className="desk-h1">Check your inbox.</h1>
             <p className="desk-sub">We sent a sign-in link to {email.trim()}. Open it on this device and you'll land back here, signed in.</p>
-            <button className="desk-btn desk-btn-outline" type="button" onClick={() => setPhase('idle')}>Use a different email</button>
+            <button className="btn btn-red desk-go" type="button" onClick={() => setPhase('idle')}>Use a different email</button>
           </>
         ) : (
           <>
@@ -53,24 +53,24 @@ export default function DeskSignIn() {
             {supabase && (
               <>
                 <form className="desk-field" onSubmit={sendLink}>
-                  <span className="desk-label">Northeastern email</span>
-                  <input className="desk-input" type="email" value={email}
+                  <span className="tk-label mono">Northeastern email</span>
+                  <input className="tk-input t-input" type="email" value={email}
                     onChange={(e) => { setEmail(e.target.value); setError(''); }}
                     placeholder={`you@${ALLOWED_DOMAIN}`} autoComplete="email" />
-                  <button className="desk-btn desk-btn-red" type="submit" disabled={phase === 'sending'}>
+                  <button className="btn btn-red desk-go" type="submit" disabled={phase === 'sending'}>
                     {phase === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
                   </button>
                 </form>
-                {error && <p className="desk-join-msg is-no">{error}</p>}
+                {error && <p className="desk-join-msg is-no mono" role="alert">{error}</p>}
                 <div className="desk-or"><span>or</span></div>
               </>
             )}
 
             <form className="desk-field" onSubmit={(e) => { e.preventDefault(); signIn(handle); }}>
-              <span className="desk-label">Guest handle</span>
-              <input className="desk-input" value={handle} onChange={(e) => setHandle(e.target.value)}
+              <span className="tk-label mono">Guest handle</span>
+              <input className="tk-input" value={handle} onChange={(e) => setHandle(e.target.value)}
                 placeholder="oracle_23" maxLength={20} />
-              <button className="desk-btn desk-btn-outline" type="submit">Explore as guest</button>
+              <button className="btn btn-red desk-go" type="submit">Explore as guest</button>
             </form>
           </>
         )}
