@@ -25,11 +25,11 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 | 7 · Delete superseded components, `panes.css` | ✅ done | `ccce3c0` |
 | 8 · Skeleton transition | ⬜ **not done** | — |
 | 9 · Error shake | ✅ done | `a085e12` |
-| 10 · Success check | ✅ done | `e1b0f5b` |
+| 10 · Success check | ✅ done | `eeceb56` |
 | 11 · Number pop-in | ✅ done | `a085e12` |
 | 12 · Accordion category groups | ✅ done | `f064dee` |
 | 13 · Dropdown (account menu + slide-over) | ⬜ **not done** | — |
-| 14 · Restyle sign-in and intro | ✅ done | `(this commit)` |
+| 14 · Restyle sign-in and intro | ✅ done | `56231db` |
 | 15 · Pre-ship checklist | 🟡 partial — see "Outstanding" | — |
 
 **Plan:** `docs/superpowers/plans/2026-08-30-desk-workspace-redesign.md` — full text of every task.
