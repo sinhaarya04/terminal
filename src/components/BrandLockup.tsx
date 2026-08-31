@@ -1,9 +1,11 @@
-// The E[X] · Northeastern University lockup (wordmark + divider + NEU logo).
-// Shared by the nav and the About page; wrap it in whatever container you need.
+import ExMark from './ExMark';
+
+// The E[X] · Northeastern University lockup, laid out side by side: brand mark,
+// hairline divider, NEU wordmark. Wrap it in whatever container you need.
 export default function BrandLockup() {
   return (
     <>
-      <span className="ex">E<span className="bk">[</span>X<span className="bk">]</span></span>
+      <ExMark />
       <span className="div" />
       <svg className="neu-logo" role="img" aria-label="Northeastern University"
            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 486 180">

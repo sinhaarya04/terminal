@@ -8,14 +8,26 @@ export type Destination = 'Markets' | 'Positions' | 'Personal';
 export const DESTINATIONS: Destination[] = ['Markets', 'Positions', 'Personal'];
 
 export default function Rail({
-  active, onChange,
-}: { active: Destination; onChange: (d: Destination) => void }) {
+  active, onChange, open, onToggle,
+}: {
+  active: Destination;
+  onChange: (d: Destination) => void;
+  open: boolean;
+  onToggle: () => void;
+}) {
   const { balance, positions } = useDesk();
 
 
   return (
-    <nav className="rail" role="tablist" aria-label="Workspace">
-      <Link to="/" className="brand rail-brand" aria-label="Back to E[X]"><BrandLockup /></Link>
+    <nav id="desk-rail" className="rail" role="tablist" aria-label="Workspace" {...(open ? {} : { inert: true })}>
+      <div className="rail-fluid about-fluid" aria-hidden="true">
+        <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
+      </div>
+      <div className="rail-head">
+        <Link to="/" className="brand rail-brand" aria-label="Back to E[X]"><BrandLockup /></Link>
+        <button className="rail-collapse mono" onClick={onToggle}
+          aria-label="Hide navigation" aria-expanded={open} aria-controls="desk-rail">‹</button>
+      </div>
 
       <div className="rail-dests">
         {DESTINATIONS.map((d) => (

@@ -1,23 +1,71 @@
 /* shell: rail + workspace.
-   No prefers-reduced-motion block here on purpose: every transition in this
-   file animates colour or background only. Those are not vestibular triggers,
-   and suppressing them would make the UI feel broken for no accessibility
-   gain. Transform/opacity motion lives in styles/motion/*.css, which all carry
-   their own reduced-motion blocks. */
+   Colour and background transitions here are deliberately left alone under
+   reduced motion — they are not vestibular triggers. The rail collapse is,
+   though: it slides a whole column and translates the pull-tab, so those
+   resolve to a motionless state at the end of this file. */
 /* padding:0 / overflow:visible neutralise the legacy .desk-term rule that still
    lives in global.css; Task 7 deletes that block and these resets with it. */
-.desk-term{display:grid;grid-template-columns:auto 1fr;min-height:100vh;
-  padding:0;overflow:visible}
+.desk-term{display:grid;grid-template-columns:210px 1fr;min-height:100vh;
+  padding:0;overflow:visible;
+  /* same grid-track technique the accordion uses, on the column axis. Symmetric
+     duration both ways: hiding and showing the rail read as one reversible
+     gesture, which the motion scale says to keep symmetric (unlike a dropdown,
+     where close is quicker than open). */
+  transition:grid-template-columns var(--duration-fast) var(--ease-smooth-out)}
+.desk-term.rail-hidden{grid-template-columns:0px 1fr}
+
+/* pull-tab — hidden while the rail is open, slides in once it is away */
+.rail-tab{position:fixed;left:0;top:18px;z-index:70;
+  width:22px;height:40px;padding:0;cursor:pointer;
+  border:1px solid var(--border-2);border-left:none;border-radius:0 3px 3px 0;
+  background:var(--bg2);color:var(--faint);font-size:15px;line-height:1;
+  opacity:0;transform:translateX(-100%);pointer-events:none;
+  transition:opacity var(--duration-fast) var(--ease-smooth-out),
+             transform var(--duration-fast) var(--ease-smooth-out),
+             color .15s ease,border-color .15s ease}
+.rail-hidden .rail-tab{opacity:1;transform:translateX(0);pointer-events:auto}
+.rail-tab:hover{color:var(--red-bright);border-color:rgba(225,29,42,.6)}
+
+/* head row: lockup on the left, collapse control on the right */
+.rail-head{display:flex;align-items:center;gap:10px}
+.rail-collapse{margin-left:auto;background:none;border:none;padding:2px 4px;cursor:pointer;
+  color:var(--faint);font-size:15px;line-height:1;transition:color .15s ease}
+.rail-collapse:hover{color:var(--red-bright)}
 .desk-main{min-width:0;overflow:hidden}
 
 /* ---------- rail ---------- */
-.rail{display:flex;flex-direction:column;gap:26px;width:172px;padding:22px 18px;
-  border-right:1px solid var(--border)}
-.rail-brand{flex-direction:column;align-items:flex-start;gap:9px}
-/* the lockup's divider is a vertical hairline meant for a horizontal nav; in the
-   rail's column it reads as a stray mark, and the NEU mark needs more room */
-.rail-brand .div{display:none}
-.rail-brand .neu-logo{height:20px}
+.rail{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:26px;
+  min-width:0;padding:22px 18px;border-right:1px solid var(--border)}
+/* the contents keep their full width while the track closes, so the rail slides
+   out of view instead of reflowing its text on the way */
+.rail>*:not(.rail-fluid){width:174px;flex:none}
+/* a 0px grid track still can't squeeze out the rail's own 18px padding and 1px
+   border (border-box floors at 37px), so those collapse on the same curve */
+.rail-hidden .rail{padding-left:0;padding-right:0;border-right-color:transparent}
+.rail{transition:padding var(--duration-fast) var(--ease-smooth-out),
+                 border-right-color var(--duration-fast) var(--ease-smooth-out)}
+/* the red gooey blob field, scoped to the rail: soft blurred lobes drifting
+   behind the chrome, faded out toward the bottom so the balance stays legible */
+.rail-fluid{position:absolute;inset:0;z-index:0}
+/* the global .blob blur is tuned for a full-page hero (85px across ~50vw); at
+   rail scale that flattens to nothing, so the lobes are re-tuned here: bigger
+   relative to the column, much less blur, and lifted opacity so the goo reads */
+.rail-fluid .blob{filter:blur(38px);opacity:.55;mix-blend-mode:normal}
+.rail-fluid .b1{width:300px;height:300px;left:-46%;top:-14%;
+  background:radial-gradient(circle at 42% 40%,rgba(255,70,70,.95),rgba(255,70,70,0) 66%)}
+.rail-fluid .b2{width:280px;height:280px;left:8%;top:6%;
+  background:radial-gradient(circle at 50% 50%,rgba(200,26,42,.9),rgba(200,26,42,0) 64%)}
+.rail-fluid .b3{width:320px;height:320px;left:-40%;top:26%;
+  background:radial-gradient(circle at 50% 50%,rgba(150,18,30,.95),rgba(150,18,30,0) 62%)}
+/* fade the field out down the column so the balance and handle stay legible */
+.rail-fluid::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(8,9,13,0) 0%,rgba(8,9,13,.15) 38%,rgba(8,9,13,.72) 72%,rgba(8,9,13,.94) 100%)}
+.rail>*:not(.rail-fluid){position:relative;z-index:1}
+/* lockup sits on one line: mark · hairline · NEU wordmark */
+.rail-brand{align-items:center;gap:10px}
+.rail-brand .ex-mark{height:22px;width:auto;color:var(--text);flex:none}
+.rail-brand .div{height:16px}
+.rail-brand .neu-logo{height:17px}
 .rail-dests{display:flex;flex-direction:column;gap:2px}
 .rail-dest{position:relative;text-align:left;background:none;border:none;cursor:pointer;
   font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
@@ -57,7 +105,12 @@
 .ws-back:hover{color:var(--text)}
 
 @media(max-width:899px){
-  .desk-term{grid-template-columns:1fr;padding-bottom:56px}
+  /* the rail is a bottom tab bar on phones — collapsing it would strip the only
+     navigation, so the toggle and pull-tab are suppressed here */
+  .desk-term,.desk-term.rail-hidden{grid-template-columns:1fr;padding-bottom:56px}
+  .rail-collapse,.rail-tab{display:none}
+  .rail>*:not(.rail-fluid){width:auto}
+  .rail-head{display:none}
   .rail{flex-direction:row;align-items:center;gap:16px;width:auto;
     position:fixed;bottom:0;left:0;right:0;z-index:40;
     padding:0 16px;height:56px;border-right:none;border-top:1px solid var(--border);
@@ -86,3 +139,11 @@
 .acct-item:last-child{border-bottom:none}
 .acct-item:hover{background:rgba(255,255,255,.03);color:var(--text)}
 .acct-item.is-danger:hover{color:var(--red-bright)}
+
+/* Reduced motion: the rail must still hide and come back — it just does so
+   without the slide. Resolving to a motionless end state, not a faster one. */
+@media(prefers-reduced-motion:reduce){
+  .desk-term,.rail,.rail-tab{transition:none}
+  .rail-tab{transform:none}
+  .rail-hidden .rail-tab{transform:none}
+}

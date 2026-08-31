@@ -23,6 +23,7 @@ const stageFor = (e: MarketEvent) => ({ m: outcomeToMarket(e, leadOutcome(e)), s
 
 export default function DeskTerminal() {
   const [dest, setDest] = useState<Destination>('Markets');
+  const [railOpen, setRailOpen] = useState(true);
   const [focus, setFocus] = useState<PaneKey>('list');
   const [ev, setEv] = useState<MarketEvent | null>(EVENTS[0] ?? null);
   const [order, setOrder] = useState<{ m: DeskMarket; side: Side } | null>(
@@ -54,8 +55,25 @@ export default function DeskTerminal() {
   };
 
   return (
-    <div className="desk-term">
-      <Rail active={dest} onChange={(d) => { setDest(d); setFocus('list'); }} />
+    <div className={`desk-term ${railOpen ? '' : 'rail-hidden'}`}>
+      <Rail
+        active={dest}
+        open={railOpen}
+        onToggle={() => setRailOpen((o) => !o)}
+        onChange={(d) => { setDest(d); setFocus('list'); }}
+      />
+      {/* pull-tab: the only way back once the rail is hidden, so it must stay
+          reachable — it is outside the inert rail on purpose */}
+      <button
+        className="rail-tab mono"
+        onClick={() => setRailOpen(true)}
+        aria-label="Show navigation"
+        aria-expanded={railOpen}
+        aria-controls="desk-rail"
+        {...(railOpen ? { inert: true } : {})}
+      >
+        ›
+      </button>
 
       <main className="desk-main">
         {dest === 'Markets' && (
