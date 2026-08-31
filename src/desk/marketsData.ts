@@ -7,14 +7,13 @@ export type Outcome = {
   yes: number;       // YES price in cents = crowd probability
   color: string;     // chart line colour
   path: number[];    // price path 0-100 for the chart
-  meta?: string;     // e.g. a flag emoji / short tag
+  meta?: string;     // optional short text tag rendered before the outcome name
 };
 
 export type MarketEvent = {
   id: string;
   cat: Category;
   title: string;
-  icon: string;      // emoji glyph shown in the card chip
   outcomes: Outcome[];
   vol: number;       // fake $ volume
   updated: string;   // "21m ago"
@@ -55,18 +54,18 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 
 export const EVENTS: MarketEvent[] = [
   {
-    id: 'BEANPOT27', cat: 'Sports', icon: '🏒', live: true, vol: 242202, updated: '21m ago',
+    id: 'BEANPOT27', cat: 'Sports', live: true, vol: 242202, updated: '21m ago',
     title: 'Beanpot 2027 — Tournament Winner',
     news: 'Northeastern enters the Beanpot on a five-game win streak, but Boston College and BU are close behind after strong Hockey East showings.',
     outcomes: [
-      { name: 'Northeastern', meta: '🐺', yes: 41, color: C.green, path: path(41, 3, -12) },
-      { name: 'Boston College', meta: '🦅', yes: 27, color: C.blue, path: path(27, 7, 8) },
-      { name: 'Boston University', meta: '🐕', yes: 21, color: C.gold, path: path(21, 11, 5) },
-      { name: 'Harvard', meta: '🎓', yes: 11, color: C.violet, path: path(11, 15, 3) },
+      { name: 'Northeastern', yes: 41, color: C.green, path: path(41, 3, -12) },
+      { name: 'Boston College', yes: 27, color: C.blue, path: path(27, 7, 8) },
+      { name: 'Boston University', yes: 21, color: C.gold, path: path(21, 11, 5) },
+      { name: 'Harvard', yes: 11, color: C.violet, path: path(11, 15, 3) },
     ],
   },
   {
-    id: 'FED-DEC', cat: 'Econ', icon: '🏛️', vol: 208626, updated: '1h ago',
+    id: 'FED-DEC', cat: 'Econ', vol: 208626, updated: '1h ago',
     title: 'Fed decision at the December FOMC',
     outcomes: [
       { name: 'Hold rates', yes: 54, color: C.green, path: path(54, 21) },
@@ -75,7 +74,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'BTC-EOY', cat: 'Crypto', icon: '₿', vol: 111852, updated: '48m ago',
+    id: 'BTC-EOY', cat: 'Crypto', vol: 111852, updated: '48m ago',
     title: 'Bitcoin price on January 1',
     outcomes: [
       { name: 'Above $150k', yes: 33, color: C.gold, path: path(33, 31) },
@@ -84,7 +83,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'GPT6', cat: 'Tech', icon: '🤖', vol: 139345, updated: '1m ago', live: true,
+    id: 'GPT6', cat: 'Tech', vol: 139345, updated: '1m ago', live: true,
     title: 'OpenAI ships GPT-6 before the semester ends',
     outcomes: [
       { name: 'Yes', yes: 26, color: C.green, path: path(26, 41) },
@@ -92,7 +91,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'SNOW-BOS', cat: 'Weather', icon: '❄️', vol: 67823, updated: '2h ago',
+    id: 'SNOW-BOS', cat: 'Weather', vol: 67823, updated: '2h ago',
     title: 'First snow in Boston before Thanksgiving',
     outcomes: [
       { name: 'Yes', yes: 62, color: C.green, path: path(62, 51) },
@@ -100,7 +99,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'USNEWS', cat: 'Campus', icon: '🎓', vol: 89077, updated: '2h ago',
+    id: 'USNEWS', cat: 'Campus', vol: 89077, updated: '2h ago',
     title: 'Northeastern ranks top-40 in next US News',
     outcomes: [
       { name: 'Yes', yes: 57, color: C.green, path: path(57, 61) },
@@ -108,7 +107,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'MEMBERS', cat: 'Campus', icon: '📈', vol: 42011, updated: '18m ago', live: true,
+    id: 'MEMBERS', cat: 'Campus', vol: 42011, updated: '18m ago', live: true,
     title: 'E[X] hits 100 signed-up members by opening day',
     outcomes: [
       { name: 'Yes', yes: 83, color: C.green, path: path(83, 71) },
@@ -116,7 +115,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'BEANPOT-FINAL', cat: 'Sports', icon: '🏒', vol: 54120, updated: '35m ago',
+    id: 'BEANPOT-FINAL', cat: 'Sports', vol: 54120, updated: '35m ago',
     title: 'Huskies reach the Beanpot final',
     outcomes: [
       { name: 'Yes', yes: 48, color: C.green, path: path(48, 81) },
@@ -124,7 +123,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'ETH-EOM', cat: 'Crypto', icon: 'Ξ', vol: 100417, updated: '2h ago',
+    id: 'ETH-EOM', cat: 'Crypto', vol: 100417, updated: '2h ago',
     title: 'Ether price at end of month',
     outcomes: [
       { name: 'Above $5k', yes: 32, color: C.gold, path: path(32, 91) },
@@ -133,7 +132,7 @@ export const EVENTS: MarketEvent[] = [
     ],
   },
   {
-    id: 'ALBUM', cat: 'Culture', icon: '🎵', vol: 38221, updated: '3h ago',
+    id: 'ALBUM', cat: 'Culture', vol: 38221, updated: '3h ago',
     title: 'Which drops first this term?',
     outcomes: [
       { name: 'GTA 6', yes: 44, color: C.green, path: path(44, 101) },

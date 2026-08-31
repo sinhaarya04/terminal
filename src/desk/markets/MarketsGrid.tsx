@@ -105,7 +105,11 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => voi
     <button className="mkt" onClick={() => onOpen(ev)} aria-label={`Open ${ev.title}`}>
       <span className="mkt-top">
         <span className="mkt-cat mono">{ev.cat}</span>
-        {ev.live && <span className="mkt-live mono"><i />Live</span>}
+        {ev.live && (
+          <span className="mkt-live mono">
+            <span className="t-shimmer" data-text="Live">Live</span>
+          </span>
+        )}
       </span>
 
       <span className="mkt-title">{ev.title}</span>
@@ -140,7 +144,8 @@ function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void
     <button className="mrow" onClick={() => onOpen(ev)} aria-label={`Open ${ev.title}`}>
       <span className="mrow-main">
         <span className="mrow-meta mono">
-          {ev.cat}{ev.live && <i className="mrow-live" />}
+          {ev.cat}
+          {ev.live && <> · <span className="t-shimmer" data-text="Live">Live</span></>}
         </span>
         <span className="mrow-title">{ev.title}</span>
       </span>

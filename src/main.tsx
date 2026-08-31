@@ -9,6 +9,7 @@ import './styles/motion/nav-menu.css';
 import './styles/motion/number.css';
 import './styles/motion/error-shake.css';
 import './styles/motion/success.css';
+import './styles/motion/shimmer.css';
 import './styles/desk/workspace.css';
 import './styles/desk/panes.css';
 

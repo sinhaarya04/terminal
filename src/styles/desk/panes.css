@@ -12,8 +12,6 @@
 .li.is-on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--red-bright)}
 .li-code{display:block;font-style:normal;font-size:9.5px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--faint);margin-bottom:4px}
-.li-live{display:inline-block;width:5px;height:5px;border-radius:50%;
-  background:var(--red-bright);margin-left:7px;vertical-align:middle}
 .li-q{display:block;font-size:13px;line-height:1.4;color:var(--text)}
 .li-pnl{display:block;margin-top:5px;font-size:11.5px}
 .li-new .li-q{color:var(--red-bright);font-family:var(--mono);font-size:12px;letter-spacing:.08em}
@@ -168,9 +166,8 @@
 
 .mkt-top{display:flex;align-items:center;gap:8px;margin-bottom:11px}
 .mkt-cat{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
-.mkt-live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;
-  font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--red-bright)}
-.mkt-live i{width:5px;height:5px;border-radius:50%;background:var(--red-bright);flex:none}
+.mkt-live{margin-left:auto;display:inline-flex;align-items:center;
+  font-size:9px;letter-spacing:.12em;text-transform:uppercase}
 
 /* flex:none so the rows below can't squeeze the title into a half-cut line —
    the clamp has to own the height, not the flex algorithm */
@@ -242,7 +239,6 @@
 .mrow-main{min-width:0}
 .mrow-meta{display:flex;align-items:center;gap:7px;font-size:9.5px;letter-spacing:.13em;
   text-transform:uppercase;color:var(--faint);margin-bottom:5px}
-.mrow-live{width:5px;height:5px;border-radius:50%;background:var(--red-bright);flex:none}
 .mrow-title{display:block;font-size:13.5px;line-height:1.35;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 
@@ -261,4 +257,16 @@
   .mrow{grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:start}
   .mrow-lead{grid-column:1/-1}
   .mrow-vol,.mrow-upd{display:none}
+}
+
+/* ---------- live shimmer ---------- */
+/* the snippet ships a neutral grey pair; theme it red where it marks a live
+   market. Both layers inherit the parent's uppercase + tracking, so the
+   ::before duplicate stays glyph-aligned with the text under it. */
+.mkt-live .t-shimmer,
+.mrow-meta .t-shimmer,
+.kicker .t-shimmer{
+  --shimmer-base:var(--red);
+  --shimmer-highlight:#ffc2c2;
+  --shimmer-dur:2600ms;
 }

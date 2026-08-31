@@ -21,7 +21,11 @@ export default function MarketDetail({
 
   return (
     <div className="pane-body">
-      <div className="kicker">{ev.cat}{ev.live ? ' · Live' : ''} · {ev.updated}</div>
+      <div className="kicker">
+        {ev.cat}
+        {ev.live && <> · <span className="t-shimmer" data-text="Live">Live</span></>}
+        {' · '}{ev.updated}
+      </div>
       <h2 className="detail-h">{ev.title}</h2>
 
       <div className="detail-legend mono">
