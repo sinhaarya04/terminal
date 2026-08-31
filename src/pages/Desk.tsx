@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useDesk, markIntroSeen, hydrateLive, exitLive } from '../desk/deskStore';
 import { supabase } from '../lib/supabase';
-import DeskSignIn from '../desk/DeskSignIn';
+import SignInSkeleton from '../desk/SignInSkeleton';
 import DeskIntro from '../desk/DeskIntro';
 import DeskTerminal from '../desk/DeskTerminal';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -33,12 +33,11 @@ export default function Desk() {
     return () => { done = true; sub.subscription.unsubscribe(); };
   }, []);
 
-  // Avoid a signed-out flash while the first Supabase session check runs.
-  if (checking && !desk.user) {
-    return <div className="desk-root"><div className="desk-auth" /></div>;
+  // Avoid a signed-out flash while the first Supabase session check runs: the
+  // skeleton holds the card's shape, then cross-fades to the real form.
+  if (checking || !desk.user) {
+    return <div className="desk-root"><SignInSkeleton ready={!checking} /></div>;
   }
-
-  if (!desk.user) return <div className="desk-root"><DeskSignIn /></div>;
 
   if (!desk.seenIntro && !introDone) {
     return (
