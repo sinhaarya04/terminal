@@ -45,6 +45,35 @@ tab was backgrounded.
 
 ---
 
+## Motion stylesheet API — authoritative, harvested after Task 1
+
+The kit's transition sheets use a `t-` prefix throughout. **An earlier draft of this plan guessed
+selector names like `.panel`, `.is-pop`, `.success-tick` and `.is-shaking`; those were wrong.**
+These are the real names, read from the files after they were copied in Task 1. A wrong selector
+produces an animation that silently never fires, so use only what is listed here.
+
+| Sheet | Selectors | Keyframes |
+|---|---|---|
+| `accordion.css` | `.t-acc` with `data-open="true"`, `.t-acc-panel`, `.t-acc-panel-inner`, `.t-acc-chevron` | — |
+| `error-shake.css` | `.t-input`, `.t-input.is-error`, `.t-input.is-shaking`, `.t-input-wrap.is-error`, `.t-error-msg` | `t-input-shake` |
+| `nav-menu.css` | `.t-dropdown`, `.t-dropdown.is-open`, `.t-dropdown.is-closing`, `data-origin="top-right\|top-center\|bottom-left\|bottom-center\|bottom-right"` | — |
+| `number.css` | `.t-digit-group`, `.t-digit`, `.t-digit-group.is-animating`, `data-stagger="1\|2"` | `t-digit-pop-in` |
+| `skeleton.css` | `.t-skel`, `.t-skel-skeleton`, `.t-skel-content`, `.t-skel.is-revealed`, `.t-skel.is-resetting`, `.t-skel-skeleton.is-pulsing` | `t-skel-pulse` |
+| `success.css` | `.t-success-check`, `.t-success-check[data-state="in"]` | `t-check-draw`, `t-check-fade`, `t-check-rotate`, `t-check-blur`, `t-check-bob` |
+| `_root.css` | `:root` custom properties only — durations, easings, and per-component tunables (`--acc-*`, `--digit-*`, `--check-*`) | — |
+
+**Two things to know about these files:**
+
+- Each sheet also carries a *bridge layer* targeting the original marketing site — `.cal-skel`
+  in `skeleton.css`, `.wl-check`/`.wl-done` in `success.css`, `.faq-item`/`.faq-summary` in
+  `accordion.css`, `.auth-input` in `error-shake.css`, `.stat` in `number.css`. Those hooks do
+  not exist in this app's markup and the rules are inert. Leave them alone; do not wire the
+  desk to them.
+- Three sheets (`accordion.css`, `number.css`, `skeleton.css`) have their
+  `prefers-reduced-motion` block **mid-file**, not at the end, because a project bridge layer
+  follows it. That is fine — the block exists and applies. Task 15 checks that each sheet
+  *contains* one, not that it ends with one.
+
 ## File Structure
 
 **Created:**
@@ -266,22 +295,24 @@ works, FAQ, magic-link login form.
 The desk blocks from `/* ---- sign-in ---- */` (line 1147) to end-of-file stay for now; Tasks 4–7
 replace them.
 
-- [ ] **Step 3: Add the missing primitives**
+- [ ] **Step 3: PRESERVE the kit primitives that already exist**
 
-The kit's `.kicker`, `.h-sec` and `.lead` are not in this stylesheet yet. Add them to the
-foundation block, after `.wrap-wide`:
+⚠️ **Correction to an earlier draft of this plan.** `.kicker`, `.kicker::before`, `.h-sec` and
+`.lead` are **already defined** in `global.css` at lines 78–83, and `.wrap`/`.wrap-wide` at
+lines 31–32. They sit inside the marketing `/* ---------- sections ---------- */` block that
+this task otherwise deletes, and nothing in the app currently renders them — which is exactly
+why they look like dead code and are easy to delete by accident.
 
-```css
-.kicker{display:inline-flex;align-items:center;gap:9px;
-  font-family:var(--mono);font-size:12px;font-weight:500;
-  letter-spacing:.14em;text-transform:uppercase;
-  color:var(--red-bright);margin-bottom:18px}
-.kicker::before{content:"";width:24px;height:1px;background:var(--red-bright)}
+**Do not re-add them, and do not delete them.** Move these six rules up into the foundation
+block, immediately after `.wrap-wide`, then delete the rest of the section around them:
 
-.h-sec{font-size:clamp(30px,4.2vw,48px);line-height:1.1}
-.lead{font-size:clamp(18px,2vw,21px);color:var(--muted);
-  line-height:1.5;max-width:34ch;margin:18px auto 0}
+```bash
+sed -n '31,32p;78,79p;82,83p' src/styles/global.css
 ```
+
+Confirm that prints `.wrap`, `.wrap-wide`, `.kicker`, `.kicker::before`, `.h-sec` and `.lead`
+before you cut anything. Re-adding them from the kit instead would leave two competing
+definitions in the same sheet.
 
 - [ ] **Step 4: Verify the line count dropped and the build is clean**
 
@@ -316,10 +347,21 @@ top of it.
 **Files:**
 - Modify: `src/styles/global.css`
 
-- [ ] **Step 1: Add `.btn` and `.btn-red` with the wipe**
+- [ ] **Step 1: REPAIR the existing `.btn` and `.btn-red` — do not re-add them**
 
-This is the system's signature interaction and the desk currently has no version of it. The wipe
-lives on a `z-index:-1` pseudo-element so the label stays above it.
+⚠️ **Correction to an earlier draft of this plan.** `.btn`, `.btn-red` and the wipe pseudo
+**already exist** in `global.css` at lines 89–94, and the wipe is correct. What was actually
+missing is that *the desk never uses them* — `DeskSignIn`, `BetTicket` and `DeskPersonal` all
+use `.desk-btn`, a solid red fill with white text. So this step repairs three real defects in
+the existing rules rather than writing new ones:
+
+1. `.btn` carries `transition:all .16s` — the single `transition:all` in the codebase, and a
+   pre-ship checklist violation.
+2. `.btn` has no `cursor`, `font-family` or `background`, so it inherits UA button chrome when
+   used on a real `<button>` (it was only ever used on `<Link>` elements in the marketing site).
+3. There is no disabled state, and every ticket button in this redesign has one.
+
+Replace lines 89–94 with:
 
 ```css
 .btn{display:inline-flex;align-items:center;justify-content:center;
@@ -342,6 +384,8 @@ lives on a `z-index:-1` pseudo-element so the label stays above it.
   .btn-red::before{transition:none}
 }
 ```
+
+Leave `.btn-ghost`/`.btn-min` (lines 96–101) deleted by Task 2 — nothing renders them.
 
 Do **not** wrap `.btn-red` in any container that resets `overflow`, `border` or stacking context —
 the wipe depends on `overflow:hidden` plus the negative-z pseudo, and a normalising wrapper kills
@@ -1481,9 +1525,11 @@ It shows the skeleton → content cross-fade driven by a real `loading | ready |
 
 - [ ] **Step 2: Replace the blank loading div in `src/pages/Desk.tsx`**
 
-The current code at line 41 renders `<div className="desk-auth" />`. Replace with skeleton rows
-using the class names from `src/styles/motion/skeleton.css` (read that file for the exact
-class names it defines — do not guess).
+The current code at line 41 renders `<div className="desk-auth" />`. Replace it with the sheet's
+structure: an outer `.t-skel` that gains `is-revealed` once loading finishes, wrapping a
+`.t-skel-skeleton` (add `is-pulsing` for the shimmer) and a `.t-skel-content`. The cross-fade is
+driven entirely by toggling `is-revealed` on the outer element. Ignore the `.cal-skel` bridge
+layer at the end of the sheet — that targets the old marketing calendar.
 
 - [ ] **Step 3: Verify against a real slow load**
 
@@ -1534,16 +1580,20 @@ useEffect(() => {
   if (!nonce) return;
   const el = errRef.current;
   if (!el) return;
-  el.classList.remove('is-shaking');
+  el.classList.remove('t-input', 'is-shaking');
   void el.offsetWidth;              // forces layout; without it nothing replays
-  el.classList.add('is-shaking');
+  el.classList.add('t-input', 'is-shaking');
   setShaking(true);
 }, [tooMuch, nonce]);
 ```
 
-Call `fail()` from `confirm()` when `invalid` is true instead of returning silently. Keep
-`.is-error` and `.is-shaking` orthogonal — add `.is-error` once and leave it, cycle only
-`.is-shaking`.
+Call `fail()` from `confirm()` when `invalid` is true instead of returning silently.
+
+The amount `<input>` carries `t-input` permanently and gains `is-error` once; only `is-shaking`
+is cycled. Keep them orthogonal — merging them re-flashes the whole error treatment on every
+replay. The message element uses `t-error-msg` inside a wrapper carrying `t-input-wrap is-error`.
+See the sheet API table near the top of this plan; `error-shake.css` also defines an
+`.auth-input.t-input` bridge for the old marketing login — ignore it.
 
 - [ ] **Step 3: Apply the same pattern to the failed join in `PersonalList`**
 
@@ -1584,10 +1634,9 @@ For the path `M14 25 L21 32 L34 17` in a `0 0 48 48` viewBox:
 ```tsx
 export default function SuccessCheck({ label }: { label: string }) {
   return (
-    <div className="success" role="status" aria-label={label}>
-      <svg viewBox="0 0 48 48" className="success-svg" aria-hidden="true">
-        <circle cx="24" cy="24" r="21" className="success-ring" />
-        <path d="M14 25 L21 32 L34 17" className="success-tick"
+    <div className="t-success-check" data-state="in" role="status" aria-label={label}>
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M14 25 L21 32 L34 17"
           style={{ strokeDasharray: 30, strokeDashoffset: 30 }} />
       </svg>
     </div>
@@ -1595,8 +1644,9 @@ export default function SuccessCheck({ label }: { label: string }) {
 }
 ```
 
-Cross-check the class names against `src/styles/motion/success.css` before wiring — use what that
-file defines rather than inventing names.
+`success.css` styles `.t-success-check svg path` directly, so the path needs no class of its own;
+the draw is driven by the `data-state="in"` attribute. Do not add `.success-ring`/`.success-tick` —
+they do not exist in the sheet.
 
 - [ ] **Step 2: Fire it on a successful bet**
 
@@ -1655,15 +1705,17 @@ export default function PopNumber({ text, className = '' }: { text: string; clas
     prev.current = text;
     const el = ref.current;
     if (!el) return;
-    el.classList.remove('is-pop');
+    el.classList.remove('is-animating');
     void el.offsetWidth;                 // forces layout so the animation replays
-    el.classList.add('is-pop');
+    el.classList.add('is-animating');
   }, [text]);
 
   return (
-    <span ref={ref} className={`popnum ${className}`} role="img" aria-label={text}>
-      <span className="popnum-digits" aria-hidden="true">
-        {text.split('').map((ch, i) => <span key={i}>{ch}</span>)}
+    <span className={className} role="img" aria-label={text}>
+      <span ref={ref} className="t-digit-group" aria-hidden="true">
+        {text.split('').map((ch, i) => (
+          <span key={i} className="t-digit" data-stagger={String(Math.min(i, 2))}>{ch}</span>
+        ))}
       </span>
     </span>
   );
@@ -1673,7 +1725,9 @@ export default function PopNumber({ text, className = '' }: { text: string; clas
 Track the previous value in a ref, not state. A `useState` mirror would set state inside the
 effect, causing a second render on every balance change purely to detect that a change happened.
 
-Check the animating class name against `src/styles/motion/number.css` and use that file's name.
+`number.css` animates `.t-digit-group.is-animating .t-digit`, and staggers via
+`data-stagger="1"` and `data-stagger="2"`. The ref must sit on the `.t-digit-group` element —
+that is what carries `is-animating` — while `role="img"` and the label stay on the outer span.
 
 - [ ] **Step 3: Use it for the rail balance**
 
@@ -1725,7 +1779,7 @@ const isOpen = (cat: string) => open[cat] ?? true;   // default open
 ```
 
 ```tsx
-<section className="grp acc" key={cat} data-open={isOpen(cat)}>
+<section className="grp t-acc" key={cat} data-open={isOpen(cat)}>
   <h3>
     <button className="grp-h mono"
       onClick={() => setOpen((o) => ({ ...o, [cat]: !(o[cat] ?? true) }))}
@@ -1733,8 +1787,8 @@ const isOpen = (cat: string) => open[cat] ?? true;   // default open
       {cat}<span className="grp-n">{items.length}</span>
     </button>
   </h3>
-  <div className="panel" id={`grp-${cat}`} inert={!isOpen(cat)}>
-    <div className="panel-inner grp-items">
+  <div className="t-acc-panel" id={`grp-${cat}`} inert={!isOpen(cat)}>
+    <div className="t-acc-panel-inner grp-items">
       {/* the existing .li buttons, unchanged */}
     </div>
   </div>
@@ -1750,9 +1804,10 @@ Two details that are easy to get wrong:
 
 - [ ] **Step 3: Confirm the padding rule**
 
-Height animates `grid-template-rows: 0fr → 1fr`. **Padding must live on `.panel-inner`, never on
-the `.panel` track** — padding on a `0fr` track leaves a residual strip and the group never fully
-closes. Verify `src/styles/motion/accordion.css` puts it on the inner element.
+Height animates `grid-template-rows: 0fr → 1fr`. **Padding must live on `.t-acc-panel-inner`,
+never on the `.t-acc-panel` track** — padding on a `0fr` track leaves a residual strip and the
+group never fully closes. `data-open` goes on the `.t-acc` section, not on the panel; the sheet
+selects `.t-acc[data-open="true"] .t-acc-panel`.
 
 - [ ] **Step 4: Verify collapse, tab order and reduced motion**
 
@@ -1878,8 +1933,8 @@ Expected: no hits from the first and third. The second must show only the measur
 
 - [ ] **Step 2: Accessibility sweep**
 
-Confirm each: every animated stylesheet ends with a `@media (prefers-reduced-motion: reduce)`
-block; collapsed accordion panels carry `inert`; disclosure toggles are real `<button>`s with
+Confirm each: every animated stylesheet *contains* a `@media (prefers-reduced-motion: reduce)`
+block (three of them place it mid-file, before a project bridge layer — that is expected); collapsed accordion panels carry `inert`; disclosure toggles are real `<button>`s with
 `aria-expanded` and `aria-controls`; errors keep `role="alert"` and success `role="status"`;
 decorative SVG is `aria-hidden`; split text is labelled on its container; focus is visible on
 near-black everywhere.
