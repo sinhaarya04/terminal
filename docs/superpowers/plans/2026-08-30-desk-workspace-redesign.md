@@ -1580,9 +1580,9 @@ useEffect(() => {
   if (!nonce) return;
   const el = errRef.current;
   if (!el) return;
-  el.classList.remove('t-input', 'is-shaking');
-  void el.offsetWidth;              // forces layout; without it nothing replays
-  el.classList.add('t-input', 'is-shaking');
+  el.classList.remove('is-shaking');   // `t-input` and `is-error` stay put — cycle only this one
+  void el.offsetWidth;                 // forces layout; without it nothing replays
+  el.classList.add('is-shaking');
   setShaking(true);
 }, [tooMuch, nonce]);
 ```
