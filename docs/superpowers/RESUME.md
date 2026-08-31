@@ -23,14 +23,14 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 | 5 · Positions panes | ✅ done | `fbeb1d0` |
 | 6 · Personal panes | ✅ done | `ebdc82a` |
 | 7 · Delete superseded components, `panes.css` | ✅ done | `ccce3c0` |
-| 8 · Skeleton transition | ✅ done | `(see log)` |
+| 8 · Skeleton transition | ✅ done | `e2296fe` |
 | 9 · Error shake | ✅ done | `a085e12` |
 | 10 · Success check | ✅ done | `eeceb56` |
 | 11 · Number pop-in | ✅ done | `a085e12` |
 | 12 · Accordion category groups | ✅ done | `f064dee` |
 | 13 · Dropdown (account menu) | ✅ done | `5e835e8` |
 | 14 · Restyle sign-in and intro | ✅ done | `56231db` |
-| 15 · Pre-ship checklist | ✅ done | `(see log)` |
+| 15 · Pre-ship checklist | ✅ done | `e2296fe` |
 
 **Plan:** `docs/superpowers/plans/2026-08-30-desk-workspace-redesign.md` — full text of every task.
 **Spec:** `docs/superpowers/specs/2026-08-30-desk-workspace-redesign-design.md` — the approved design.
