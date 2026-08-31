@@ -50,9 +50,6 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn:disabled::before{transform:scaleX(0)}
 @media(prefers-reduced-motion:reduce){.btn-red::before{transition:none}}
-/* glass surface — quiet default: translucent ink fill + blur, hairline edge */
-.glass{border:1px solid rgba(255,255,255,.07);border-radius:3px;
-  background:rgba(9,10,15,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .brand{display:flex;align-items:center;gap:12px}
 .brand .ex{font-family:var(--serif);font-size:24px;font-weight:500;letter-spacing:.03em;line-height:1}
 .brand .ex .bk{color:var(--red-bright);font-weight:500}
@@ -63,12 +60,10 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .b1{width:50vw;height:50vw;left:-8%;top:-14%;background:radial-gradient(circle at 38% 38%,rgba(255,80,80,.85),rgba(255,80,80,0) 68%);opacity:.42;animation:drift1 28s ease-in-out infinite alternate}
 .b2{width:54vw;height:54vw;right:-12%;top:-8%;background:radial-gradient(circle at 50% 50%,rgba(200,30,45,.80),rgba(200,30,45,0) 66%);opacity:.40;animation:drift2 34s ease-in-out infinite alternate;animation-delay:-7s}
 .b3{width:48vw;height:48vw;left:16%;bottom:-26%;background:radial-gradient(circle at 50% 50%,rgba(140,20,28,.9),rgba(140,20,28,0) 64%);opacity:.46;animation:drift3 31s ease-in-out infinite alternate;animation-delay:-13s}
-.b4{width:40vw;height:40vw;right:4%;bottom:-18%;background:radial-gradient(circle at 50% 50%,rgba(200,30,45,.55),rgba(200,30,45,0) 68%);opacity:.30;animation:drift4 39s ease-in-out infinite alternate;animation-delay:-19s}
 /* phones: fewer, softer blobs — the 85px blur + screen blending is a real GPU/battery cost */
 @media(max-width:680px){
   .blob{filter:blur(60px)}
-  .b4{display:none}
-}
+  }
 @keyframes drift1{0%{transform:translate(0,0) scale(1) rotate(0deg)}100%{transform:translate(8vw,6vh) scale(1.28) rotate(26deg)}}
 @keyframes drift2{0%{transform:translate(0,0) scale(1.12) rotate(0deg)}100%{transform:translate(-7vw,9vh) scale(.84) rotate(-24deg)}}
 @keyframes drift3{0%{transform:translate(0,0) scale(.9) rotate(0deg)}100%{transform:translate(6vw,-8vh) scale(1.22) rotate(20deg)}}
@@ -82,8 +77,7 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .about-fluid .b1{left:-6%;top:-30%}
 .about-fluid .b2{right:-10%;top:-24%}
 .about-fluid .b3{left:24%;top:-10%}
-.about-fluid .b4{right:8%;top:6%}
-
+.about-fluid 
 /* ============================================================
    /terminal — full-screen demo desk (modest red/dark/glass)
    ============================================================ */

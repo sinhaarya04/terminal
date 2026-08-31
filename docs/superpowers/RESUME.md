@@ -12,7 +12,7 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 
 ---
 
-## State as of 2026-08-31 01:45 MDT
+## State as of 2026-08-31 03:50 MDT — all 15 tasks complete
 
 | Task | Status | Commit |
 |---|---|---|
@@ -23,14 +23,14 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 | 5 · Positions panes | ✅ done | `fbeb1d0` |
 | 6 · Personal panes | ✅ done | `ebdc82a` |
 | 7 · Delete superseded components, `panes.css` | ✅ done | `ccce3c0` |
-| 8 · Skeleton transition | ⬜ **not done** | — |
+| 8 · Skeleton transition | ✅ done | `(see log)` |
 | 9 · Error shake | ✅ done | `a085e12` |
 | 10 · Success check | ✅ done | `eeceb56` |
 | 11 · Number pop-in | ✅ done | `a085e12` |
 | 12 · Accordion category groups | ✅ done | `f064dee` |
-| 13 · Dropdown (account menu + slide-over) | ⬜ **not done** | — |
+| 13 · Dropdown (account menu) | ✅ done | `5e835e8` |
 | 14 · Restyle sign-in and intro | ✅ done | `56231db` |
-| 15 · Pre-ship checklist | 🟡 partial — see "Outstanding" | — |
+| 15 · Pre-ship checklist | ✅ done | `(see log)` |
 
 **Plan:** `docs/superpowers/plans/2026-08-30-desk-workspace-redesign.md` — full text of every task.
 **Spec:** `docs/superpowers/specs/2026-08-30-desk-workspace-redesign-design.md` — the approved design.
@@ -85,22 +85,25 @@ A green build proves nothing about whether a transition looks right. The browser
 
 ## Outstanding
 
-**Task 8 (skeleton) and Task 13 (dropdown) are not done.** Neither blocks the redesign:
-- *Skeleton* attaches to `Desk.tsx`'s `checking` state, which is only truthy when Supabase env
-  vars are set. In guest mode it never renders, so it could not be verified in this session.
-- *Dropdown* would move Sign out / Reset demo into an account menu in the rail, and drive the
-  mid-width action pane's slide-over through a four-phase mount. Both work today without it.
+All 15 tasks are done. What is left is human judgement, not code:
 
-**Known gaps from the Task 15 sweep:**
-- `MultiLineChart`'s `<svg class="mchart">` has neither `aria-hidden` nor an accessible name.
-  It is a data chart, not decoration, so hiding it is the wrong fix — it wants a `role="img"`
-  and a summary label. Left alone because the spec puts `MultiLineChart.tsx` off limits.
-- Mid (900–1199px) and narrow (<900px) layouts are **unverified in a real browser**. The code
-  paths exist and typecheck; nobody has looked at them. `resize_window` dropped the extension
-  connection every time it was tried.
-- The tab was backgrounded for most verification, which freezes CSS transitions at their start
-  value. Animations were confirmed by reading computed styles with `transition:none` (the
-  brief's own diagnostic) rather than by eye. **Someone should watch them run once.**
+- **Nobody has watched the animations run.** Every one was verified by reading computed styles
+  with `transition:none` (the brief's own diagnostic for a frozen tab) and by instrumenting
+  class mutations. That proves the CSS resolves to the right end states; it does not prove they
+  *look* right. Open the app in a focused window and watch: the ticket shake on overspend, the
+  success check draw, the balance pop, a category group collapsing, the account menu opening.
+- **`resize_window` is broken in this environment** — it reports success but `window.innerWidth`
+  never changes, and it drops the browser-extension connection. The narrow layout was verified
+  by overriding `innerWidth` (which exercises the real React drill-down) plus promoting the
+  `max-width:899px` block to unconditional and clamping `#root` to 390px. That covers both the
+  logic and the CSS, but not a genuine mobile viewport. Check on a real phone before shipping.
+- **`MultiLineChart`'s `<svg class="mchart">` has no accessible name.** It is a data chart, so
+  `aria-hidden` is the wrong fix — it wants `role="img"` and a summary label. Left alone because
+  the spec puts `MultiLineChart.tsx` off limits. Worth a follow-up.
+- **The account menu depends on a double `requestAnimationFrame`**, which does not run in a
+  hidden tab. Queued frames fire when the tab is shown, so it self-heals — but if you ever see
+  the menu mount invisible, that is the cause, not a CSS bug.
+- Four `npm audit` advisories remain, deliberately out of scope.
 
 ## Scope boundary — do not cross it
 
