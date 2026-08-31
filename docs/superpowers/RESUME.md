@@ -87,11 +87,20 @@ A green build proves nothing about whether a transition looks right. The browser
 
 All 15 tasks are done. What is left is human judgement, not code:
 
-- **Nobody has watched the animations run.** Every one was verified by reading computed styles
-  with `transition:none` (the brief's own diagnostic for a frozen tab) and by instrumenting
-  class mutations. That proves the CSS resolves to the right end states; it does not prove they
-  *look* right. Open the app in a focused window and watch: the ticket shake on overspend, the
-  success check draw, the balance pop, a category group collapsing, the account menu opening.
+- ~~Nobody has watched the animations run.~~ **Done 2026-08-31.** Chrome was brought to the
+  foreground (`osascript` → activate + select the tab; `visibilityState` went `hidden` →
+  `visible`, rAF resumed at ~123fps) and all five were sampled frame-by-frame while running:
+  accordion collapse 114.4→81.8→58.1→40.1→…→1.2px and expand 0→40.8→86→114.4px; error shake
+  translateX 0→+5.6→−1.8px, replaying identically on three consecutive same-amount overspends
+  (the nonce doing its job); success check stroke-dashoffset 30→10.4; balance digits opacity
+  0.14→0.97; account menu opacity 0→1 over 250ms and 1→0.01 over 150ms with no stale
+  `is-closing` on reopen.
+
+  **Note for future browser testing:** setting a React controlled input via `el.value = x` is
+  ignored by React's value tracker — the first shake test silently placed a real $25 bet
+  instead. Use the native setter:
+  `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el, v)` then
+  dispatch `input`.
 - **`resize_window` is broken in this environment** — it reports success but `window.innerWidth`
   never changes, and it drops the browser-extension connection. The narrow layout was verified
   by overriding `innerWidth` (which exercises the real React drill-down) plus promoting the
