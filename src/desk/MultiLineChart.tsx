@@ -13,6 +13,15 @@ export default function MultiLineChart({ outcomes }: { outcomes: Outcome[] }) {
   const max = Math.min(100, Math.max(...all) + 6);
   const span = max - min || 1;
 
+  // A screen reader gets nothing from the polylines, so the label carries the
+  // reading: who is in the market, where each sits now, and which way it moved.
+  const summary = outcomes.map((o) => {
+    const p = o.path;
+    const delta = p.length > 1 ? o.yes - p[0] : 0;
+    const dir = delta > 0.5 ? 'up' : delta < -0.5 ? 'down' : 'flat';
+    return `${o.name} ${o.yes}%, ${dir}`;
+  }).join('; ');
+
   const x = (i: number, n: number) => padL + (i / (n - 1)) * iw;
   const y = (v: number) => padT + (1 - (v - min) / span) * ih;
 
@@ -23,7 +32,12 @@ export default function MultiLineChart({ outcomes }: { outcomes: Outcome[] }) {
   });
 
   return (
-    <svg className="mchart" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Outcome probability over time">
+    <svg
+      className="mchart"
+      viewBox={`0 0 ${w} ${h}`}
+      role="img"
+      aria-label={`Outcome probability over time. ${summary}.`}
+    >
       {grid.map((g, i) => (
         <g key={i}>
           <line x1={padL} y1={g.yy} x2={padL + iw} y2={g.yy} className="mchart-grid" />
