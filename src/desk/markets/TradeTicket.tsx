@@ -1,0 +1,78 @@
+import { useState } from 'react';
+import { placeBet, money, useDesk, type DeskMarket, type Side } from '../deskStore';
+
+export default function TradeTicket({
+  market, side, onSide, onDone,
+}: {
+  market: DeskMarket | null;
+  side: Side;
+  onSide: (s: Side) => void;
+  onDone: () => void;
+}) {
+  const { balance } = useDesk();
+  const [amount, setAmount] = useState(25);
+  const [busy, setBusy] = useState(false);
+
+  if (!market) {
+    return (
+      <div className="pane-body pane-empty">
+        <div className="kicker">Ticket</div>
+        <p className="pane-empty-sub">Choose an outcome to build an order.</p>
+      </div>
+    );
+  }
+
+  const price = side === 'YES' ? market.yes : 100 - market.yes; // cents
+  const shares = price > 0 ? amount / (price / 100) : 0;
+  const maxPayout = shares * 1;                                  // each share pays $1 if it wins
+  const tooMuch = amount > balance;
+  const invalid = amount <= 0 || tooMuch;
+
+  const confirm = async () => {
+    if (invalid || busy) return;
+    setBusy(true);
+    const ok = await placeBet(market, side, amount);
+    setBusy(false);
+    if (ok) onDone();
+  };
+
+  const chip = (v: number) => (
+    <button type="button" className="tk-chip mono" onClick={() => setAmount(v)} disabled={v > balance}>
+      {money(v)}
+    </button>
+  );
+
+  return (
+    <div className="pane-body">
+      <div className="kicker">Ticket</div>
+      <p className="tk-q">{market.q}</p>
+      <div className="tk-code mono">{market.id}{market.cat ? ` · ${market.cat}` : ''}</div>
+
+      <div className="tk-sides">
+        <button className={`tk-side is-yes ${side === 'YES' ? 'is-on' : ''}`} onClick={() => onSide('YES')}>YES</button>
+        <button className={`tk-side is-no ${side === 'NO' ? 'is-on' : ''}`} onClick={() => onSide('NO')}>NO</button>
+      </div>
+
+      <label className="tk-field">
+        <span className="tk-label mono">Amount ($)</span>
+        <input className="tk-input mono" type="number" min={1} value={amount}
+          onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} />
+      </label>
+      <div className="tk-chips">{chip(10)}{chip(25)}{chip(50)}{chip(100)}</div>
+
+      <div className="tk-calc mono">
+        <div><span>PRICE</span><b>{price}¢</b></div>
+        <div><span>SHARES</span><b>{shares.toFixed(1)}</b></div>
+        <div><span>COST</span><b>{money(amount)}</b></div>
+        <div><span>MAX PAYOUT</span><b className="is-yes">{money(maxPayout)}</b></div>
+        <div><span>BALANCE AFTER</span><b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b></div>
+      </div>
+
+      {tooMuch && <p className="tk-err mono" role="alert">Not enough credits.</p>}
+
+      <button className="btn btn-red tk-go" disabled={invalid || busy} onClick={confirm}>
+        {busy ? 'Placing…' : `Buy ${side} · ${money(amount)}`}
+      </button>
+    </div>
+  );
+}

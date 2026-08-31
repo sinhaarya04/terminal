@@ -1,0 +1,65 @@
+/* shell: rail + workspace */
+/* padding:0 / overflow:visible neutralise the legacy .desk-term rule that still
+   lives in global.css; Task 7 deletes that block and these resets with it. */
+.desk-term{display:grid;grid-template-columns:auto 1fr;min-height:100vh;
+  padding:0;overflow:visible}
+.desk-main{min-width:0;overflow:hidden}
+
+/* ---------- rail ---------- */
+.rail{display:flex;flex-direction:column;gap:26px;width:172px;padding:22px 18px;
+  border-right:1px solid var(--border)}
+.rail-brand{display:block}
+.rail-dests{display:flex;flex-direction:column;gap:2px}
+.rail-dest{position:relative;text-align:left;background:none;border:none;cursor:pointer;
+  font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);padding:9px 0 9px 13px;
+  transition:color .15s ease}
+.rail-dest:hover{color:var(--text)}
+.rail-dest.is-on{color:var(--text)}
+.rail-dest.is-on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;
+  width:1px;background:var(--red-bright)}
+.rail-badge{font-style:normal;margin-left:8px;font-size:10px;color:var(--red-bright)}
+.rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:7px;
+  padding-top:18px;border-top:1px solid var(--border)}
+.rail-bal{font-size:15px;font-weight:600;color:var(--green);letter-spacing:.01em}
+.rail-user{font-size:11px;color:var(--faint);letter-spacing:.06em}
+.rail-signout{background:none;border:none;padding:0;text-align:left;cursor:pointer;
+  font-size:12px;color:var(--faint);transition:color .15s ease}
+.rail-signout:hover{color:var(--red-bright)}
+
+/* ---------- panes ---------- */
+.ws{display:grid;height:100vh;min-width:0}
+.ws-wide{grid-template-columns:300px minmax(0,1fr) 320px}
+.ws-mid{grid-template-columns:280px minmax(0,1fr);position:relative}
+.ws-pane{min-width:0;overflow-y:auto;border-right:1px solid var(--border)}
+.ws-pane:last-child{border-right:none}
+.pane-body{padding:22px 20px}
+.pane-empty{display:flex;flex-direction:column;justify-content:center;height:60%;
+  text-align:center;color:var(--muted)}
+.pane-empty-sub{margin-top:6px;font-size:13px;color:var(--faint)}
+
+/* mid: the action pane becomes a slide-over pinned to the right edge */
+.ws-mid .ws-action{position:absolute;top:0;right:0;bottom:0;width:320px;z-index:20;
+  background:var(--bg2);border-left:1px solid var(--border-2)}
+
+/* narrow: one pane at a time */
+.ws-narrow{display:block;height:auto}
+.ws-narrow .ws-pane-solo{border-right:none}
+.ws-back{display:block;width:100%;text-align:left;background:none;border:none;
+  border-bottom:1px solid var(--border);cursor:pointer;padding:13px 20px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);transition:color .15s ease}
+.ws-back:hover{color:var(--text)}
+
+@media(max-width:899px){
+  .desk-term{grid-template-columns:1fr;padding-bottom:56px}
+  .rail{flex-direction:row;align-items:center;gap:16px;width:auto;
+    position:fixed;bottom:0;left:0;right:0;z-index:40;
+    padding:0 16px;height:56px;border-right:none;border-top:1px solid var(--border);
+    background:var(--bg2)}
+  .rail-brand,.rail-user,.rail-signout{display:none}
+  .rail-dests{flex-direction:row;gap:18px}
+  .rail-dest{padding:9px 0}
+  .rail-dest.is-on::before{left:0;right:0;top:auto;bottom:0;width:auto;height:1px}
+  .rail-foot{margin-top:0;margin-left:auto;padding-top:0;border-top:none}
+}

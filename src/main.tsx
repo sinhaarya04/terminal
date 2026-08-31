@@ -9,6 +9,7 @@ import './styles/motion/nav-menu.css';
 import './styles/motion/number.css';
 import './styles/motion/error-shake.css';
 import './styles/motion/success.css';
+import './styles/desk/workspace.css';
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 

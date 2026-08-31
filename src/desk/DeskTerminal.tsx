@@ -1,70 +1,57 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import BrandLockup from '../components/BrandLockup';
-import { useDesk, signOut, resetDesk, money } from './deskStore';
-import { supabase } from '../lib/supabase';
-import DeskMarkets from './DeskMarkets';
+import Rail, { type Destination } from './Rail';
+import Workspace, { type PaneKey } from './Workspace';
+import MarketsList from './markets/MarketsList';
+import MarketDetail from './markets/MarketDetail';
+import TradeTicket from './markets/TradeTicket';
+import { ensureMarket, type DeskMarket, type Side } from './deskStore';
+import { outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
 import DeskPositions from './DeskPositions';
 import DeskPersonal from './DeskPersonal';
 
-type Tab = 'Markets' | 'Positions' | 'Personal';
-const TABS: Tab[] = ['Markets', 'Positions', 'Personal'];
-
 export default function DeskTerminal() {
-  const { user, balance, positions, live } = useDesk();
-  const [tab, setTab] = useState<Tab>('Markets');
+  const [dest, setDest] = useState<Destination>('Markets');
+  const [focus, setFocus] = useState<PaneKey>('list');
+  const [ev, setEv] = useState<MarketEvent | null>(null);
+  const [order, setOrder] = useState<{ m: DeskMarket; side: Side } | null>(null);
 
-  const doSignOut = () => {
-    if (live && supabase) supabase.auth.signOut(); // listener calls exitLive()
-    else signOut();
+  const pickOutcome = (o: Outcome, side: Side) => {
+    if (!ev) return;
+    const m = outcomeToMarket(ev, o);
+    ensureMarket(m);
+    setOrder({ m, side });
+    setFocus('action');
+  };
+
+  const selectEvent = (next: MarketEvent) => {
+    setEv(next);
+    setOrder(null);
+    setFocus('detail');
   };
 
   return (
     <div className="desk-term">
-      <div className="about-fluid" aria-hidden="true">
-        <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
-      </div>
+      <Rail active={dest} onChange={(d) => { setDest(d); setFocus('list'); }} />
 
-      <header className="desk-top">
-        <Link to="/" className="brand desk-brand" aria-label="Back to E[X]">
-          <BrandLockup />
-          <span className="desk-brand-tag">Terminal</span>
-        </Link>
-        <div className="desk-top-right">
-          <span className="desk-bal mono">{money(balance)}</span>
-          <span className="desk-user">@{user?.handle}</span>
-          <button className="desk-signout" onClick={doSignOut}>Sign out</button>
-        </div>
-      </header>
-
-      <p className="desk-greet">
-        Welcome back, <b>{user?.handle}</b>. You have {positions.length} open position{positions.length === 1 ? '' : 's'}.
-      </p>
-
-      <nav className="desk-tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            className={`desk-tabbtn ${tab === t ? 'active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-            {t === 'Positions' && positions.length > 0 && <em className="desk-badge">{positions.length}</em>}
-          </button>
-        ))}
-        {!live && (
-          <button className="desk-reset" onClick={() => { if (confirm('Reset the demo? Clears balance, positions and replays the intro.')) resetDesk(); }}>
-            reset demo
-          </button>
+      <main className="desk-main">
+        {dest === 'Markets' && (
+          <Workspace
+            focus={focus}
+            onFocus={setFocus}
+            list={<MarketsList selectedId={ev?.id ?? null} onSelect={selectEvent} />}
+            detail={<MarketDetail ev={ev} onPick={pickOutcome} />}
+            action={
+              <TradeTicket
+                market={order?.m ?? null}
+                side={order?.side ?? 'YES'}
+                onSide={(s) => setOrder((o) => (o ? { ...o, side: s } : o))}
+                onDone={() => { setOrder(null); setFocus('detail'); }}
+              />
+            }
+          />
         )}
-      </nav>
-
-      <main className="desk-content">
-        {tab === 'Markets' && <DeskMarkets />}
-        {tab === 'Positions' && <DeskPositions />}
-        {tab === 'Personal' && <DeskPersonal />}
+        {dest === 'Positions' && <DeskPositions />}
+        {dest === 'Personal' && <DeskPersonal />}
       </main>
     </div>
   );
