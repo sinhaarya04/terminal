@@ -1,0 +1,14 @@
+.superpowers/
+*.tsbuildinfo
+dist/
+node_modules/
+shots/
+shots2/
+vite.config.d.ts
+vite.config.js
+.vercel
+.env
+.env.local
+
+# Supabase CLI artifacts
+supabase/.temp/

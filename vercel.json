@@ -1,0 +1,12 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/join-discord",
+      "destination": "https://dtgciwhecaqwnddzepiz.supabase.co/functions/v1/join-discord",
+      "permanent": false
+    }
+  ],
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+}
