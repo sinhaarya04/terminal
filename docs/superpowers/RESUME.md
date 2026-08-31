@@ -27,7 +27,7 @@ That is all that is needed. Everything below is for whoever (or whatever) picks 
 | 9 · Error shake | ✅ done | `a085e12` |
 | 10 · Success check | ✅ done | `eeceb56` |
 | 11 · Number pop-in | ✅ done | `a085e12` |
-| 12 · Accordion category groups | ✅ done | `f064dee` |
+| 12 · Accordion category groups | ⛔ superseded | see note |
 | 13 · Dropdown (account menu) | ✅ done | `5e835e8` |
 | 14 · Restyle sign-in and intro | ✅ done | `56231db` |
 | 15 · Pre-ship checklist | ✅ done | `e2296fe` |
@@ -84,6 +84,18 @@ A green build proves nothing about whether a transition looks right. The browser
    each task stayed visually verifiable. Task 7 kept only the deletions.
 
 ## Outstanding
+
+**Markets was reworked after the plan closed (2026-08-31).** The list-pane sidebar was replaced
+with a Polymarket/Kalshi-style grid of square preview cards; clicking one expands to the full
+market screen (chart + outcomes + docked ticket) with a back control. Rationale: the split-pane
+list only showed a handful of markets at a time, and the ask was to make them all visible.
+
+Consequences:
+- `MarketsList.tsx` is deleted, and with it Task 12's accordion category groups — the grid uses
+  a filter tab row instead. `accordion.css` is now unused by the desk; it is left in place
+  because nothing else costs anything and a future disclosure can use it.
+- Markets no longer uses `Workspace`. Positions and Personal still do, so the three-pane
+  skeleton and its drill-down are still live and still need to keep working.
 
 All 15 tasks are done. What is left is human judgement, not code:
 

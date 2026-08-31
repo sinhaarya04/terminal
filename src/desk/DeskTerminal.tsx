@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Rail, { type Destination } from './Rail';
 import Workspace, { type PaneKey } from './Workspace';
-import MarketsList from './markets/MarketsList';
-import MarketDetail from './markets/MarketDetail';
-import TradeTicket from './markets/TradeTicket';
+import MarketsGrid from './markets/MarketsGrid';
+import MarketScreen from './markets/MarketScreen';
 import { ensureMarket, type DeskMarket, type Side } from './deskStore';
-import { EVENTS, outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
+import { outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
 import PositionsList, { type PositionRow } from './positions/PositionsList';
 import PositionDetail from './positions/PositionDetail';
 import CloseTicket from './positions/CloseTicket';
@@ -13,9 +12,8 @@ import PersonalList, { type PersonalSel } from './personal/PersonalList';
 import PersonalDetail from './personal/PersonalDetail';
 import PersonalAction from './personal/PersonalAction';
 
-// The desk opens on the leading market with its front-runner staged in the
-// ticket, so no pane starts empty. Staging is not placing — the order still
-// needs an explicit Buy.
+// Opening a market stages its front-runner in the ticket, so the ticket is never
+// blank on arrival. Staging is not placing — the order still needs an explicit Buy.
 const leadOutcome = (e: MarketEvent): Outcome =>
   [...e.outcomes].sort((a, b) => b.yes - a.yes)[0];
 
@@ -25,17 +23,11 @@ export default function DeskTerminal() {
   const [dest, setDest] = useState<Destination>('Markets');
   const [railOpen, setRailOpen] = useState(true);
   const [focus, setFocus] = useState<PaneKey>('list');
-  const [ev, setEv] = useState<MarketEvent | null>(EVENTS[0] ?? null);
-  const [order, setOrder] = useState<{ m: DeskMarket; side: Side } | null>(
-    () => (EVENTS[0] ? stageFor(EVENTS[0]) : null),
-  );
+  const [ev, setEv] = useState<MarketEvent | null>(null);
+  const [order, setOrder] = useState<{ m: DeskMarket; side: Side } | null>(null);
   const [posRow, setPosRow] = useState<PositionRow | null>(null);
   const [pSel, setPSel] = useState<PersonalSel | null>(null);
   const [created, setCreated] = useState<DeskMarket | null>(null);
-
-  // register the staged market once on mount — pickOutcome does this for every
-  // later selection, but the opening one never goes through it
-  useEffect(() => { if (EVENTS[0]) ensureMarket(stageFor(EVENTS[0]).m); }, []);
 
   const pickOutcome = (o: Outcome, side: Side) => {
     if (!ev) return;
@@ -47,6 +39,7 @@ export default function DeskTerminal() {
 
   const selectEvent = (next: MarketEvent) => {
     setEv(next);
+    setFocus('detail');
     // stage the new market's front-runner too, so the ticket never blanks out
     const staged = stageFor(next);
     ensureMarket(staged.m);
@@ -77,20 +70,16 @@ export default function DeskTerminal() {
 
       <main className="desk-main">
         {dest === 'Markets' && (
-          <Workspace
-            focus={focus}
-            onFocus={setFocus}
-            list={<MarketsList selectedId={ev?.id ?? null} onSelect={selectEvent} />}
-            detail={<MarketDetail ev={ev} onPick={pickOutcome} />}
-            action={
-              <TradeTicket
-                market={order?.m ?? null}
-                side={order?.side ?? 'YES'}
-                onSide={(s) => setOrder((o) => (o ? { ...o, side: s } : o))}
-                onDone={() => { setOrder(null); setFocus('detail'); }}
+          ev
+            ? <MarketScreen
+                ev={ev}
+                order={order}
+                onPick={pickOutcome}
+                onSide={(sd) => setOrder((o) => (o ? { ...o, side: sd } : o))}
+                onDone={() => setOrder(null)}
+                onBack={() => { setEv(null); setOrder(null); }}
               />
-            }
-          />
+            : <MarketsGrid onOpen={selectEvent} />
         )}
         {dest === 'Positions' && (
           <Workspace

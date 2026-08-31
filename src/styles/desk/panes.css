@@ -3,16 +3,7 @@
    pane markup with no stylesheet leaves raw UA buttons on screen. Task 7 still
    owns deleting the superseded components and the legacy desk block. */
 
-/* ---------- list rows ---------- */
-.grp{margin-bottom:18px}
-.grp-hh{margin:0}
-.grp-h{display:flex;align-items:center;justify-content:space-between;width:100%;
-  font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
-  padding:0 0 8px;border:none;border-bottom:1px solid var(--border);
-  background:none;cursor:pointer;font-family:var(--mono);
-  transition:color .15s ease}
-.grp-h:hover{color:var(--text)}
-.grp-n{color:var(--faint)}
+/* ---------- list rows (Positions + Personal) ---------- */
 .li{display:block;width:100%;text-align:left;background:none;cursor:pointer;
   border:none;border-bottom:1px solid rgba(255,255,255,.06);padding:11px 12px 11px 11px;
   position:relative;transition:background-color .15s ease}
@@ -26,8 +17,6 @@
 .li-q{display:block;font-size:13px;line-height:1.4;color:var(--text)}
 .li-pnl{display:block;margin-top:5px;font-size:11.5px}
 .li-new .li-q{color:var(--red-bright);font-family:var(--mono);font-size:12px;letter-spacing:.08em}
-/* no padding on the panel or its inner: with grid-template-rows:0fr any padding
-   survives the collapse as a residual strip. Spacing comes from .grp's margin. */
 
 /* ---------- detail ---------- */
 .detail-h{font-size:20px;font-weight:500;line-height:1.3;letter-spacing:-.01em;margin:0 0 16px}
@@ -133,3 +122,88 @@
 .skel-sub.short{width:62%}
 .skel-field{width:100%;height:42px;margin-top:12px}
 .skel-btn{width:100%;height:44px}
+
+/* ============================================================
+   MARKETS GRID — square previews, Polymarket/Kalshi shape
+   ============================================================ */
+.grid-wrap{padding:26px clamp(18px,3vw,34px) 40px;max-width:1600px;margin:0 auto}
+
+.grid-filters{display:flex;flex-wrap:wrap;gap:0 4px;margin-bottom:20px;
+  border-bottom:1px solid var(--border)}
+.grid-filter{position:relative;background:none;border:none;cursor:pointer;
+  padding:9px 12px 10px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);display:inline-flex;align-items:center;gap:7px;
+  transition:color .15s ease}
+.grid-filter:hover{color:var(--text)}
+.grid-filter.is-on{color:var(--text)}
+.grid-filter.is-on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;
+  height:1px;background:var(--red-bright)}
+.grid-filter-dot{width:5px;height:5px;border-radius:50%;background:var(--red-bright);flex:none}
+
+.grid{display:grid;gap:14px;
+  grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
+
+/* square preview — the whole tile is the control */
+.mkt{aspect-ratio:1;display:flex;flex-direction:column;text-align:left;cursor:pointer;
+  padding:16px;border:1px solid var(--border);border-radius:3px;background:transparent;
+  font-family:var(--font);color:var(--text);overflow:hidden;
+  transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+.mkt:hover{border-color:var(--border-2);background:rgba(255,255,255,.02);transform:translateY(-2px)}
+.mkt:focus-visible{outline:2px solid var(--red-bright);outline-offset:2px}
+
+.mkt-top{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.mkt-cat{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.mkt-live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+  font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--red-bright)}
+.mkt-live i{width:5px;height:5px;border-radius:50%;background:var(--red-bright);flex:none}
+
+/* flex:none so the rows below can't squeeze the title into a half-cut line —
+   the clamp has to own the height, not the flex algorithm */
+.mkt-title{flex:none;font-size:14px;font-weight:500;line-height:1.35;letter-spacing:-.005em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  min-height:calc(2 * 1.35em)}
+
+.mkt-rows{display:flex;flex-direction:column;gap:9px;margin-top:14px;min-height:0;overflow:hidden}
+.mkt-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:baseline}
+.mkt-name{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mkt-meta{margin-right:6px}
+.mkt-pct{font-size:12px;color:var(--text);font-variant-numeric:tabular-nums}
+.mkt-bar{grid-column:1/-1;height:2px;background:rgba(255,255,255,.07);display:block;overflow:hidden}
+.mkt-bar i{display:block;height:100%}
+.mkt-more{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+
+.mkt-foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;
+  padding-top:12px;font-size:10px;letter-spacing:.08em;color:var(--faint)}
+
+@media(max-width:560px){
+  .grid{grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px}
+  .mkt{padding:13px}
+  .mkt-title{font-size:12.5px}
+  .mkt-rows{gap:7px;margin-top:10px}
+}
+
+/* ---------- expanded market screen ---------- */
+.mscreen{display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  animation:mscreen-in var(--duration-fast) var(--ease-smooth-out) both}
+@keyframes mscreen-in{
+  from{opacity:0;transform:scale(.985)}
+  to{opacity:1;transform:none}
+}
+.mscreen-back{flex:none;align-self:flex-start;background:none;border:none;cursor:pointer;
+  padding:16px clamp(18px,3vw,34px);font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--faint);transition:color .15s ease}
+.mscreen-back:hover{color:var(--red-bright)}
+.mscreen-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px}
+.mscreen-main{min-width:0;overflow-y:auto;border-right:1px solid var(--border)}
+.mscreen-ticket{overflow-y:auto}
+
+@media(max-width:899px){
+  .mscreen{height:auto;overflow:visible}
+  .mscreen-body{grid-template-columns:1fr}
+  .mscreen-main{border-right:none;border-bottom:1px solid var(--border);overflow:visible}
+}
+@media(prefers-reduced-motion:reduce){
+  .mscreen{animation:none}
+  .mkt{transition:border-color .16s ease,background-color .16s ease}
+  .mkt:hover{transform:none}
+}
