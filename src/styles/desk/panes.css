@@ -102,3 +102,12 @@
 /* the shake sheet toggles .t-error-msg via opacity+visibility, so it holds its
    own line in the ticket; give it a consistent block box so nothing jumps */
 .tk-field .t-error-msg{display:block;margin-top:8px}
+
+/* ---------- success check ---------- */
+/* colour and weight only — the draw geometry lives in motion/success.css */
+.success-check svg path{fill:none;stroke:var(--green);stroke-width:3;
+  stroke-linecap:round;stroke-linejoin:round}
+.success-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:34px 0 8px;text-align:center}
+.success-wrap p{font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--faint)}

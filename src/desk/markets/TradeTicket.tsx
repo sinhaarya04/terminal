@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { placeBet, money, useDesk, type DeskMarket, type Side } from '../deskStore';
+import SuccessCheck from '../../components/SuccessCheck';
 
 export default function TradeTicket({
   market, side, onSide, onDone,
@@ -16,6 +17,7 @@ export default function TradeTicket({
   // identical error state, so an effect keyed only on `tooMuch` would never
   // re-run and the shake would fire once, ever.
   const [nonce, setNonce] = useState(0);
+  const [placed, setPlaced] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -26,6 +28,18 @@ export default function TradeTicket({
     void el.offsetWidth;                 // forces layout; without it nothing replays
     el.classList.add('is-shaking');
   }, [nonce]);
+
+  if (placed) {
+    return (
+      <div className="pane-body">
+        <div className="kicker">Ticket</div>
+        <div className="success-wrap">
+          <SuccessCheck label="Bet placed" />
+          <p>Bet placed</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!market) {
     return (
@@ -48,7 +62,10 @@ export default function TradeTicket({
     setBusy(true);
     const ok = await placeBet(market, side, amount);
     setBusy(false);
-    if (ok) onDone();
+    if (ok) {
+      setPlaced(true);                      // hold the check on screen, then hand back
+      setTimeout(() => { setPlaced(false); onDone(); }, 900);
+    }
   };
 
   const chip = (v: number) => (
