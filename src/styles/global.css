@@ -98,6 +98,15 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .desk-sub{margin:0 auto;max-width:40ch;font-size:14.5px;line-height:1.6;color:var(--muted)}
 .desk-field{display:block;text-align:left;margin-top:26px}
 .desk-fine{margin-top:18px;font-size:12px;color:var(--faint)}
+/* Sign-in code field: the six digits are the whole message, so they get the
+   mono face, wide tracking and centre alignment a one-time code reads best in. */
+.desk-code{font-family:var(--mono);font-size:22px;letter-spacing:.42em;text-align:center;
+  text-indent:.42em;padding-top:12px;padding-bottom:12px}
+.desk-resend{display:flex;justify-content:center;gap:18px;margin-top:16px;flex-wrap:wrap}
+.desk-linkbtn{background:none;border:0;padding:0;cursor:pointer;font:inherit;font-size:12.5px;
+  color:var(--muted);transition:color .18s ease}
+.desk-linkbtn:hover:not(:disabled){color:var(--red-bright)}
+.desk-linkbtn:disabled{color:var(--faint);cursor:default}
 
 /* ---- intro ---- */
 .desk-intro{position:fixed;inset:0;background:#050609;display:flex;align-items:center;justify-content:center;z-index:50}
