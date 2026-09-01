@@ -231,12 +231,13 @@ export async function hydrateLive(userId: string) {
     set({ live: false });
     return;
   }
-  const [mine, betMarkets, bets, trades] = await Promise.all([
-    db.fetchMyMarkets(userId), db.fetchBetMarkets(), db.fetchMyBets(), db.fetchMyTrades(),
+  const [mine, betMarkets, bets, trades, board] = await Promise.all([
+    db.fetchMyMarkets(userId), db.fetchBetMarkets(), db.fetchMyBets(), db.fetchMyTrades(), db.fetchBoardMarkets(),
   ]);
-  // merge fetched markets (for live price on Positions) into the public list
+  // merge fetched markets (for live price on Positions) into the public list,
+  // plus every officer-created / materialised board market so the grid shows them
   const markets = SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] }));
-  for (const bm of betMarkets) if (!bm.custom && !markets.some((x) => x.id === bm.id)) markets.push(bm);
+  for (const bm of [...board, ...betMarkets]) if (!bm.custom && !markets.some((x) => x.id === bm.id)) markets.push(bm);
 
   // The bets table has no settled flag — settlement is a fact about the
   // MARKET. Rehydrated positions on resolved markets get their settled stamp
@@ -460,7 +461,12 @@ export async function adminCreateBoardMarket(
   if (!state.live) return null;   // board markets are server-side only
   try {
     const code = await db.rpcAdminCreateBoardMarket(input);
-    if (code) await refreshLiveMarket(code);
+    if (code) {
+      const board = await db.fetchBoardMarkets();
+      const markets = [...state.markets];
+      for (const bm of board) if (!markets.some((x) => x.id === bm.id)) markets.push(bm);
+      set({ markets });
+    }
     return code;
   } catch { return null; }
 }

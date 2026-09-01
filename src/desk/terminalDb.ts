@@ -212,3 +212,11 @@ export async function rpcAdminCreateBoardMarket(
   if (error) throw error;
   return data as string;
 }
+
+/** All public board markets from the DB (officer-created BX- markets plus any
+ *  materialised outcomes). Rendered as their own cards on the grid. */
+export async function fetchBoardMarkets(): Promise<DeskMarket[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.from('term_markets').select('*').eq('is_private', false);
+  return ((data ?? []) as MarketRow[]).map(rowToMarket);
+}

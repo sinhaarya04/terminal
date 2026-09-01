@@ -8,6 +8,7 @@ export type Outcome = {
   color: string;     // chart line colour
   path: number[];    // price path 0-100 for the chart
   meta?: string;     // optional short text tag rendered before the outcome name
+  code?: string;     // real DB market code (officer board markets); else derived
 };
 
 export type MarketEvent = {
@@ -145,7 +146,9 @@ export const EVENTS: MarketEvent[] = [
 // Turn one outcome into a bettable DeskMarket (id namespaced per event+outcome).
 export function outcomeToMarket(ev: MarketEvent, o: Outcome): DeskMarket {
   return {
-    id: `${ev.id}:${o.name}`,
+    // officer board markets are a single binary market with a real code;
+    // multi-outcome demo events derive one id per outcome
+    id: o.code ?? `${ev.id}:${o.name}`,
     q: `${ev.title} — ${o.name}`,
     cat: ev.cat,
     yes: o.yes,
@@ -167,14 +170,34 @@ import { useDesk } from './deskStore';
 
 export function useBoardEvents(): MarketEvent[] {
   const { markets, custom } = useDesk();
-  return useMemo(() => EVENTS.map((ev) => {
-    let touched = false;
-    const outcomes = ev.outcomes.map((o) => {
-      const live = [...markets, ...custom].find((m) => m.id === `${ev.id}:${o.name}`);
-      if (!live || live.yes === o.yes) return o;
-      touched = true;
-      return { ...o, yes: live.yes, path: [...o.path.slice(0, -1), live.yes] };
+  return useMemo(() => {
+    // static demo events, with any live outcome price overlaid
+    const overlaid = EVENTS.map((ev) => {
+      let touched = false;
+      const outcomes = ev.outcomes.map((o) => {
+        const live = [...markets, ...custom].find((m) => m.id === `${ev.id}:${o.name}`);
+        if (!live || live.yes === o.yes) return o;
+        touched = true;
+        return { ...o, yes: live.yes, path: [...o.path.slice(0, -1), live.yes] };
+      });
+      return touched ? { ...ev, outcomes } : ev;
     });
-    return touched ? { ...ev, outcomes } : ev;
-  }), [markets, custom]);
+    // officer-created board markets (code BX-…) become their own single-outcome
+    // binary cards, newest first, ahead of the demo events
+    const boardEvents: MarketEvent[] = markets
+      .filter((m) => m.id.startsWith('BX-'))
+      .map((m) => ({
+        id: m.id,
+        cat: (CATEGORIES.includes(m.cat as Category) ? m.cat : 'Campus') as Category,
+        title: m.q,
+        vol: Math.round(m.pool || 0),
+        updated: m.resolved ? `settled ${m.resolved}` : 'open',
+        live: !m.resolved,
+        outcomes: [{
+          name: 'Yes', code: m.id, yes: m.yes, color: '#34d399',
+          path: m.spark && m.spark.length ? m.spark : [m.yes, m.yes],
+        }],
+      }));
+    return [...boardEvents, ...overlaid];
+  }, [markets, custom]);
 }
