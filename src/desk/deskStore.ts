@@ -108,6 +108,7 @@ export type Trade = {
 
 export type DeskState = {
   user: { handle: string } | null;
+  isAdmin: boolean;   // officer flag — may resolve any market, create board markets
   seenIntro: boolean;
   balance: number;    // main platform credits — board markets bet in this
   // Personal markets settle in their own simulation wallet. Keeping the two
@@ -174,7 +175,7 @@ function seedActivity(): Activity[] {
 
 function fresh(): DeskState {
   return {
-    user: null, seenIntro: false, balance: START_BALANCE, pmBalance: START_PM_BALANCE, positions: [],
+    user: null, isAdmin: false, seenIntro: false, balance: START_BALANCE, pmBalance: START_PM_BALANCE, positions: [],
     markets: SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] })),
     // computed at seed time, like seedActivity, so the demo market is always a
     // few days from closing rather than frozen at whenever this shipped
@@ -256,7 +257,7 @@ export async function hydrateLive(userId: string) {
   });
   state = {
     ...state, live: true, userId,
-    user: { handle: profile.handle }, seenIntro: profile.seenIntro,
+    user: { handle: profile.handle }, isAdmin: profile.isAdmin, seenIntro: profile.seenIntro,
     balance: profile.balance, pmBalance: profile.pmBalance,
     positions, markets, custom: mine, joined: mine.map((m) => m.id),
     // The server has no activity table yet, so live mode starts with an empty
@@ -451,6 +452,19 @@ export async function createMarket(
   return m;
 }
 
+/** Admin only: create a public board market. Returns the new code or null. */
+export async function adminCreateBoardMarket(
+  input: { q: string; cat: string; yes: number; closesAt?: number },
+): Promise<string | null> {
+  if (!state.isAdmin) return null;
+  if (!state.live) return null;   // board markets are server-side only
+  try {
+    const code = await db.rpcAdminCreateBoardMarket(input);
+    if (code) await refreshLiveMarket(code);
+    return code;
+  } catch { return null; }
+}
+
 /** Sell shares back to the meter for their live LMSR value: C(q) − C(q−s).
  *  A true exit — cash lands now, the price ticks down, and the pot shrinks by
  *  exactly the proceeds, so conservation holds. Returns the proceeds, or null
@@ -515,13 +529,14 @@ export async function sellShares(m: DeskMarket, side: Side, shares: number): Pro
  *  Returns the amount credited to this desk, or null if the call wasn't allowed.
  */
 export async function resolveMarket(code: string, outcome: Side): Promise<number | null> {
-  const m = state.custom.find((x) => x.id === code);
+  // any market — private (owner-settled) or board (admin-settled)
+  const m = getMarket(code);
   if (!m || m.resolved) return null;
-  // Live markets carry the owner's auth id; guest markets only have a handle.
-  const mine = m.ownerId != null
-    ? m.ownerId === state.userId
+  const owns = m.ownerId != null ? m.ownerId === state.userId
     : m.owner === (state.user?.handle || 'you');
-  if (!mine) return null;
+  if (!owns && !state.isAdmin) return null;
+  // board markets pay the PUB wallet, private markets pay PRI
+  const wallet: 'balance' | 'pmBalance' = m.custom ? 'pmBalance' : 'balance';
 
   // Parimutuel payout: the pot (everything actually paid in) splits across the
   // winning side's REAL shares. Never shares × $1 — that rule could pay out
@@ -568,10 +583,10 @@ export async function resolveMarket(code: string, outcome: Side): Promise<number
   ));
   set({
     positions,
-    pmBalance: round2(state.pmBalance + credited),
+    [wallet]: round2(state[wallet] + credited),
     custom: roll(state.custom),
     markets: roll(state.markets),
-  });
+  } as Partial<DeskState>);
   recordActivity({ code, kind: 'resolve', side: voided ? undefined : outcome });
   return credited;
 }

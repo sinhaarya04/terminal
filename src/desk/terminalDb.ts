@@ -4,7 +4,7 @@
 import { supabase } from '../lib/supabase';
 import type { DeskMarket } from './deskStore';
 
-export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean };
+export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean; isAdmin: boolean };
 
 type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pq_yes: number | null; pq_no: number | null; sq_yes: number | null; sq_no: number | null; b: number | null; c0: number | null; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | 'VOID' | null; resolved_at: string | null };
 type BetRow = { market_code: string; side: 'YES' | 'NO'; shares: number; cost: number };
@@ -35,11 +35,12 @@ function rowToMarket(r: MarketRow): DeskMarket {
 
 export async function fetchProfile(): Promise<LiveProfile | null> {
   if (!supabase) return null;
-  const { data } = await supabase.from('term_profiles').select('handle,balance,pm_balance,seen_intro').maybeSingle();
+  const { data } = await supabase.from('term_profiles').select('handle,balance,pm_balance,seen_intro,is_admin').maybeSingle();
   if (!data) return null;
   return {
     handle: data.handle ?? 'trader', balance: Number(data.balance),
     pmBalance: Number(data.pm_balance ?? 1000), seenIntro: !!data.seen_intro,
+    isAdmin: !!data.is_admin,
   };
 }
 
@@ -196,4 +197,18 @@ export async function rpcSellShares(code: string, side: 'YES' | 'NO', shares: nu
   const { data, error } = await supabase.rpc('term_sell_shares', { p_code: code, p_side: side, p_shares: shares });
   if (error) throw error;
   return data as { balance: number; pm_balance: number; yes: number; proceeds: number };
+}
+
+
+/** Admin only: create a public board market. Server rejects non-admins. */
+export async function rpcAdminCreateBoardMarket(
+  input: { q: string; cat: string; yes: number; closesAt?: number },
+): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('term_admin_create_board_market', {
+    p_question: input.q, p_cat: input.cat, p_yes: input.yes,
+    p_closes_at: input.closesAt != null ? new Date(input.closesAt).toISOString() : null,
+  });
+  if (error) throw error;
+  return data as string;
 }

@@ -37,10 +37,9 @@ Correctly-blocked-before checks that still pass: inserting a bet as another
 `user_id` (403 via `with check auth.uid() = user_id`), reading another user's
 profile (RLS returns `[]`).
 
-**This fix is not yet in `supabase/terminal-schema.sql`** on any branch — it
-was applied directly to close the live hole. Fold it into the schema file
-before the next full re-run. (Left uncommitted intentionally so the group sees
-it as a deliberate decision, not a silent diff.)
+**Now mirrored in `supabase/terminal-schema.sql`** (branch `board-engine`,
+commit that added this report) as well as applied live, so a fresh re-run of
+the schema reproduces the locked-down grants.
 
 ---
 
@@ -112,3 +111,26 @@ touching poker/landing data):
 - `cleanup_overnight_test_markets` — deleted EX-CXZQ / EX-HACK / EX-Q9RY
 
 Code changes are all on branch `board-engine`, unmerged. Nothing pushed to main.
+
+---
+
+## Update — medium items 1-3 addressed (branch board-engine)
+
+- **1. Admin/officer role — built.** `term_profiles.is_admin`, an admin-only
+  `term_admin_create_board_market` (public markets, code prefix `BX-`), and a
+  unified `term_resolve_market` that lets an **owner OR admin** settle and pays
+  the wallet matching the market (PUB for board, PRI for private). Board markets
+  can now complete a full lifecycle — verified live: create → bet (PUB 1000→950)
+  → admin-resolve YES → payout (950→1000), PRI untouched, conserved exactly.
+  Client: officer-only "+ New board market" on the grid and a settle control on
+  the market screen (`BoardAdmin`). Bootstrap the first officer by hand:
+  `update public.term_profiles set is_admin = true where handle = 'you';`
+  (@bateman.sa is already set.)
+- **2. Rate limiting — built.** A 150ms per-user minimum gap on
+  `term_place_bet` / `term_sell_shares` (`last_action_at`). Verified: 5 parallel
+  bets → 1 accepted, 4 rejected `slow down`; sequential human clicks (network
+  latency > 150ms) are unaffected. Anti-DoS, not anti-theft — money stays
+  bounded by balance + RLS.
+- **3. Board close/lock — covered by the existing engine.** Board markets take a
+  `closes_at`; `term_place_bet` already rejects `now() >= closes_at`, so a board
+  market locks at close and waits for an officer to resolve.

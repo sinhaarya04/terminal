@@ -39,6 +39,8 @@ alter table public.term_markets add column if not exists resolved_at timestamptz
 alter table public.term_markets add column if not exists closes_at   timestamptz;
 alter table public.term_markets add column if not exists owner_handle text;
 alter table public.term_profiles add column if not exists pm_balance numeric not null default 1000;
+alter table public.term_profiles add column if not exists is_admin boolean not null default false;
+alter table public.term_profiles add column if not exists last_action_at timestamptz;
 
 -- Hybrid engine state (LMSR pricing, parimutuel payout — docs/market-engine-notes.md).
 -- pq_* include the phantom opening-odds seed; sq_* are REAL held shares, which
@@ -367,7 +369,43 @@ end;
 $$;
 grant execute on function public.term_sell_shares(text,text,numeric) to authenticated;
 
--- ---------- settle a private market ----------
+-- ---------- admin: create a public board market ----------
+-- Board markets have no private owner; only officers (is_admin) create and
+-- resolve them. Bootstrap the first officer by hand:
+--   update public.term_profiles set is_admin = true where handle = 'you';
+create or replace function public.term_admin_create_board_market(
+  p_question text, p_cat text, p_yes numeric, p_closes_at timestamptz default null)
+returns text language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := auth.uid(); v_admin boolean; v_code text;
+  v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  v_p numeric := greatest(0.02, least(0.98, p_yes/100.0));
+  v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := 100; i int;
+begin
+  if v_uid is null then raise exception 'not signed in'; end if;
+  select is_admin into v_admin from public.term_profiles where id = v_uid;
+  if not coalesce(v_admin,false) then raise exception 'admins only'; end if;
+  loop
+    v_code := 'BX-';
+    for i in 1..4 loop v_code := v_code || substr(v_alpha,1+floor(random()*length(v_alpha))::int,1); end loop;
+    exit when not exists (select 1 from public.term_markets where code = v_code);
+  end loop;
+  v_off := v_b * ln(v_p/(1-v_p)); v_pqy := greatest(v_off,0); v_pqn := greatest(-v_off,0);
+  insert into public.term_markets
+    (code, owner, question, cat, closes_at, yes, is_private, pq_yes, pq_no, sq_yes, sq_no, b, c0)
+  values (v_code, null, p_question, coalesce(nullif(p_cat,''),'Board'), p_closes_at,
+     round(v_p*100), false, v_pqy, v_pqn, 0, 0, v_b, public.term_lmsr_cost(v_pqy,v_pqn,v_b));
+  return v_code;
+end;
+$$;
+grant execute on function public.term_admin_create_board_market(text,text,numeric,timestamptz) to authenticated;
+
+-- ---------- settle a private OR board market ----------
+-- NOTE: term_resolve_market and term_place_bet/term_sell_shares are the
+-- CURRENT deployed versions (owner-or-admin resolve paying the matching
+-- wallet; 150ms per-user anti-hammer gap on trades). See the applied
+-- migrations term_admin_role_and_rate_limit / term_trade_rate_limit for the
+-- authoritative bodies — kept short here to avoid drift. --
 -- Owner-only and once-only, both enforced here rather than in the client: the
 -- client check is a courtesy, this is the gate. Every share of the winning side
 -- pays $1, losing shares pay nothing, and each holder's balance moves in the

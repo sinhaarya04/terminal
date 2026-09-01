@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
+import { useDesk, adminCreateBoardMarket } from '../deskStore';
+import DateTimeField from '../../components/DateTimeField';
+import { endOfDay } from '../../lib/closeTime';
 
 type Filter = 'All' | 'Live' | Category;
 type View = 'grid' | 'list';
@@ -19,8 +22,10 @@ function readView(): View {
 }
 
 export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[]; onOpen: (ev: MarketEvent) => void }) {
+  const { isAdmin } = useDesk();
   const [filter, setFilter] = useState<Filter>('All');
   const [view, setView] = useState<View>(readView);
+  const [adminOpen, setAdminOpen] = useState(false);
 
   useEffect(() => {
     try { localStorage.setItem(VIEW_KEY, view); } catch { /* not worth surfacing */ }
@@ -34,7 +39,15 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
 
   return (
     <div className="grid-wrap">
-      <div className="kicker">Markets · {list.length}</div>
+      <div className="grid-head">
+        <div className="kicker">Markets · {list.length}</div>
+        {isAdmin && (
+          <button className="btn btn-red admin-new" onClick={() => setAdminOpen((o) => !o)}>
+            {adminOpen ? 'Cancel' : '+ New board market'}
+          </button>
+        )}
+      </div>
+      {isAdmin && adminOpen && <AdminCreate onDone={() => setAdminOpen(false)} />}
 
       <div className="grid-bar">
         <nav className="grid-filters" role="tablist" aria-label="Category">
@@ -163,5 +176,53 @@ function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void
       <span className="mrow-vol mono r">{vol(ev.vol)}</span>
       <span className="mrow-upd mono r">{ev.updated}</span>
     </button>
+  );
+}
+
+
+function AdminCreate({ onDone }: { onDone: () => void }) {
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('Campus');
+  const [yes, setYes] = useState(50);
+  const [closesAt, setClosesAt] = useState<number>(() => endOfDay(7));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!q.trim() || busy) return;
+    setBusy(true);
+    const code = await adminCreateBoardMarket({ q, cat, yes, closesAt });
+    setBusy(false);
+    if (code) { setQ(''); onDone(); } else setErr('Could not create — admins only, and requires a live account.');
+  };
+
+  return (
+    <form className="admin-create" onSubmit={submit}>
+      <div className="admin-create-grid">
+        <label className="tk-field">
+          <span className="tk-label mono">Question</span>
+          <input className="tk-input" value={q} maxLength={120}
+            placeholder="Will Northeastern win the Beanpot?" onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <label className="tk-field">
+          <span className="tk-label mono">Category</span>
+          <input className="tk-input" value={cat} maxLength={16} onChange={(e) => setCat(e.target.value)} />
+        </label>
+        <label className="tk-field">
+          <span className="tk-label mono">Opening Yes · {yes}%</span>
+          <input className="tk-range" type="range" min={5} max={95} value={yes}
+            onChange={(e) => setYes(Number(e.target.value))} />
+        </label>
+        <div className="tk-field">
+          <span className="tk-label mono">Closes</span>
+          <DateTimeField value={closesAt} onChange={setClosesAt} label="Board market close" />
+        </div>
+      </div>
+      <button className="btn btn-red admin-create-go" type="submit" disabled={!q.trim() || busy}>
+        {busy ? 'Creating…' : 'Create board market'}
+      </button>
+      {err && <p className="join-msg mono is-no" role="alert">{err}</p>}
+    </form>
   );
 }
