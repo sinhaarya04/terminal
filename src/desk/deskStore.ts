@@ -86,10 +86,23 @@ export type Activity = {
   id: string;
   code: string;      // market share code the event belongs to
   handle: string;
-  kind: 'create' | 'join' | 'bet' | 'resolve';
+  kind: 'create' | 'join' | 'bet' | 'sell' | 'resolve';
   side?: Side;       // bet + resolve
   dollars?: number;  // bet only
   at: number;        // epoch ms
+};
+
+/** One line of the account's own ledger: every bet, whichever board it was on. */
+export type Trade = {
+  id: string;
+  marketId: string;
+  q: string;             // market question at trade time, so history survives markets
+  kind: 'buy' | 'sell';
+  side: Side;
+  dollars: number;       // spent on a buy; received on a sell
+  shares: number;
+  wallet: 'board' | 'sim';
+  at: number;
 };
 
 export type DeskState = {
@@ -104,6 +117,7 @@ export type DeskState = {
   custom: DeskMarket[];   // markets this browser created or joined by code
   joined: string[];       // share codes joined
   activity: Activity[];   // newest-first feed across all private markets
+  trades: Trade[];        // this account's own bets, newest first, both wallets
   live: boolean;          // true = real Supabase account; false = guest/localStorage demo
   userId?: string;        // Supabase auth user id (live mode only)
 };
@@ -164,7 +178,7 @@ function fresh(): DeskState {
     // computed at seed time, like seedActivity, so the demo market is always a
     // few days from closing rather than frozen at whenever this shipped
     custom: [{ ...SEED_CUSTOM, spark: [...SEED_CUSTOM.spark], closesAt: endOfDay(3) }],
-    joined: [SEED_CUSTOM.id], activity: seedActivity(), live: false,
+    joined: [SEED_CUSTOM.id], activity: seedActivity(), trades: [], live: false,
   };
 }
 
@@ -215,8 +229,8 @@ export async function hydrateLive(userId: string) {
     set({ live: false });
     return;
   }
-  const [mine, betMarkets, bets] = await Promise.all([
-    db.fetchMyMarkets(userId), db.fetchBetMarkets(), db.fetchMyBets(),
+  const [mine, betMarkets, bets, trades] = await Promise.all([
+    db.fetchMyMarkets(userId), db.fetchBetMarkets(), db.fetchMyBets(), db.fetchMyTrades(),
   ]);
   // merge fetched markets (for live price on Positions) into the public list
   const markets = SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] }));
@@ -229,6 +243,7 @@ export async function hydrateLive(userId: string) {
     // The server has no activity table yet, so live mode starts with an empty
     // feed rather than inventing one. Local events still append as you play.
     activity: [],
+    trades,
   };
   listeners.forEach((l) => l());
 }
@@ -374,6 +389,13 @@ function applyBet(
     state = { ...state, [m.custom ? 'custom' : 'markets']: [...(m.custom ? state.custom : state.markets), { ...m }] } as DeskState;
   }
   bumpMarketPrice(m.id, newYes);
+  // the account's own ledger — every bet lands here, board and sim alike
+  state = { ...state, trades: [{
+    id: `${m.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    marketId: m.id, q: m.q, kind: 'buy' as const, side, dollars, shares,
+    wallet: walletFor(m) === 'pmBalance' ? 'sim' as const : 'board' as const,
+    at: Date.now(),
+  }, ...state.trades].slice(0, 300) };
   if (m.custom) recordActivity({ code: m.id, kind: 'bet', side, dollars });
   if (m.custom) {
     state = { ...state, custom: state.custom.map((c) => (c.id === m.id ? { ...c, pool: round2((c.pool || 0) + dollars) } : c)) };
@@ -408,6 +430,60 @@ export async function createMarket(
   set({ custom: [m, ...state.custom], joined: [code, ...state.joined] });
   recordActivity({ code, kind: 'create' });
   return m;
+}
+
+/** Sell shares back to the meter for their live LMSR value: C(q) − C(q−s).
+ *  A true exit — cash lands now, the price ticks down, and the pot shrinks by
+ *  exactly the proceeds, so conservation holds. Returns the proceeds, or null
+ *  if the sell wasn't allowed. */
+export async function sellShares(m: DeskMarket, side: Side, shares: number): Promise<number | null> {
+  const stored = getMarket(m.id) ?? m;
+  if (marketPhase(stored) !== 'open' || shares <= 0) return null;
+  const held = state.positions
+    .filter((p) => p.marketId === m.id && p.side === side && !p.settled)
+    .reduce((a, p) => a + p.shares, 0);
+  if (shares > held + 1e-9) return null;
+
+  const eng = engineOf(stored);
+  let proceeds: number;
+  let wallets: { balance: number; pmBalance: number };
+  let newYes: number;
+  if (state.live) {
+    try {
+      const res = await db.rpcSellShares(m.id, side, shares);
+      proceeds = res.proceeds;
+      wallets = { balance: res.balance, pmBalance: res.pm_balance };
+      newYes = res.yes;
+    } catch { return null; }
+  } else {
+    proceeds = round2(lmsr.proceedsForSell({ qYes: eng.qYes, qNo: eng.qNo }, side, shares, eng.b));
+    const w = walletFor(stored);
+    wallets = { ...{ balance: state.balance, pmBalance: state.pmBalance }, [w]: round2(state[w] + proceeds) } as { balance: number; pmBalance: number };
+    const nq = side === 'YES' ? { qYes: eng.qYes - shares, qNo: eng.qNo } : { qYes: eng.qYes, qNo: eng.qNo - shares };
+    newYes = clamp(Math.round(lmsr.priceYes(nq, eng.b) * 100), 1, 99);
+  }
+
+  stampEngine(stored, side, -shares);
+  bumpMarketPrice(m.id, newYes);
+  // the position shrinks; its cost basis leaves proportionally, so remaining
+  // P&L still reads against what the remaining shares actually cost
+  const positions = state.positions.map((p) => {
+    if (p.marketId !== m.id || p.side !== side || p.settled) return p;
+    const frac = Math.min(1, shares / p.shares);
+    return { ...p, shares: p.shares - shares, cost: round2(p.cost * (1 - frac)) };
+  }).filter((p) => p.settled || p.shares > 1e-9);
+  if (stored.custom) {
+    state = { ...state, custom: state.custom.map((c) => (c.id === m.id ? { ...c, pool: Math.max(0, round2((c.pool || 0) - proceeds)) } : c)) };
+  }
+  state = { ...state, trades: [{
+    id: `${m.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    marketId: m.id, q: stored.q, kind: 'sell' as const, side, dollars: proceeds, shares,
+    wallet: walletFor(stored) === 'pmBalance' ? 'sim' as const : 'board' as const,
+    at: Date.now(),
+  }, ...state.trades].slice(0, 300) };
+  set({ positions, balance: round2(wallets.balance), pmBalance: round2(wallets.pmBalance) });
+  if (stored.custom) recordActivity({ code: m.id, kind: 'sell', side, dollars: proceeds });
+  return proceeds;
 }
 
 /** Settle a private market. Only its owner may call this, and only once.

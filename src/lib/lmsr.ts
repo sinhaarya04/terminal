@@ -83,3 +83,14 @@ export function resolvePot(potValue: number, winningShares: number):
   if (winningShares <= 0) return { perShare: 0, voided: true };
   return { perShare: potValue / winningShares, voided: false };
 }
+
+/** Proceeds of selling `shares` back to the meter: C(q) − C(q − s·e_side).
+ *  The meter guarantees the pot always covers a sell — selling every real
+ *  share walks the market back to its seed and the pot back to zero. */
+export function proceedsForSell(q: Quantities, side: 'YES' | 'NO', shares: number, b: number = DEFAULT_B): number {
+  if (shares <= 0) return 0;
+  const next: Quantities = side === 'YES'
+    ? { qYes: q.qYes - shares, qNo: q.qNo }
+    : { qYes: q.qYes, qNo: q.qNo - shares };
+  return cost(q, b) - cost(next, b);
+}

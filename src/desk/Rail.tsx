@@ -15,7 +15,7 @@ export default function Rail({
   open: boolean;
   onToggle: () => void;
 }) {
-  const { balance, positions } = useDesk();
+  const { balance, pmBalance, positions } = useDesk();
 
 
   return (
@@ -47,7 +47,19 @@ export default function Rail({
       </div>
 
       <div className="rail-foot">
-        <PopNumber text={money(balance)} className="rail-bal mono" />
+        {/* two wallets, deliberately labeled apart: the board plays in real
+            platform credits, personal markets in their own sim money — the
+            two never feed each other */}
+        <div className="rail-wallets">
+          <span className="rail-wallet">
+            <em className="mono">BOARD</em>
+            <PopNumber text={money(balance)} className="rail-bal mono" />
+          </span>
+          <span className="rail-wallet">
+            <em className="mono">SIM</em>
+            <PopNumber text={money(pmBalance)} className="rail-bal rail-bal-sim mono" />
+          </span>
+        </div>
         <AccountMenu />
       </div>
     </nav>

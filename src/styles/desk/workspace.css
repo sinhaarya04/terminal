@@ -162,3 +162,16 @@
   .rail-tab{transform:none}
   .rail-hidden .rail-tab{transform:none}
 }
+
+/* ---- the two wallets in the rail ---- */
+.rail-wallets{display:flex;flex-direction:column;gap:6px}
+.rail-wallet{display:flex;align-items:baseline;gap:8px}
+.rail-wallet em{font-style:normal;font-size:8.5px;letter-spacing:.13em;color:var(--faint);width:38px}
+/* sim money is visually its own species — gold, never the board's green */
+.rail-bal-sim{color:#d9b36b}
+@media(max-width:899px){
+  .rail-wallets{flex-direction:row;gap:12px}
+  .rail-wallet{gap:5px}
+  .rail-wallet em{width:auto}
+  .rail-bal{font-size:11.5px}
+}

@@ -1,7 +1,7 @@
 // Invariant suite for the hybrid engine — the spec, not just examples.
 // Run: npx esbuild scripts/lmsr-test.ts --bundle --format=esm --platform=node \
 //        --outfile=/tmp/lmsr-test.mjs && node /tmp/lmsr-test.mjs
-import { cost, priceYes, costToTrade, sharesForSpend, seedForOdds, pot, resolvePot } from '../src/lib/lmsr';
+import { cost, priceYes, costToTrade, sharesForSpend, seedForOdds, pot, resolvePot, proceedsForSell } from '../src/lib/lmsr';
 const near=(a:number,b:number,eps=0.02)=>Math.abs(a-b)<=eps;
 let fails=0; const t=(name:string,ok:boolean,detail='')=>{ if(!ok)fails++; console.log(`${ok?'PASS':'FAIL'}  ${name} ${detail}`); };
 
@@ -45,6 +45,25 @@ const buy=sharesForSpend(seed,'YES',25,b);
 const q4={qYes:seed.qYes+buy,qNo:seed.qNo};
 t('seeded: pot after $25 buy is exactly $25', Math.abs(pot(q4,c0s,b)-25)<1e-9);
 t('phantom seed never pays: split over REAL shares only', near(buy*resolvePot(pot(q4,c0s,b),buy).perShare,25,1e-9));
+
+// ---- selling: a true exit, conservation intact -----------------------------
+{
+  const sq={qYes:0,qNo:0}; const sc0=cost(sq,b);
+  const paid=costToTrade(sq,'YES',60,b);
+  const q1={qYes:60,qNo:0};
+  const back=proceedsForSell(q1,'YES',60,b);
+  t('sell-all returns exactly what was paid', Math.abs(back-paid)<1e-9, `paid=${paid.toFixed(4)} back=${back.toFixed(4)}`);
+  const q0={qYes:0,qNo:0};
+  t('sell-all walks the pot back to zero', Math.abs(pot(q0,sc0,b))<1e-12);
+  // partial sell after the other side traded: seller banks the price move
+  let qq={qYes:60,qNo:0};
+  const noCost=costToTrade(qq,'NO',30,b); qq={qYes:60,qNo:30};
+  const sellHalf=proceedsForSell(qq,'YES',30,b);
+  const qAfter={qYes:30,qNo:30};
+  t('partial sell: pot still equals net money in',
+    Math.abs(pot(qAfter,sc0,b) - (paid + noCost - sellHalf)) < 1e-9);
+  t('pot never goes negative on bounded sells', pot(qAfter,sc0,b) > 0);
+}
 
 // ---- zero-winner void ------------------------------------------------------
 t('empty winning side voids', resolvePot(10,0).voided===true);

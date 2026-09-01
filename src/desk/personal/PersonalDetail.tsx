@@ -199,6 +199,7 @@ function line(a: Activity) {
     case 'join':    return 'joined';
     case 'resolve': return a.side ? `settled it ${a.side}` : 'voided the market — stakes refunded';
     case 'bet':     return `bought ${a.side} · ${money(a.dollars || 0)}`;
+    case 'sell':    return `sold ${a.side} · ${money(a.dollars || 0)}`;
   }
 }
 

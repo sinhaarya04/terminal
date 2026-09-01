@@ -92,7 +92,7 @@ create table if not exists public.term_activity (
   id          uuid primary key default gen_random_uuid(),
   market_code text not null references public.term_markets(code) on delete cascade,
   handle      text not null,
-  kind        text not null check (kind in ('create','join','bet','resolve')),
+  kind        text not null check (kind in ('create','join','bet','sell','resolve')),
   side        text check (side in ('YES','NO')),
   dollars     numeric,
   created_at  timestamptz not null default now()
@@ -283,6 +283,72 @@ begin
                            'shares', v_shares);
 end;
 $$;
+
+-- ---------- sell: a true exit through the meter ----------
+-- Shares go back to the LMSR meter for C(q) − C(q−s): cash now, price ticks
+-- down, pot shrinks by exactly the proceeds. Stored as a NEGATIVE bet row, so
+-- held shares, resolution splits and void refunds all stay one sum().
+create or replace function public.term_sell_shares(p_code text, p_side text, p_shares numeric)
+returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := auth.uid();
+  m record;
+  v_held numeric;
+  v_proceeds numeric;
+  v_new_pqy numeric; v_new_pqn numeric; v_price numeric;
+  v_bal numeric; v_pm numeric;
+  v_handle text;
+begin
+  if v_uid is null then raise exception 'not signed in'; end if;
+  if p_side not in ('YES','NO') then raise exception 'bad side'; end if;
+  if p_shares <= 0 then raise exception 'bad amount'; end if;
+
+  select * into m from public.term_markets where code = p_code for update;
+  if m is null then raise exception 'no such market'; end if;
+  if m.resolved is not null then raise exception 'market already settled'; end if;
+  if m.closes_at is not null and now() >= m.closes_at then raise exception 'market closed'; end if;
+
+  select coalesce(sum(shares),0) into v_held
+    from public.term_bets where market_code = p_code and user_id = v_uid and side = p_side;
+  if p_shares > v_held + 1e-9 then raise exception 'not enough shares'; end if;
+
+  if p_side = 'YES' then
+    v_new_pqy := m.pq_yes - p_shares;  v_new_pqn := m.pq_no;
+  else
+    v_new_pqy := m.pq_yes;  v_new_pqn := m.pq_no - p_shares;
+  end if;
+  v_proceeds := round(public.term_lmsr_cost(m.pq_yes, m.pq_no, m.b)
+              - public.term_lmsr_cost(v_new_pqy, v_new_pqn, m.b), 2);
+  v_price := public.term_lmsr_price_yes(v_new_pqy, v_new_pqn, m.b);
+
+  insert into public.term_bets (market_code, user_id, side, shares, cost)
+  values (p_code, v_uid, p_side, -p_shares, -v_proceeds);
+
+  update public.term_markets set
+    pq_yes = v_new_pqy, pq_no = v_new_pqn,
+    sq_yes = sq_yes - case when p_side='YES' then p_shares else 0 end,
+    sq_no  = sq_no  - case when p_side='NO'  then p_shares else 0 end,
+    yes = greatest(1, least(99, round(v_price * 100))),
+    pool = greatest(0, pool - v_proceeds)
+  where code = p_code;
+
+  if m.is_private then
+    update public.term_profiles set pm_balance = pm_balance + v_proceeds where id = v_uid
+      returning balance, pm_balance into v_bal, v_pm;
+    select handle into v_handle from public.term_profiles where id = v_uid;
+    insert into public.term_activity (market_code, handle, kind, side, dollars)
+    values (p_code, coalesce(v_handle,'member'), 'sell', p_side, v_proceeds);
+  else
+    update public.term_profiles set balance = balance + v_proceeds where id = v_uid
+      returning balance, pm_balance into v_bal, v_pm;
+  end if;
+
+  return json_build_object('balance', v_bal, 'pm_balance', v_pm,
+                           'yes', greatest(1, least(99, round(v_price * 100))),
+                           'proceeds', v_proceeds);
+end;
+$$;
+grant execute on function public.term_sell_shares(text,text,numeric) to authenticated;
 
 -- ---------- settle a private market ----------
 -- Owner-only and once-only, both enforced here rather than in the client: the

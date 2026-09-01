@@ -1,4 +1,6 @@
-import { useDesk, getMarket, positionValue, money, round2, type Position } from '../deskStore';
+import { useDesk, getMarket, positionValue, money, round2, type Position, type Trade } from '../deskStore';
+import { relativeClose } from '../../lib/closeTime';
+import { useNow } from '../../lib/useNow';
 
 export type PositionRow = { key: string; p: Position; value: number; pnl: number };
 
@@ -10,17 +12,44 @@ export function buildRows(positions: Position[]): PositionRow[] {
   });
 }
 
+function TradeHistory({ trades }: { trades: Trade[] }) {
+  const now = useNow();
+  if (trades.length === 0) return null;
+  return (
+    <section className="th">
+      <div className="kicker">Trade history</div>
+      <ul className="th-list">
+        {trades.slice(0, 40).map((t) => (
+          <li key={t.id} className="th-row">
+            <span className={`th-kind mono ${t.kind === 'buy' ? 'is-yes' : ''}`}>{t.kind}</span>
+            <span className="th-q" title={t.q}>{t.q}</span>
+            <span className={`th-side mono ${t.side === 'YES' ? 'is-yes' : 'is-no'}`}>{t.side}</span>
+            <span className="th-amt mono">
+              {t.kind === 'sell' ? '+' : '−'}{money(t.dollars)}
+            </span>
+            <span className={`th-wallet mono ${t.wallet === 'sim' ? 'is-sim' : ''}`}>{t.wallet}</span>
+            <span className="th-when mono">{relativeClose(t.at, now).replace('closed ', '').replace('in ', '')}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function PositionsList({
   selectedKey, onSelect,
 }: { selectedKey: string | null; onSelect: (r: PositionRow) => void }) {
-  const { positions } = useDesk();
+  const { positions, trades } = useDesk();
   const rows = buildRows(positions);
 
   if (rows.length === 0) {
     return (
-      <div className="pane-body pane-empty">
-        <p className="mono">No positions yet</p>
-        <p className="pane-empty-sub">Place a bet from Markets or Personal and it shows up here.</p>
+      <div className="pane-body pane-empty2">
+        <div className="pane-empty">
+          <p className="mono">No positions yet</p>
+          <p className="pane-empty-sub">Place a bet from Markets or Personal and it shows up here.</p>
+        </div>
+        <TradeHistory trades={trades} />
       </div>
     );
   }
@@ -51,6 +80,7 @@ export default function PositionsList({
           </button>
         );
       })}
+      <TradeHistory trades={trades} />
     </div>
   );
 }

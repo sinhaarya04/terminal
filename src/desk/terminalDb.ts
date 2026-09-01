@@ -153,3 +153,35 @@ export async function rpcLogJoin(code: string): Promise<void> {
   if (!supabase) return;
   await supabase.rpc('term_log_join', { p_code: code });
 }
+
+/** The account's own bets, newest first, joined to their markets so history
+ *  shows a question and which wallet paid, not just a code. */
+export async function fetchMyTrades(): Promise<{
+  id: string; marketId: string; q: string; kind: 'buy' | 'sell'; side: 'YES' | 'NO';
+  dollars: number; shares: number; wallet: 'board' | 'sim'; at: number;
+}[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.from('term_bets')
+    .select('id,market_code,side,shares,cost,created_at,term_markets(question,is_private)')
+    .order('created_at', { ascending: false }).limit(100);
+  type Row = { id: string; market_code: string; side: 'YES' | 'NO'; shares: number; cost: number; created_at: string; term_markets: { question: string; is_private: boolean } | null };
+  // sells are stored as negative bet rows; the ledger shows them as their own
+  // kind with positive magnitudes (dollars received, shares sold)
+  return ((data ?? []) as unknown as Row[]).map((r) => ({
+    id: r.id, marketId: r.market_code,
+    q: r.term_markets?.question ?? r.market_code,
+    kind: (Number(r.shares) < 0 ? 'sell' : 'buy') as 'buy' | 'sell',
+    side: r.side, dollars: Math.abs(Number(r.cost)), shares: Math.abs(Number(r.shares)),
+    wallet: r.term_markets?.is_private === false ? 'board' : 'sim',
+    at: Date.parse(r.created_at),
+  }));
+}
+
+/** Sell shares back to the LMSR meter for their live value. */
+export async function rpcSellShares(code: string, side: 'YES' | 'NO', shares: number):
+  Promise<{ balance: number; pm_balance: number; yes: number; proceeds: number }> {
+  if (!supabase) throw new Error('offline');
+  const { data, error } = await supabase.rpc('term_sell_shares', { p_code: code, p_side: side, p_shares: shares });
+  if (error) throw error;
+  return data as { balance: number; pm_balance: number; yes: number; proceeds: number };
+}
