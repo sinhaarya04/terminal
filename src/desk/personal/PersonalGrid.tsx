@@ -39,8 +39,8 @@ export default function PersonalGrid({
       <div className="pg-head">
         <div className="kicker">Personal · {custom.length} market{custom.length === 1 ? '' : 's'}</div>
         <div className="pg-stats mono">
-          <span className="pg-stat" title="Personal markets play in sim money — a separate wallet from your board balance. Winnings here never touch the board, and going broke here never touches it either.">
-            <em>SIM BALANCE</em>
+          <span className="pg-stat" title="Personal markets play in private credits — a separate wallet from your public balance. Winnings here never touch the public board, and going broke here never touches it either.">
+            <em>PRI BALANCE</em>
             <b className="is-yes">{money(pmBalance)}</b>
           </span>
           <span className="pg-stat">
@@ -62,8 +62,8 @@ export default function PersonalGrid({
       </div>
       {msg && <p className="join-msg mono is-no" role="alert">{msg.text}</p>}
       <p className="pg-note">
-        Personal markets play in <b>sim money</b> — separate from the board balance in the rail.
-        The two never mix: winnings here stay here.
+        Personal markets play in <b>private credits</b> (PRI) — separate from the public
+        balance (PUB) in the rail. The two never mix: winnings here stay here.
       </p>
 
       <div className="grid">

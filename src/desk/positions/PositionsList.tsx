@@ -27,7 +27,7 @@ function TradeHistory({ trades }: { trades: Trade[] }) {
             <span className="th-amt mono">
               {t.kind === 'sell' ? '+' : '−'}{money(t.dollars)}
             </span>
-            <span className={`th-wallet mono ${t.wallet === 'sim' ? 'is-sim' : ''}`}>{t.wallet}</span>
+            <span className={`th-wallet mono ${t.wallet === 'sim' ? 'is-pri' : ''}`}>{t.wallet === 'sim' ? 'pri' : 'pub'}</span>
             <span className="th-when mono">
               {relativeClose(t.at, now).replace('closed ', '').replace('in ', '').replace('less than a minute ago', 'now')}
             </span>

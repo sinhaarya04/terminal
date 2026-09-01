@@ -167,8 +167,9 @@
 .rail-wallets{display:flex;flex-direction:column;gap:6px}
 .rail-wallet{display:flex;align-items:baseline;gap:8px}
 .rail-wallet em{font-style:normal;font-size:8.5px;letter-spacing:.13em;color:var(--faint);width:38px}
-/* sim money is visually its own species — gold, never the board's green */
-.rail-bal-sim{color:#d9b36b}
+/* private credits are visually their own species — lavender, never the
+   public wallet's green */
+.rail-bal-pri{color:#b9a7e8}
 @media(max-width:899px){
   .rail-wallets{flex-direction:row;gap:12px}
   .rail-wallet{gap:5px}

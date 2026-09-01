@@ -52,12 +52,12 @@ export default function Rail({
             two never feed each other */}
         <div className="rail-wallets">
           <span className="rail-wallet">
-            <em className="mono">BOARD</em>
+            <em className="mono">PUB</em>
             <PopNumber text={money(balance)} className="rail-bal mono" />
           </span>
           <span className="rail-wallet">
-            <em className="mono">SIM</em>
-            <PopNumber text={money(pmBalance)} className="rail-bal rail-bal-sim mono" />
+            <em className="mono">PRI</em>
+            <PopNumber text={money(pmBalance)} className="rail-bal rail-bal-pri mono" />
           </span>
         </div>
         <AccountMenu />

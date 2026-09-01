@@ -130,7 +130,7 @@ export default function TradeTicket({
             other side pays in and shrinks as your side gets crowded */}
         <div><span>CUT IF {side} WINS</span><b className="is-yes">{money(cutIfWins)} · {potPct}%</b></div>
         <div>
-          <span>{market.custom ? 'SIM BALANCE AFTER' : 'BOARD BALANCE AFTER'}</span>
+          <span>{market.custom ? 'PRI BALANCE AFTER' : 'PUB BALANCE AFTER'}</span>
           <b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b>
         </div>
       </div>

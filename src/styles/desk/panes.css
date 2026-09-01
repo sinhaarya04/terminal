@@ -456,7 +456,7 @@
 .th-amt{font-size:11.5px;color:var(--text)}
 .th-wallet{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
   border:1px solid var(--border);border-radius:2px;padding:1px 4px;text-align:center}
-.th-wallet.is-sim{color:#d9b36b;border-color:rgba(217,179,107,.35)}
+.th-wallet.is-pri{color:#b9a7e8;border-color:rgba(185,167,232,.35)}
 .th-when{font-size:10px;color:var(--faint);white-space:nowrap;text-align:right;
   overflow:hidden;text-overflow:ellipsis;max-width:56px}
 /* the row must squeeze, never scroll the pane sideways */
@@ -464,4 +464,4 @@
 
 /* ---- personal wallet note ---- */
 .pg-note{margin:-6px 0 18px;font-size:12px;color:var(--faint)}
-.pg-note b{color:#d9b36b;font-weight:500}
+.pg-note b{color:#b9a7e8;font-weight:500}

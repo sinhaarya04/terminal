@@ -244,11 +244,13 @@ export async function hydrateLive(userId: string) {
   const positions: Position[] = bets.map((p) => {
     const mk = lookup.get(p.marketId);
     if (!mk?.resolved) return p;
+    const winTotal = p.side === 'YES' ? mk.sqYes ?? 0 : mk.sqNo ?? 0;
+    // markets settled before the hybrid engine have no share totals — those
+    // actually paid the old $1/share, so their history reads what really happened
+    const perShare = winTotal > 0 ? (mk.pool || 0) / winTotal : 1;
     const payout = mk.resolved === 'VOID'
       ? round2(p.cost)
-      : p.side === mk.resolved && (p.side === 'YES' ? mk.sqYes : mk.sqNo)
-        ? round2(p.shares * ((mk.pool || 0) / (p.side === 'YES' ? mk.sqYes! : mk.sqNo!)))
-        : 0;
+      : p.side === mk.resolved ? round2(p.shares * perShare) : 0;
     return { ...p, settled: { outcome: mk.resolved, payout } };
   });
   state = {
