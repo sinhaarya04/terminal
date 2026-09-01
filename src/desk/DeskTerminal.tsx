@@ -8,6 +8,7 @@ import { ensureMarket, getMarket, type DeskMarket, type Side } from './deskStore
 import { outcomeToMarket, useBoardEvents, type MarketEvent, type Outcome } from './marketsData';
 import PositionsList, { type PositionRow } from './positions/PositionsList';
 import TradeHistoryPanel from './positions/TradeHistoryPanel';
+import Leaderboard from './Leaderboard';
 import PositionDetail from './positions/PositionDetail';
 import CloseTicket from './positions/CloseTicket';
 import PersonalGrid from './personal/PersonalGrid';
@@ -104,6 +105,7 @@ export default function DeskTerminal() {
             <TradeHistoryPanel />
           </div>
         )}
+        {dest === 'Leaderboard' && <Leaderboard />}
         {dest === 'Personal' && (
           pSel
             ? <div className="mscreen">

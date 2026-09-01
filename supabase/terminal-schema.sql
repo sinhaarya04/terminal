@@ -521,3 +521,15 @@ grant execute on function public.term_set_seen_intro() to authenticated;
 --                                   holders in the market's wallet; void+refund
 --                                   if the winner holds no shares
 -- Kept as a pointer rather than duplicated to avoid drift. --
+
+-- ---------- leaderboard ----------
+-- Ranks the PUBLIC board wallet only (personal fun-money is excluded). Exposes
+-- handle + public balance for every member past RLS, never email or pm_balance.
+create or replace function public.term_leaderboard()
+returns table (rank int, handle text, balance numeric, pnl numeric, is_me boolean)
+language sql security definer set search_path = public stable as $$
+  select (row_number() over (order by p.balance desc, p.handle))::int,
+         coalesce(p.handle,'member'), p.balance, p.balance - 1000, p.id = auth.uid()
+  from public.term_profiles p order by p.balance desc, p.handle;
+$$;
+grant execute on function public.term_leaderboard() to authenticated;

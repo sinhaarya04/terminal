@@ -276,3 +276,13 @@ export async function rpcResolveMulti(code: string, idx: number): Promise<void> 
   const { error } = await supabase.rpc('term_resolve_multi', { p_code: code, p_idx: idx });
   if (error) throw error;
 }
+
+export type LeaderRow = { rank: number; handle: string; balance: number; pnl: number; isMe: boolean };
+
+/** Public board standings — handle + PUB balance + net P&L, ranked. */
+export async function fetchLeaderboard(): Promise<LeaderRow[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.rpc('term_leaderboard');
+  return ((data ?? []) as { rank: number; handle: string; balance: number; pnl: number; is_me: boolean }[])
+    .map((r) => ({ rank: r.rank, handle: r.handle, balance: Number(r.balance), pnl: Number(r.pnl), isMe: !!r.is_me }));
+}

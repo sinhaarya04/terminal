@@ -552,3 +552,23 @@
 .mt-outcome:hover{border-color:var(--border-2)}
 .mt-outcome.is-on{border-color:rgba(225,29,42,.6);background:rgba(225,29,42,.05)}
 .mt-price{color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---- leaderboard ---- */
+.lb-note{font-size:10px;letter-spacing:.08em;color:var(--faint);text-transform:uppercase}
+.lb{margin-top:18px;max-width:760px}
+.lb-row{display:grid;grid-template-columns:44px minmax(0,1fr) 130px 110px;gap:14px;align-items:center;
+  padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05)}
+.lb-head{font-size:9px;letter-spacing:.13em;color:var(--faint);padding-bottom:8px;border-bottom:1px solid var(--border)}
+.lb-rank{font-size:14px;color:var(--faint);text-align:center}
+.lb-row.is-top .lb-rank{color:var(--red-bright);font-weight:600}
+.lb-name{font-size:14px;color:var(--text)}
+.lb-you{font-style:normal;margin-left:8px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:#08090d;background:var(--red-bright);padding:1px 6px;border-radius:2px}
+.lb-row.is-me{background:rgba(225,29,42,.05);border-radius:3px}
+.lb-bal{font-size:14px;font-variant-numeric:tabular-nums;text-align:right}
+.lb-pnl{font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+.lb-head span:nth-child(3),.lb-head span:nth-child(4),.lb-bal,.lb-pnl{text-align:right}
+@media(max-width:620px){
+  .lb-row{grid-template-columns:32px minmax(0,1fr) auto;gap:10px}
+  .lb-row span:nth-child(3){display:none}
+}

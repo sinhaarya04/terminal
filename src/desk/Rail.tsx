@@ -4,8 +4,8 @@ import PopNumber from '../components/PopNumber';
 import AccountMenu from './AccountMenu';
 import { useDesk, money } from './deskStore';
 
-export type Destination = 'Markets' | 'Positions' | 'Personal';
-export const DESTINATIONS: Destination[] = ['Markets', 'Positions', 'Personal'];
+export type Destination = 'Markets' | 'Positions' | 'Personal' | 'Leaderboard';
+export const DESTINATIONS: Destination[] = ['Markets', 'Positions', 'Personal', 'Leaderboard'];
 
 export default function Rail({
   active, onChange, open, onToggle,
