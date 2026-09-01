@@ -543,7 +543,10 @@ export async function resolveMarket(code: string, outcome: Side): Promise<number
   } else {
     finalOutcome = (outcome === 'YES' ? eng.sqYes : eng.sqNo) <= 1e-9 ? 'VOID' : outcome;
   }
-  const potValue = round2(lmsr.pot({ qYes: eng.qYes, qNo: eng.qNo }, eng.c0, eng.b));
+  // The pot is the CASH (pool = Σbuys − Σsells, exact by construction), not
+  // the meter: sells credit rounded proceeds while the meter moves by exact
+  // share amounts, and after enough sells the meter claims cents nobody paid.
+  const potValue = round2((getMarket(m.id) ?? m).pool ?? lmsr.pot({ qYes: eng.qYes, qNo: eng.qNo }, eng.c0, eng.b));
   const winShares = outcome === 'YES' ? eng.sqYes : eng.sqNo;
   const voided = finalOutcome === 'VOID';
 
