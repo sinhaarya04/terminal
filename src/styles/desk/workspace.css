@@ -46,7 +46,7 @@
                  border-right-color var(--duration-fast) var(--ease-smooth-out)}
 /* the red gooey blob field, scoped to the rail: soft blurred lobes drifting
    behind the chrome, faded out toward the bottom so the balance stays legible */
-.rail-fluid{position:absolute;inset:0;z-index:0}
+.rail-fluid{position:absolute;inset:0;z-index:0;overflow:hidden}
 /* the global .blob blur is tuned for a full-page hero (85px across ~50vw); at
    rail scale that flattens to nothing, so the lobes are re-tuned here: bigger
    relative to the column, much less blur, and lifted opacity so the goo reads */
@@ -111,15 +111,30 @@
   .rail-collapse,.rail-tab{display:none}
   .rail>*:not(.rail-fluid){width:auto}
   .rail-head{display:none}
-  .rail{flex-direction:row;align-items:center;gap:16px;width:auto;
+  /* overflow must stay visible here: the account menu pops UP out of this
+     56px bar, and the desktop rule's overflow:hidden was decapitating it.
+     The gooey blobs are clipped by .rail-fluid itself instead. */
+  .rail{flex-direction:row;align-items:center;gap:12px;width:auto;overflow:visible;
     position:fixed;bottom:0;left:0;right:0;z-index:40;
-    padding:0 16px;height:56px;border-right:none;border-top:1px solid var(--border);
+    padding:0 14px;height:56px;border-right:none;border-top:1px solid var(--border);
     background:var(--bg2)}
   .rail-brand{display:none}
-  .rail-dests{flex-direction:row;gap:18px}
-  .rail-dest{padding:9px 0}
+  /* three tabs + balance + handle share ~390px; the desktop tracking and gaps
+     don't fit, so everything tightens a step instead of wrapping or clipping */
+  .rail-dests{flex-direction:row;gap:14px}
+  .rail-dest{padding:9px 0;font-size:10px;letter-spacing:.08em}
   .rail-dest.is-on::before{left:0;right:0;top:auto;bottom:0;width:auto;height:1px}
-  .rail-foot{margin-top:0;margin-left:auto;padding-top:0;border-top:none}
+  .rail-foot{margin-top:0;margin-left:auto;padding-top:0;border-top:none;
+    flex-direction:row;align-items:center;gap:10px}
+  .rail-bal{font-size:12.5px}
+  /* the trigger sits at the screen's right edge; a left-anchored menu would
+     run off it, so it hangs from the right on phones */
+  .acct-menu{left:auto;right:0}
+}
+@media(max-width:380px){
+  .rail-dests{gap:10px}
+  .rail{gap:8px;padding:0 10px}
+  .rail-bal{font-size:11.5px}
 }
 
 /* ---------- account menu ---------- */
