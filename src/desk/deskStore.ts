@@ -254,10 +254,12 @@ export async function refreshLiveMarket(code: string): Promise<void> {
     const [m, feed] = await Promise.all([db.getMarketByCode(code), db.fetchActivity(code)]);
     if (!m) return;
     const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === code ? { ...m, spark: c.spark } : c));
-    // server truth replaces this market's slice of the feed; other codes keep
-    // their locally-recorded events
-    const activity = [...feed, ...state.activity.filter((a) => a.code !== code)]
-      .sort((a, b) => b.at - a.at);
+    // Server truth replaces this market's slice of the feed — but only when the
+    // server actually answered. A failed fetch (feed null) keeps whatever this
+    // browser already recorded rather than erasing it.
+    const activity = feed == null
+      ? state.activity
+      : [...feed, ...state.activity.filter((a) => a.code !== code)].sort((a, b) => b.at - a.at);
     set({ custom: roll(state.custom), markets: roll(state.markets), activity });
   } catch { /* stale view is better than an error here */ }
 }

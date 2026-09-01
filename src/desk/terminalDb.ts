@@ -125,11 +125,16 @@ type ActivityRow = { id: string; market_code: string; handle: string; kind: 'cre
 export async function fetchActivity(code: string): Promise<{
   id: string; code: string; handle: string; kind: ActivityRow['kind'];
   side?: 'YES' | 'NO'; dollars?: number; at: number;
-}[]> {
-  if (!supabase) return [];
-  const { data } = await supabase.from('term_activity')
+}[] | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('term_activity')
     .select('*').eq('market_code', code)
     .order('created_at', { ascending: false }).limit(50);
+  // null = "couldn't ask", [] = "asked, feed is empty". The distinction
+  // matters: a failed fetch once wiped a market's locally-recorded feed
+  // because it was indistinguishable from an empty one (the PostgREST
+  // schema cache hadn't picked the table up yet).
+  if (error) return null;
   return ((data ?? []) as ActivityRow[]).map((r) => ({
     id: r.id, code: r.market_code, handle: r.handle, kind: r.kind,
     side: r.side ?? undefined, dollars: r.dollars != null ? Number(r.dollars) : undefined,
