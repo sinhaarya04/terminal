@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import ExMark from '../components/ExMark';
 import { supabase } from '../lib/supabase';
 import { isAllowedEmail, ALLOWED_DOMAIN } from '../lib/authEmail';
 
@@ -82,7 +83,7 @@ export default function DeskSignIn() {
       </div>
 
       <div className="desk-card">
-        <div className="desk-lockup">E<span className="desk-brack">[</span>X<span className="desk-brack">]</span></div>
+        <ExMark className="auth-mark" />
         <div className="kicker desk-kicker">The Terminal</div>
 
         {phase === 'sent' || phase === 'verifying' ? (

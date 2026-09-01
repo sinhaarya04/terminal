@@ -178,6 +178,11 @@
 .skel-auth{min-height:100vh}
 .skel-auth .t-skel-skeleton,.skel-auth .t-skel-content{
   display:flex;align-items:center;justify-content:center;padding:24px}
+/* the content layer is a flex CENTERING box, so the real sign-in page inside it
+   shrink-wrapped to card width — its blob backdrop then painted a hard-edged
+   ~500px strip instead of the screen. The page is a full-bleed layout; it must
+   always own the whole layer. */
+.skel-auth .t-skel-content>.desk-auth{width:100%}
 .skel-card{width:min(456px,92vw);padding:44px 40px 34px;
   border:1px solid var(--border);border-radius:3px;background:rgba(9,10,15,.62);
   display:flex;flex-direction:column;align-items:center;gap:14px}

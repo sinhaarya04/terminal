@@ -105,6 +105,8 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
   border:1px solid var(--border);border-radius:3px;
   background:rgba(9,10,15,.62);backdrop-filter:blur(14px)}
 .desk-lockup{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:.03em}
+/* the real brand mark on the auth card, not typed serif glyphs */
+.auth-mark{height:40px;width:auto;margin:0 auto;color:var(--text)}
 .desk-kicker{margin:12px 0 0;justify-content:center}
 .desk-go{width:100%;margin-top:16px}
 .desk-h1{margin:16px 0 10px;font-size:29px;font-weight:600;letter-spacing:-.015em}
