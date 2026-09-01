@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
 import { useDesk, adminCreateBoardMarket } from '../deskStore';
 import DateTimeField from '../../components/DateTimeField';
+import CategorySelect from '../../components/CategorySelect';
 import { endOfDay } from '../../lib/closeTime';
 
 type Filter = 'All' | 'Live' | Category;
@@ -205,10 +206,10 @@ function AdminCreate({ onDone }: { onDone: () => void }) {
           <input className="tk-input" value={q} maxLength={120}
             placeholder="Will Northeastern win the Beanpot?" onChange={(e) => setQ(e.target.value)} />
         </label>
-        <label className="tk-field">
+        <div className="tk-field">
           <span className="tk-label mono">Category</span>
-          <input className="tk-input" value={cat} maxLength={16} onChange={(e) => setCat(e.target.value)} />
-        </label>
+          <CategorySelect value={cat} onChange={setCat} />
+        </div>
         <label className="tk-field">
           <span className="tk-label mono">Opening Yes · {yes}%</span>
           <input className="tk-range" type="range" min={5} max={95} value={yes}

@@ -505,3 +505,13 @@
 .admin-create-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px 18px;align-items:end}
 .admin-create-go{margin-top:14px;padding:10px 22px}
 @media(max-width:720px){.admin-create-grid{grid-template-columns:1fr}}
+
+/* ---- category select ---- */
+.cat-select{cursor:pointer;appearance:none;-webkit-appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--faint) 50%),linear-gradient(135deg,var(--faint) 50%,transparent 50%);
+  background-position:calc(100% - 16px) center,calc(100% - 11px) center;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
+.cat-select option{background:var(--bg2);color:var(--text)}
+.cat-add{display:flex;gap:8px}
+.cat-add .tk-input{flex:1}
+.cat-add-go{padding:9px 16px;flex:none}
