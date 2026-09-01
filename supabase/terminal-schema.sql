@@ -12,7 +12,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.term_profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
   handle     text,
-  balance    numeric not null default 1000,   -- play credits
+  balance    numeric not null default 1000,   -- main platform credits (board markets)
+  pm_balance numeric not null default 1000,   -- personal-market sim wallet, separate on purpose
   seen_intro boolean not null default false,  -- gates the first-sign-in video
   created_at timestamptz not null default now()
 );
@@ -36,6 +37,8 @@ create table if not exists public.term_markets (
 alter table public.term_markets add column if not exists resolved    text;
 alter table public.term_markets add column if not exists resolved_at timestamptz;
 alter table public.term_markets add column if not exists closes_at   timestamptz;
+alter table public.term_markets add column if not exists owner_handle text;
+alter table public.term_profiles add column if not exists pm_balance numeric not null default 1000;
 
 -- ---------- bets: drives positions + P&L ----------
 create table if not exists public.term_bets (
@@ -49,6 +52,25 @@ create table if not exists public.term_bets (
 );
 create index if not exists term_bets_user_idx   on public.term_bets(user_id);
 create index if not exists term_bets_market_idx on public.term_bets(market_code);
+
+-- ---------- activity: the private-market social feed ----------
+-- Written only by the security-definer RPCs; readable by any signed-in user,
+-- the same visibility rule as the markets themselves.
+create table if not exists public.term_activity (
+  id          uuid primary key default gen_random_uuid(),
+  market_code text not null references public.term_markets(code) on delete cascade,
+  handle      text not null,
+  kind        text not null check (kind in ('create','join','bet','resolve')),
+  side        text check (side in ('YES','NO')),
+  dollars     numeric,
+  created_at  timestamptz not null default now()
+);
+create index if not exists term_activity_market_idx on public.term_activity(market_code, created_at desc);
+alter table public.term_activity enable row level security;
+grant select on public.term_activity to authenticated;
+drop policy if exists term_activity_read on public.term_activity;
+create policy term_activity_read on public.term_activity
+  for select using (auth.role() = 'authenticated');
 
 -- ---------- create a profile on first sign-in ----------
 -- Deliberately NOT a trigger on auth.users. This project is shared: the poker
@@ -119,9 +141,12 @@ returns text language plpgsql security definer set search_path = public as $$
 declare
   v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  v_handle text;
   i int;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
+  select handle into v_handle from public.term_profiles where id = auth.uid();
+  v_handle := coalesce(v_handle, 'member');
   loop
     v_code := 'EX-';
     for i in 1..4 loop
@@ -129,9 +154,11 @@ begin
     end loop;
     exit when not exists (select 1 from public.term_markets where code = v_code);
   end loop;
-  insert into public.term_markets (code, owner, question, cat, closes, closes_at, yes, is_private)
-  values (v_code, auth.uid(), p_question, coalesce(nullif(p_cat,''),'Private'),
+  insert into public.term_markets (code, owner, owner_handle, question, cat, closes, closes_at, yes, is_private)
+  values (v_code, auth.uid(), v_handle, p_question,
+          coalesce(nullif(p_cat,''),'Private'),
           nullif(p_closes,''), p_closes_at, greatest(2, least(98, p_yes)), true);
+  insert into public.term_activity (market_code, handle, kind) values (v_code, v_handle, 'create');
   return v_code;
 end;
 $$;
@@ -156,6 +183,7 @@ returns json language plpgsql security definer set search_path = public as $$
 declare
   v_uid   uuid := auth.uid();
   v_bal   numeric;
+  v_pm    numeric;
   v_yes   numeric;
   v_price numeric;
   v_shares numeric;
@@ -163,14 +191,11 @@ declare
   v_private boolean;
   v_closes_at timestamptz;
   v_resolved text;
+  v_handle text;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   if p_side not in ('YES','NO') then raise exception 'bad side'; end if;
   if p_dollars <= 0 then raise exception 'bad amount'; end if;
-
-  select balance into v_bal from public.term_profiles where id = v_uid for update;
-  if v_bal is null then raise exception 'no profile'; end if;
-  if p_dollars > v_bal then raise exception 'insufficient balance'; end if;
 
   select yes, is_private, closes_at, resolved
     into v_yes, v_private, v_closes_at, v_resolved
@@ -178,6 +203,16 @@ begin
   if v_yes is null then raise exception 'no such market'; end if;
   if v_resolved is not null then raise exception 'market already settled'; end if;
   if v_closes_at is not null and now() >= v_closes_at then raise exception 'market closed'; end if;
+
+  -- Private markets spend the sim wallet, board markets the main balance.
+  select balance, pm_balance into v_bal, v_pm
+    from public.term_profiles where id = v_uid for update;
+  if v_bal is null then raise exception 'no profile'; end if;
+  if v_private then
+    if p_dollars > v_pm then raise exception 'insufficient balance'; end if;
+  else
+    if p_dollars > v_bal then raise exception 'insufficient balance'; end if;
+  end if;
 
   v_price  := case when p_side = 'YES' then v_yes else 100 - v_yes end;
   v_shares := p_dollars / (v_price / 100.0);
@@ -188,10 +223,19 @@ begin
   values (p_code, v_uid, p_side, v_shares, p_dollars);
 
   update public.term_markets set yes = v_yes, pool = pool + p_dollars where code = p_code;
-  update public.term_profiles set balance = balance - p_dollars where id = v_uid
-    returning balance into v_bal;
 
-  return json_build_object('balance', v_bal, 'yes', v_yes);
+  if v_private then
+    update public.term_profiles set pm_balance = pm_balance - p_dollars where id = v_uid
+      returning balance, pm_balance into v_bal, v_pm;
+    select handle into v_handle from public.term_profiles where id = v_uid;
+    insert into public.term_activity (market_code, handle, kind, side, dollars)
+    values (p_code, coalesce(v_handle,'member'), 'bet', p_side, p_dollars);
+  else
+    update public.term_profiles set balance = balance - p_dollars where id = v_uid
+      returning balance, pm_balance into v_bal, v_pm;
+  end if;
+
+  return json_build_object('balance', v_bal, 'pm_balance', v_pm, 'yes', v_yes);
 end;
 $$;
 
@@ -206,6 +250,7 @@ declare
   v_uid      uuid := auth.uid();
   v_owner    uuid;
   v_resolved text;
+  v_handle   text;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   if p_outcome not in ('YES','NO') then raise exception 'bad outcome'; end if;
@@ -216,9 +261,10 @@ begin
   if v_owner <> v_uid then raise exception 'only the owner can settle this market'; end if;
   if v_resolved is not null then raise exception 'already settled'; end if;
 
-  -- Credit every holder of the winning side $1 per share, in one pass.
+  -- Winnings land in the sim wallet: only private markets have an owner, so
+  -- only private markets ever reach this function.
   update public.term_profiles p
-     set balance = p.balance + w.payout
+     set pm_balance = p.pm_balance + w.payout
     from (
       select user_id, sum(shares) as payout
         from public.term_bets
@@ -232,6 +278,10 @@ begin
          resolved_at = now(),
          yes = case when p_outcome = 'YES' then 100 else 0 end
    where code = p_code;
+
+  select handle into v_handle from public.term_profiles where id = v_uid;
+  insert into public.term_activity (market_code, handle, kind, side)
+  values (p_code, coalesce(v_handle,'member'), 'resolve', p_outcome);
 end;
 $$;
 
@@ -243,6 +293,25 @@ begin
 end;
 $$;
 
+-- Log a join, once per user per market.
+create or replace function public.term_log_join(p_code text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_handle text;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  select handle into v_handle from public.term_profiles where id = auth.uid();
+  v_handle := coalesce(v_handle, 'member');
+  if not exists (
+    select 1 from public.term_activity
+    where market_code = p_code and handle = v_handle and kind in ('join','create')
+  ) then
+    insert into public.term_activity (market_code, handle, kind) values (p_code, v_handle, 'join');
+  end if;
+end;
+$$;
+
+grant execute on function public.term_log_join(text) to authenticated;
 grant execute on function public.term_ensure_profile() to authenticated;
 grant execute on function public.term_create_market(text,text,text,numeric,timestamptz) to authenticated;
 grant execute on function public.term_upsert_public_market(text,text,text,numeric) to authenticated;

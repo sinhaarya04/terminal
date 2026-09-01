@@ -8,7 +8,8 @@ import * as db from './terminalDb';
 import { endOfDay } from '../lib/closeTime';
 
 const KEY = 'ex_desk_v1';
-const START_BALANCE = 1000; // fake E[X] credits handed to every new desk
+const START_BALANCE = 1000;    // main platform credits (board markets)
+const START_PM_BALANCE = 1000; // personal-market fun money — a separate wallet
 
 export type Side = 'YES' | 'NO';
 
@@ -71,7 +72,10 @@ export type Activity = {
 export type DeskState = {
   user: { handle: string } | null;
   seenIntro: boolean;
-  balance: number;
+  balance: number;    // main platform credits — board markets bet in this
+  // Personal markets settle in their own simulation wallet. Keeping the two
+  // apart is the point: private jokes can't bankroll board positions.
+  pmBalance: number;
   positions: Position[];
   markets: DeskMarket[];  // public demo markets (prices move as you trade)
   custom: DeskMarket[];   // markets this browser created or joined by code
@@ -132,7 +136,7 @@ function seedActivity(): Activity[] {
 
 function fresh(): DeskState {
   return {
-    user: null, seenIntro: false, balance: START_BALANCE, positions: [],
+    user: null, seenIntro: false, balance: START_BALANCE, pmBalance: START_PM_BALANCE, positions: [],
     markets: SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] })),
     // computed at seed time, like seedActivity, so the demo market is always a
     // few days from closing rather than frozen at whenever this shipped
@@ -196,7 +200,8 @@ export async function hydrateLive(userId: string) {
   for (const bm of betMarkets) if (!bm.custom && !markets.some((x) => x.id === bm.id)) markets.push(bm);
   state = {
     ...state, live: true, userId,
-    user: { handle: profile.handle }, seenIntro: profile.seenIntro, balance: profile.balance,
+    user: { handle: profile.handle }, seenIntro: profile.seenIntro,
+    balance: profile.balance, pmBalance: profile.pmBalance,
     positions: bets, markets, custom: mine, joined: mine.map((m) => m.id),
     // The server has no activity table yet, so live mode starts with an empty
     // feed rather than inventing one. Local events still append as you play.
@@ -275,8 +280,13 @@ export function marketActivity(code: string): Activity[] {
 }
 
 /** Buy `dollars` worth of one side of a market at its current price. */
+/** Which wallet a market bets in. Private markets play with fun money. */
+export function walletFor(m: DeskMarket): 'balance' | 'pmBalance' {
+  return m.custom ? 'pmBalance' : 'balance';
+}
+
 export async function placeBet(m: DeskMarket, side: Side, dollars: number): Promise<boolean> {
-  if (dollars <= 0 || dollars > state.balance) return false;
+  if (dollars <= 0 || dollars > state[walletFor(m)]) return false;
   // Betting is an `open`-only action: a settled market has already paid out, and
   // a closed one is waiting on its result. Either way the share being sold could
   // never come to anything. Checked against the stored record, since `m` may be
@@ -287,7 +297,7 @@ export async function placeBet(m: DeskMarket, side: Side, dollars: number): Prom
     try {
       if (!m.custom) await db.rpcUpsertPublicMarket(m);      // materialise public markets on first bet
       const res = await db.rpcPlaceBet(m.id, side, dollars); // atomic server-side money move
-      applyBet(m, side, dollars, res.balance, res.yes);
+      applyBet(m, side, dollars, { balance: res.balance, pmBalance: res.pm_balance }, res.yes);
     } catch { return false; }
     return true;
   }
@@ -295,12 +305,18 @@ export async function placeBet(m: DeskMarket, side: Side, dollars: number): Prom
   // guest/demo (localStorage): compute everything client-side
   const nudge = Math.min(6, Math.max(1, Math.round(dollars / 40)));
   const newYes = clamp(side === 'YES' ? m.yes + nudge : m.yes - nudge, 2, 98);
-  applyBet(m, side, dollars, round2(state.balance - dollars), newYes);
+  const w = walletFor(m);
+  applyBet(m, side, dollars, { ...pick(), [w]: round2(state[w] - dollars) }, newYes);
   return true;
 }
 
+const pick = () => ({ balance: state.balance, pmBalance: state.pmBalance });
+
 /** Shared local-state update after a bet (both live + guest use this). */
-function applyBet(m: DeskMarket, side: Side, dollars: number, newBalance: number, newYes: number) {
+function applyBet(
+  m: DeskMarket, side: Side, dollars: number,
+  wallets: { balance: number; pmBalance: number }, newYes: number,
+) {
   const price = side === 'YES' ? m.yes : 100 - m.yes;
   const shares = dollars / (price / 100);
   const positions = [...state.positions];
@@ -317,7 +333,7 @@ function applyBet(m: DeskMarket, side: Side, dollars: number, newBalance: number
   if (m.custom) {
     state = { ...state, custom: state.custom.map((c) => (c.id === m.id ? { ...c, pool: round2((c.pool || 0) + dollars) } : c)) };
   }
-  set({ balance: round2(newBalance), positions });
+  set({ balance: round2(wallets.balance), pmBalance: round2(wallets.pmBalance), positions });
 }
 
 export async function createMarket(
@@ -388,7 +404,7 @@ export async function resolveMarket(code: string, outcome: Side): Promise<number
   ));
   set({
     positions,
-    balance: round2(state.balance + credited),
+    pmBalance: round2(state.pmBalance + credited),
     custom: roll(state.custom),
     markets: roll(state.markets),
   });

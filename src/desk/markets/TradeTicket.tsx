@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { placeBet, money, useDesk, marketPhase, type DeskMarket, type Side } from '../deskStore';
+import { placeBet, money, useDesk, marketPhase, walletFor, type DeskMarket, type Side } from '../deskStore';
 import { useNow } from '../../lib/useNow';
 import SuccessCheck from '../../components/SuccessCheck';
 
@@ -15,7 +15,10 @@ export default function TradeTicket({
   onDone: () => void;
   emptyHint?: string;
 }) {
-  const { balance } = useDesk();
+  // Private markets spend the personal fun-money wallet, the board spends the
+  // main balance — the ticket must budget against the one this market uses.
+  const desk = useDesk();
+  const balance = market ? desk[walletFor(market)] : desk.balance;
   const now = useNow();
   const [amount, setAmount] = useState(25);
   const [busy, setBusy] = useState(false);
@@ -115,7 +118,10 @@ export default function TradeTicket({
         <div><span>SHARES</span><b>{shares.toFixed(1)}</b></div>
         <div><span>COST</span><b>{money(amount)}</b></div>
         <div><span>MAX PAYOUT</span><b className="is-yes">{money(maxPayout)}</b></div>
-        <div><span>BALANCE AFTER</span><b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b></div>
+        <div>
+          <span>{market.custom ? 'SIM BALANCE AFTER' : 'BALANCE AFTER'}</span>
+          <b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b>
+        </div>
       </div>
 
       <button className="btn btn-red tk-go" disabled={amount <= 0 || busy} onClick={confirm}>

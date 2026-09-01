@@ -407,3 +407,30 @@
 /* the close line in the detail kicker; the relative half dims so the absolute
    date stays the thing you read first */
 .close-rel{color:var(--faint)}
+
+/* ---- personal grid (personal/PersonalGrid.tsx) ---- */
+.pg-head{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap;
+  margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.pg-stats{display:flex;gap:26px}
+.pg-stat{display:flex;flex-direction:column;gap:3px}
+.pg-stat em{font-style:normal;font-size:9px;letter-spacing:.13em;color:var(--faint)}
+.pg-stat b{font-size:15px;font-weight:600;letter-spacing:.01em}
+.pg-join{display:flex;gap:8px;margin-left:auto;align-items:center}
+.pg-join-input{width:120px;padding:9px 11px;font-size:12px}
+.pg-join-go{padding:9px 18px;font-size:12.5px}
+/* cards are shorter than the board's squares — these carry four lines, not a
+   whole outcome ladder */
+.pg-card{aspect-ratio:auto;min-height:150px}
+.pg-price{display:flex;justify-content:space-between;align-items:baseline;
+  margin-top:12px;font-size:12.5px}
+.pg-pool{font-size:10.5px;color:var(--faint)}
+.pg-phase.is-flat{color:var(--faint)}
+.pg-new{aspect-ratio:auto;min-height:150px;align-items:center;justify-content:center;
+  gap:8px;border-style:dashed;color:var(--faint)}
+.pg-new:hover{color:var(--red-bright);border-color:rgba(225,29,42,.5)}
+.pg-plus{font-size:26px;line-height:1}
+.pg-new-label{font-size:10px;letter-spacing:.13em;text-transform:uppercase}
+@media(max-width:640px){
+  .pg-join{margin-left:0;width:100%}
+  .pg-join-input{flex:1;width:auto}
+}

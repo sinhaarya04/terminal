@@ -4,7 +4,7 @@
 import { supabase } from '../lib/supabase';
 import type { DeskMarket } from './deskStore';
 
-export type LiveProfile = { handle: string; balance: number; seenIntro: boolean };
+export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean };
 
 type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | null };
 type BetRow = { market_code: string; side: 'YES' | 'NO'; shares: number; cost: number };
@@ -28,9 +28,12 @@ function rowToMarket(r: MarketRow): DeskMarket {
 
 export async function fetchProfile(): Promise<LiveProfile | null> {
   if (!supabase) return null;
-  const { data } = await supabase.from('term_profiles').select('handle,balance,seen_intro').maybeSingle();
+  const { data } = await supabase.from('term_profiles').select('handle,balance,pm_balance,seen_intro').maybeSingle();
   if (!data) return null;
-  return { handle: data.handle ?? 'trader', balance: Number(data.balance), seenIntro: !!data.seen_intro };
+  return {
+    handle: data.handle ?? 'trader', balance: Number(data.balance),
+    pmBalance: Number(data.pm_balance ?? 1000), seenIntro: !!data.seen_intro,
+  };
 }
 
 /** Markets I own plus any I've bet on (so joined codes persist across devices). */
@@ -96,11 +99,11 @@ export async function rpcUpsertPublicMarket(m: DeskMarket): Promise<void> {
   await supabase.rpc('term_upsert_public_market', { p_code: m.id, p_question: m.q, p_cat: m.cat, p_yes: m.yes });
 }
 
-export async function rpcPlaceBet(code: string, side: 'YES' | 'NO', dollars: number): Promise<{ balance: number; yes: number }> {
+export async function rpcPlaceBet(code: string, side: 'YES' | 'NO', dollars: number): Promise<{ balance: number; pm_balance: number; yes: number }> {
   if (!supabase) throw new Error('offline');
   const { data, error } = await supabase.rpc('term_place_bet', { p_code: code, p_side: side, p_dollars: dollars });
   if (error) throw error;
-  return data as { balance: number; yes: number };
+  return data as { balance: number; pm_balance: number; yes: number };
 }
 
 export async function rpcSetSeenIntro(): Promise<void> {

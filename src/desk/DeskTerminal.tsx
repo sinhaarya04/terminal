@@ -8,8 +8,8 @@ import { outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
 import PositionsList, { type PositionRow } from './positions/PositionsList';
 import PositionDetail from './positions/PositionDetail';
 import CloseTicket from './positions/CloseTicket';
-import PersonalList, { type PersonalSel } from './personal/PersonalList';
-import PersonalDetail from './personal/PersonalDetail';
+import PersonalGrid from './personal/PersonalGrid';
+import PersonalDetail, { type PersonalSel } from './personal/PersonalDetail';
 import PersonalAction from './personal/PersonalAction';
 
 // Opening a market stages its front-runner in the ticket, so the ticket is never
@@ -92,17 +92,25 @@ export default function DeskTerminal() {
           />
         )}
         {dest === 'Personal' && (
-          <Workspace
-            focus={focus}
-            onFocus={setFocus}
-            list={<PersonalList sel={pSel}
-              onSelect={(s) => { setPSel(s); setCreated(null); setFocus('detail'); }} />}
-            detail={<PersonalDetail sel={pSel}
-              onCreated={(m) => { setCreated(m); setPSel({ kind: 'market', m }); setFocus('action'); }} />}
-            action={<PersonalAction created={created}
-              market={pSel?.kind === 'market' ? pSel.m : null}
-              onDone={() => { setCreated(null); setFocus('detail'); }} />}
-          />
+          pSel
+            ? <div className="mscreen">
+                <button className="mscreen-back mono"
+                  onClick={() => { setPSel(null); setCreated(null); }}>← My markets</button>
+                <div className="mscreen-body">
+                  <div className="mscreen-main">
+                    <PersonalDetail sel={pSel}
+                      onCreated={(m) => { setCreated(m); setPSel({ kind: 'market', m }); }} />
+                  </div>
+                  <div className="mscreen-ticket">
+                    <PersonalAction created={created}
+                      market={pSel.kind === 'market' ? pSel.m : null}
+                      onDone={() => setCreated(null)} />
+                  </div>
+                </div>
+              </div>
+            : <PersonalGrid
+                onOpen={(m) => { setPSel({ kind: 'market', m }); setCreated(null); }}
+                onNew={() => { setPSel({ kind: 'new' }); setCreated(null); }} />
         )}
       </main>
     </div>

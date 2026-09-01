@@ -8,7 +8,7 @@ import {
   createMarket, resolveMarket, marketActivity, participants, useDesk, marketPhase, refreshLiveMarket,
   money, type Activity, type DeskMarket, type Side,
 } from '../deskStore';
-import type { PersonalSel } from './PersonalList';
+export type PersonalSel = { kind: 'new' } | { kind: 'market'; m: DeskMarket };
 
 export default function PersonalDetail({
   sel, onCreated,
