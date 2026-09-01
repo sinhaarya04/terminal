@@ -322,6 +322,10 @@ export async function placeBet(m: DeskMarket, side: Side, dollars: number): Prom
     try {
       if (!m.custom) await db.rpcUpsertPublicMarket(m);      // materialise public markets on first bet
       const res = await db.rpcPlaceBet(m.id, side, dollars); // atomic server-side money move
+      // stamp the engine deltas locally too — the settle mirror reads sq* to
+      // split the pot, and a blind local copy once declared a market VOID
+      // while the server was correctly paying its winner
+      stampEngine(m, side, res.shares);
       applyBet(m, side, dollars, res.shares, { balance: res.balance, pmBalance: res.pm_balance }, res.yes);
     } catch { return false; }
     return true;
@@ -334,15 +338,23 @@ export async function placeBet(m: DeskMarket, side: Side, dollars: number): Prom
   const nextQ = side === 'YES' ? { qYes: q.qYes + shares, qNo: q.qNo } : { qYes: q.qYes, qNo: q.qNo + shares };
   const newYes = clamp(Math.round(lmsr.priceYes(nextQ, eng.b) * 100), 1, 99);
   const w = walletFor(m);
-  // stamp the advanced engine state onto the stored market
+  stampEngine(m, side, shares);
+  applyBet(m, side, dollars, shares, { ...pick(), [w]: round2(state[w] - dollars) }, newYes);
+  return true;
+}
+
+/** Advance the stored market's engine state after a bet of `shares` on `side`.
+ *  Shared by the live path (server-computed shares) and the guest path. */
+function stampEngine(m: DeskMarket, side: Side, shares: number) {
+  const eng = engineOf(m);
   const stamp = (arr: DeskMarket[]) => arr.map((c) => (c.id === m.id ? {
-    ...c, ...eng, qYes: nextQ.qYes, qNo: nextQ.qNo,
+    ...c, ...eng,
+    qYes: eng.qYes + (side === 'YES' ? shares : 0),
+    qNo: eng.qNo + (side === 'NO' ? shares : 0),
     sqYes: eng.sqYes + (side === 'YES' ? shares : 0),
     sqNo: eng.sqNo + (side === 'NO' ? shares : 0),
   } : c));
   state = { ...state, markets: stamp(state.markets), custom: stamp(state.custom) };
-  applyBet(m, side, dollars, shares, { ...pick(), [w]: round2(state[w] - dollars) }, newYes);
-  return true;
 }
 
 const pick = () => ({ balance: state.balance, pmBalance: state.pmBalance });
@@ -416,21 +428,29 @@ export async function resolveMarket(code: string, outcome: Side): Promise<number
     : m.owner === (state.user?.handle || 'you');
   if (!mine) return null;
 
-  if (state.live) {
-    try { await db.rpcResolveMarket(code, outcome); }
-    catch { return null; }
-  }
-
   // Parimutuel payout: the pot (everything actually paid in) splits across the
   // winning side's REAL shares. Never shares × $1 — that rule could pay out
   // more than the market took in, minting points from nowhere. If the winning
   // side holds zero shares there is nobody to pay, so the market voids and
-  // every stake is refunded instead. Mirrors term_resolve_market exactly.
-  const eng = engineOf(m);
+  // every stake is refunded instead. Mirrors term_resolve_market.
+  let eng = engineOf(m);
+  let finalOutcome: Side | 'VOID';
+  if (state.live) {
+    try {
+      await db.rpcResolveMarket(code, outcome);
+      // the server judged VOID-or-not against the real bets table; read its
+      // verdict and its share totals back rather than trusting this browser's
+      // possibly-stale copy of the market
+      const fresh = await db.getMarketByCode(code);
+      if (fresh) { eng = engineOf(fresh); }
+      finalOutcome = (fresh?.resolved as Side | 'VOID' | undefined) ?? outcome;
+    } catch { return null; }
+  } else {
+    finalOutcome = (outcome === 'YES' ? eng.sqYes : eng.sqNo) <= 1e-9 ? 'VOID' : outcome;
+  }
   const potValue = round2(lmsr.pot({ qYes: eng.qYes, qNo: eng.qNo }, eng.c0, eng.b));
   const winShares = outcome === 'YES' ? eng.sqYes : eng.sqNo;
-  const voided = winShares <= 1e-9;
-  const finalOutcome: Side | 'VOID' = voided ? 'VOID' : outcome;
+  const voided = finalOutcome === 'VOID';
 
   let credited = 0;
   const positions = state.positions.map((pos) => {
