@@ -311,7 +311,9 @@ begin
 
   -- parimutuel: the pot is everything actually paid in, split over the winning
   -- side's REAL shares. Never shares x $1 — that minted points from nowhere.
-  v_pot := public.term_lmsr_cost(m.pq_yes, m.pq_no, m.b) - m.c0;
+  -- rounded to cents: ln/exp leaves ~1e-20 of numeric dust against the whole
+  -- dollars actually paid in, and wallets should read clean money
+  v_pot := round(public.term_lmsr_cost(m.pq_yes, m.pq_no, m.b) - m.c0, 2);
   select coalesce(sum(shares),0) into v_win_shares
     from public.term_bets where market_code = p_code and side = p_outcome;
 
