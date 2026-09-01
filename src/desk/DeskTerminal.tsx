@@ -6,6 +6,7 @@ import MarketScreen from './markets/MarketScreen';
 import { ensureMarket, type DeskMarket, type Side } from './deskStore';
 import { outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
 import PositionsList, { type PositionRow } from './positions/PositionsList';
+import TradeHistoryPanel from './positions/TradeHistoryPanel';
 import PositionDetail from './positions/PositionDetail';
 import CloseTicket from './positions/CloseTicket';
 import PersonalGrid from './personal/PersonalGrid';
@@ -82,14 +83,19 @@ export default function DeskTerminal() {
             : <MarketsGrid onOpen={selectEvent} />
         )}
         {dest === 'Positions' && (
-          <Workspace
-            focus={focus}
-            onFocus={setFocus}
-            list={<PositionsList selectedKey={posRow?.key ?? null}
-              onSelect={(r) => { setPosRow(r); setFocus('detail'); }} />}
-            detail={<PositionDetail row={posRow} />}
-            action={<CloseTicket row={posRow} onDone={() => { setPosRow(null); setFocus('list'); }} />}
-          />
+          <div className="pos-shell">
+            <Workspace
+              focus={focus}
+              onFocus={setFocus}
+              list={<PositionsList selectedKey={posRow?.key ?? null}
+                onSelect={(r) => { setPosRow(r); setFocus('detail'); }} />}
+              detail={<PositionDetail row={posRow} />}
+              action={<CloseTicket row={posRow} onDone={() => { setPosRow(null); setFocus('list'); }} />}
+            />
+            {/* the ledger runs landscape under the workspace — a whole row per
+                trade, not the sidebar's one-word truncations */}
+            <TradeHistoryPanel />
+          </div>
         )}
         {dest === 'Personal' && (
           pSel

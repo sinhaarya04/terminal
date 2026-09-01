@@ -440,28 +440,59 @@
   .pg-join-input{flex:1;width:auto}
 }
 
-/* ---- trade history (positions/PositionsList.tsx) ---- */
-.th{margin-top:26px;padding-top:16px;border-top:1px solid var(--border)}
-.pane-empty2{display:flex;flex-direction:column}
-.pane-empty2 .pane-empty{height:auto;padding:40px 0}
-.th-list{list-style:none;display:flex;flex-direction:column}
-.th-row{display:grid;grid-template-columns:34px minmax(0,1fr) 30px auto 36px auto;
-  gap:8px;align-items:baseline;padding:7px 0;font-size:11.5px;
-  border-bottom:1px solid rgba(255,255,255,.04)}
-.th-row:last-child{border-bottom:0}
-.th-kind{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
-.th-kind.is-yes{color:var(--muted)}
-.th-q{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-.th-side{font-size:10px}
-.th-amt{font-size:11.5px;color:var(--text)}
-.th-wallet{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
-  border:1px solid var(--border);border-radius:2px;padding:1px 4px;text-align:center}
-.th-wallet.is-pri{color:#b9a7e8;border-color:rgba(185,167,232,.35)}
-.th-when{font-size:10px;color:var(--faint);white-space:nowrap;text-align:right;
-  overflow:hidden;text-overflow:ellipsis;max-width:56px}
-/* the row must squeeze, never scroll the pane sideways */
-.th-row{min-width:0}
-
 /* ---- personal wallet note ---- */
 .pg-note{margin:-6px 0 18px;font-size:12px;color:var(--faint)}
 .pg-note b{color:#b9a7e8;font-weight:500}
+
+/* ---- trade history panel (positions/TradeHistoryPanel.tsx) ---- */
+.pos-shell{display:flex;flex-direction:column;height:100vh}
+.pos-shell .ws{height:auto;flex:1;min-height:0}
+.thp{flex:none;max-height:34vh;display:flex;flex-direction:column;
+  border-top:1px solid var(--border-2);background:rgba(9,10,15,.5)}
+.thp-head{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 22px 0}
+.thp-head .kicker{margin-bottom:0}
+.thp-legend{display:flex;gap:16px;font-size:9.5px;letter-spacing:.1em;color:var(--faint)}
+.thp-key{display:inline-flex;align-items:center;gap:6px}
+.thp-dot{width:7px;height:7px;border-radius:50%}
+.thp-dot.is-pub{background:var(--green)}
+.thp-dot.is-pri{background:#b9a7e8}
+.thp-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 300px;
+  gap:0 22px;padding:10px 22px 14px}
+.thp-chart{grid-column:2;grid-row:1;display:flex;align-items:flex-start}
+.thp-curve{width:100%;height:auto}
+.thp-table{grid-column:1;grid-row:1;overflow-y:auto;min-height:0}
+.thp-row{display:grid;
+  grid-template-columns:44px minmax(0,1fr) 34px 52px 44px 76px 34px 64px;
+  gap:10px;align-items:baseline;padding:6px 0;font-size:12px;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.thp-row:last-child{border-bottom:0}
+.thp-cols{position:sticky;top:0;background:rgba(9,10,15,.92);
+  font-size:8.5px;letter-spacing:.12em;color:var(--faint);padding:2px 0 6px}
+.thp-kind{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.thp-q{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thp-wallet{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+  border:1px solid var(--border);border-radius:2px;padding:1px 4px;text-align:center}
+.thp-wallet.is-pri{color:#b9a7e8;border-color:rgba(185,167,232,.35)}
+.thp-when{font-size:10px;color:var(--faint);text-align:right;white-space:nowrap}
+@media(max-width:899px){
+  .pos-shell{height:auto}
+  .thp{max-height:none}
+  .thp-body{grid-template-columns:1fr;gap:12px}
+  .thp-chart{grid-column:1;grid-row:1}
+  .thp-table{grid-column:1;grid-row:2;max-height:40vh}
+  .thp-row{grid-template-columns:38px minmax(0,1fr) 30px 60px 44px;gap:8px}
+  .thp-row>span:nth-child(4),.thp-row>span:nth-child(5),.thp-row>span:nth-child(8){display:none}
+}
+
+/* ---- desk headers: bracketed, not dashed ----
+   The hairline-dash kicker read as unfinished. Desk headers now carry the
+   brand's own motif — red brackets around a bold white label — scoped here so
+   the marketing pages keep their dash. */
+.desk-root .kicker,.desk-term .kicker,.mscreen .kicker,.grid-wrap .kicker{
+  color:var(--text);font-weight:600;letter-spacing:.15em;gap:7px}
+.desk-root .kicker::before,.desk-term .kicker::before,.mscreen .kicker::before,.grid-wrap .kicker::before{
+  content:"[";width:auto;height:auto;background:none;color:var(--red-bright);
+  font-weight:500;transform:translateY(-1px)}
+.desk-root .kicker::after,.desk-term .kicker::after,.mscreen .kicker::after,.grid-wrap .kicker::after{
+  content:"]";color:var(--red-bright);font-weight:500;transform:translateY(-1px)}

@@ -6,7 +6,7 @@ import type { DeskMarket } from './deskStore';
 
 export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean };
 
-type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pq_yes: number | null; pq_no: number | null; sq_yes: number | null; sq_no: number | null; b: number | null; c0: number | null; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | 'VOID' | null };
+type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pq_yes: number | null; pq_no: number | null; sq_yes: number | null; sq_no: number | null; b: number | null; c0: number | null; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | 'VOID' | null; resolved_at: string | null };
 type BetRow = { market_code: string; side: 'YES' | 'NO'; shares: number; cost: number };
 
 const flatSpark = (yes: number) => [yes, yes, yes, yes, yes];
@@ -23,6 +23,7 @@ function rowToMarket(r: MarketRow): DeskMarket {
     ownerId: r.owner ?? undefined,
     pool: Number(r.pool),
     resolved: r.resolved ?? undefined,
+    resolvedAt: r.resolved_at ? Date.parse(r.resolved_at) : undefined,
     qYes: r.pq_yes != null ? Number(r.pq_yes) : undefined,
     qNo: r.pq_no != null ? Number(r.pq_no) : undefined,
     sqYes: r.sq_yes != null ? Number(r.sq_yes) : undefined,

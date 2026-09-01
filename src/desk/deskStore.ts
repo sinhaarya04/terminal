@@ -38,6 +38,7 @@ export type DeskMarket = {
   // YES/NO = the outcome; VOID = the winning side held zero shares, so every
   // stake was refunded instead (there was nobody to pay the pot to).
   resolved?: Side | 'VOID';
+  resolvedAt?: number;   // when it settled — places payouts on the balance timeline
   // Live mode only: the owner's auth id. `owner` is a display handle and is not
   // unique, so settlement authority is checked against this when it exists.
   ownerId?: string;
