@@ -51,7 +51,7 @@ function MarketView({ code }: { code: string }) {
   return (
     <div className="pane-body">
       <div className="kicker">
-        {m.cat} · closes {m.closesAt != null ? formatClose(m.closesAt) : m.closes} · by {m.owner}
+        closes {m.closesAt != null ? formatClose(m.closesAt) : m.closes} · by {m.owner}
         {m.closesAt != null && phase !== 'settled' && (
           <span className="close-rel"> · {relativeClose(m.closesAt, now)}</span>
         )}
@@ -195,7 +195,9 @@ function Feed({ feed }: { feed: Activity[] }) {
 
 function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
   const [q, setQ] = useState('');
-  const [cat, setCat] = useState('Private');
+  // Every personal market is private — a category field was a question with
+  // only one answer.
+  const cat = 'Private';
   // Every market gets a close now, defaulting to tomorrow night. Optional free
   // text is what produced markets that never ended.
   const [closesAt, setClosesAt] = useState<number>(() => endOfDay(1));
@@ -226,10 +228,6 @@ function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
           placeholder="Will we hit the gym 4x this week?"
           onChange={(e) => setQ(e.target.value)}
         />
-      </label>
-      <label className="tk-field">
-        <span className="tk-label mono">Category</span>
-        <input className="tk-input" value={cat} maxLength={16} onChange={(e) => setCat(e.target.value)} />
       </label>
       <div className="tk-field">
         <span className="tk-label mono">Closes</span>
