@@ -26,8 +26,10 @@ export default function PositionDetail({ row }: { row: PositionRow | null }) {
       )}
 
       {row.p.settled && (
-        <p className={`settled-banner mono ${row.p.settled.outcome === row.p.side ? 'is-yes' : 'is-no'}`} role="status">
-          Market settled {row.p.settled.outcome} · this position paid {money(row.p.settled.payout)}
+        <p className={`settled-banner mono ${row.p.settled.outcome === 'VOID' ? '' : row.p.settled.outcome === row.p.side ? 'is-yes' : 'is-no'}`} role="status">
+          {row.p.settled.outcome === 'VOID'
+            ? `Market voided · your ${money(row.p.settled.payout)} stake was refunded`
+            : `Market settled ${row.p.settled.outcome} · your cut of the pot was ${money(row.p.settled.payout)}`}
         </p>
       )}
 
@@ -35,8 +37,12 @@ export default function PositionDetail({ row }: { row: PositionRow | null }) {
         <div><span>SIDE</span><b className={row.p.side === 'YES' ? 'is-yes' : 'is-no'}>{row.p.side}</b></div>
         <div><span>SHARES</span><b>{row.p.shares.toFixed(1)}</b></div>
         <div><span>ENTRY</span><b>{entry.toFixed(0)}¢</b></div>
-        {/* a settled position has no mark — the outcome replaced the price */}
-        <div><span>{row.p.settled ? 'PAID' : 'MARK'}</span><b>{row.p.settled ? '100¢ / 0¢' : `${mark}¢`}</b></div>
+        {/* a settled position has no mark — the outcome replaced the price.
+            per-share is the pot split, not a fixed $1 */}
+        <div><span>{row.p.settled ? 'PAID/SHARE' : 'MARK'}</span>
+          <b>{row.p.settled
+            ? `${row.p.shares > 0 ? Math.round((row.p.settled.payout / row.p.shares) * 100) : 0}¢`
+            : `${mark}¢`}</b></div>
         <div><span>COST</span><b>{money(row.p.cost)}</b></div>
         <div><span>{row.p.settled ? 'PAYOUT' : 'VALUE'}</span><b>{money(row.value)}</b></div>
         <div><span>P&amp;L</span><b className={row.pnl >= 0 ? 'is-yes' : 'is-no'}>

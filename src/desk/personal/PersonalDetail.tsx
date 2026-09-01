@@ -66,17 +66,21 @@ function MarketView({ code }: { code: string }) {
       )}
 
       {m.resolved && (
-        <p className={`settled-banner mono ${m.resolved === 'YES' ? 'is-yes' : 'is-no'}`} role="status">
-          Settled {m.resolved} · shares of {m.resolved} paid $1.00, the other side paid nothing
+        <p className={`settled-banner mono ${m.resolved === 'YES' ? 'is-yes' : m.resolved === 'NO' ? 'is-no' : ''}`} role="status">
+          {m.resolved === 'VOID'
+            ? 'Voided — everyone held the losing side, so every stake was refunded'
+            : `Settled ${m.resolved} · the ${money(m.pool || 0)} pot was split across the winning shares`}
         </p>
       )}
 
       {m.spark && <DeskSpark pts={m.spark} up={m.spark[m.spark.length - 1] >= m.spark[0]} id={`pv-${m.id}`} />}
 
       <div className="tk-calc mono">
-        <div><span>POOL</span><b className="is-yes">{money(m.pool || 0)}</b></div>
+        {/* the pot is what winners split — everything traders paid in, nothing minted */}
+        <div><span>POT</span><b className="is-yes">{money(m.pool || 0)}</b></div>
         <div><span>YES</span><b>{m.yes}¢</b></div>
         <div><span>NO</span><b>{100 - m.yes}¢</b></div>
+        <PotCut m={m} />
       </div>
 
       <Participants people={people} owner={m.owner} />
@@ -85,6 +89,32 @@ function MarketView({ code }: { code: string }) {
 
       <Feed feed={feed} />
     </div>
+  );
+}
+
+// "You hold 40 YES — worth $31 (18% of the pot) if YES resolves." The live
+// readout that makes the pot real: your claim moves as others pile in.
+function PotCut({ m }: { m: DeskMarket }) {
+  const { positions } = useDesk();
+  const mine = positions.filter((p) => p.marketId === m.id && !p.settled);
+  if (mine.length === 0 || m.resolved) return null;
+  const pot = m.pool || 0;
+  return (
+    <>
+      {(['YES', 'NO'] as const).map((side) => {
+        const held = mine.filter((p) => p.side === side).reduce((a, p) => a + p.shares, 0);
+        if (held <= 0) return null;
+        const total = side === 'YES' ? (m.sqYes ?? held) : (m.sqNo ?? held);
+        const cut = total > 0 ? held * (pot / total) : 0;
+        const pct = total > 0 ? Math.round((held / total) * 100) : 0;
+        return (
+          <div key={side}>
+            <span>YOUR CUT IF {side}</span>
+            <b className={side === 'YES' ? 'is-yes' : 'is-no'}>{money(cut)} · {pct}%</b>
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -127,8 +157,10 @@ function SettleBox({ code, q }: { code: string; q: string }) {
       {pending ? (
         <>
           <p className="pv-confirm">
-            Settle <b>{pending}</b> for “{q}”? Every share of {pending} pays $1.00 and the
-            other side pays nothing. This can't be undone.
+            Settle <b>{pending}</b> for “{q}”? The pot splits across everyone
+            holding {pending}; the other side gets nothing. If nobody holds
+            {' '}{pending}, the market voids and all stakes are refunded. This
+            can't be undone.
           </p>
           <div className="pv-settle-row">
             <button className="btn btn-red pv-btn" type="button" onClick={confirm} disabled={busy}>

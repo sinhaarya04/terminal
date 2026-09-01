@@ -37,9 +37,11 @@ export default function PersonalAction({
   if (phase === 'settled' && live) {
     return (
       <div className="pane-body pane-empty">
-        <p className="mono">Market settled {live.resolved}</p>
+        <p className="mono">{live.resolved === 'VOID' ? 'Market voided' : `Market settled ${live.resolved}`}</p>
         <p className="pane-empty-sub">
-          This one is closed — winning shares have already paid out. Check Positions for what it returned.
+          {live.resolved === 'VOID'
+            ? 'Everyone held the losing side, so every stake was refunded.'
+            : 'This one is closed — the pot has already been split among the winners. Check Positions for what your cut was.'}
         </p>
       </div>
     );

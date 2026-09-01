@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { placeBet, money, useDesk, marketPhase, walletFor, type DeskMarket, type Side } from '../deskStore';
+import { placeBet, money, useDesk, marketPhase, walletFor, engineOf, type DeskMarket, type Side } from '../deskStore';
+import * as lmsr from '../../lib/lmsr';
 import { useNow } from '../../lib/useNow';
 import SuccessCheck from '../../components/SuccessCheck';
 
@@ -64,9 +65,17 @@ export default function TradeTicket({
     );
   }
 
-  const price = side === 'YES' ? market.yes : 100 - market.yes; // cents
-  const shares = price > 0 ? amount / (price / 100) : 0;
-  const maxPayout = shares * 1;                                  // each share pays $1 if it wins
+  // The hybrid engine quotes the real cost: shares come from the LMSR meter,
+  // and the payout estimate is your cut of the pot as it would stand after
+  // this trade — not "each share pays $1", which minted points from nowhere.
+  const eng = engineOf(market);
+  const q = { qYes: eng.qYes, qNo: eng.qNo };
+  const price = side === 'YES' ? market.yes : 100 - market.yes; // cents, display
+  const shares = lmsr.sharesForSpend(q, side, amount, eng.b);
+  const potAfter = (market.pool || 0) + amount;
+  const winSharesAfter = (side === 'YES' ? eng.sqYes : eng.sqNo) + shares;
+  const cutIfWins = winSharesAfter > 0 ? shares * (potAfter / winSharesAfter) : 0;
+  const potPct = winSharesAfter > 0 ? Math.round((shares / winSharesAfter) * 100) : 0;
   const tooMuch = amount > balance;
   const invalid = amount <= 0 || tooMuch;
 
@@ -117,7 +126,9 @@ export default function TradeTicket({
         <div><span>PRICE</span><b>{price}¢</b></div>
         <div><span>SHARES</span><b>{shares.toFixed(1)}</b></div>
         <div><span>COST</span><b>{money(amount)}</b></div>
-        <div><span>MAX PAYOUT</span><b className="is-yes">{money(maxPayout)}</b></div>
+        {/* your slice of the pot as it stands after this buy — it grows as the
+            other side pays in and shrinks as your side gets crowded */}
+        <div><span>CUT IF {side} WINS</span><b className="is-yes">{money(cutIfWins)} · {potPct}%</b></div>
         <div>
           <span>{market.custom ? 'SIM BALANCE AFTER' : 'BALANCE AFTER'}</span>
           <b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b>

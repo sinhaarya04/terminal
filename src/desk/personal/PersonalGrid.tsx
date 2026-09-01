@@ -69,8 +69,8 @@ export default function PersonalGrid({
             <button key={m.id} className="mkt pg-card" onClick={() => onOpen(m)}>
               <div className="mkt-top">
                 <span className="mkt-cat">{m.id}</span>
-                <span className={`mkt-live pg-phase ${phase === 'settled' ? (m.resolved === 'YES' ? 'is-yes' : 'is-no') : phase === 'closed' ? 'is-flat' : 'is-yes'}`}>
-                  {phase === 'settled' ? `settled ${m.resolved}` : phase === 'closed' ? 'closed' : 'open'}
+                <span className={`mkt-live pg-phase ${phase === 'settled' ? (m.resolved === 'YES' ? 'is-yes' : m.resolved === 'NO' ? 'is-no' : 'is-flat') : phase === 'closed' ? 'is-flat' : 'is-yes'}`}>
+                  {phase === 'settled' ? (m.resolved === 'VOID' ? 'voided' : `settled ${m.resolved}`) : phase === 'closed' ? 'closed' : 'open'}
                 </span>
               </div>
               <div className="mkt-title">{m.q}</div>

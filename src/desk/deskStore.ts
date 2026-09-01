@@ -6,6 +6,7 @@
 import { useSyncExternalStore } from 'react';
 import * as db from './terminalDb';
 import { endOfDay } from '../lib/closeTime';
+import * as lmsr from '../lib/lmsr';
 
 const KEY = 'ex_desk_v1';
 const START_BALANCE = 1000;    // main platform credits (board markets)
@@ -21,7 +22,7 @@ export type Position = {
   // Set once the market settles. The position stops marking to market and is
   // worth exactly what it paid out, so Positions can show a closed row with a
   // final P&L instead of a price that will never move again.
-  settled?: { outcome: Side; payout: number };
+  settled?: { outcome: Side | 'VOID'; payout: number };
 };
 
 export type DeskMarket = {
@@ -34,7 +35,9 @@ export type DeskMarket = {
   custom?: boolean;  // true for user-created markets
   owner?: string;    // handle of the creator
   pool?: number;     // total fake $ staked in a custom market
-  resolved?: Side;   // set when the owner settles it; blocks further betting
+  // YES/NO = the outcome; VOID = the winning side held zero shares, so every
+  // stake was refunded instead (there was nobody to pay the pot to).
+  resolved?: Side | 'VOID';
   // Live mode only: the owner's auth id. `owner` is a display handle and is not
   // unique, so settlement authority is checked against this when it exists.
   ownerId?: string;
@@ -43,7 +46,27 @@ export type DeskMarket = {
   // market never closes on its own, which is how every market behaved before
   // close dates existed.
   closesAt?: number;
+  // Hybrid engine state (LMSR pricing, parimutuel payout — docs/market-engine-notes.md).
+  // pricing quantities include the phantom opening-odds seed; sq* are the real
+  // held shares the payout splits over. Markets predating the engine lack
+  // these and get them seeded from their displayed price on first bet.
+  qYes?: number;
+  qNo?: number;
+  sqYes?: number;
+  sqNo?: number;
+  b?: number;
+  c0?: number;
 };
+
+/** Engine state for a market, seeding it from the displayed price when the
+ *  market predates the engine. Pure — returns the fields, doesn't store them. */
+export function engineOf(m: DeskMarket): Required<Pick<DeskMarket, 'qYes' | 'qNo' | 'sqYes' | 'sqNo' | 'b' | 'c0'>> {
+  if (m.qYes != null && m.qNo != null && m.b != null && m.c0 != null) {
+    return { qYes: m.qYes, qNo: m.qNo, sqYes: m.sqYes ?? 0, sqNo: m.sqNo ?? 0, b: m.b, c0: m.c0 };
+  }
+  const seed = lmsr.seedForOdds(m.yes / 100);
+  return { qYes: seed.qYes, qNo: seed.qNo, sqYes: 0, sqNo: 0, b: lmsr.DEFAULT_B, c0: lmsr.cost(seed) };
+}
 
 /** open → closed → settled. Derived from the clock every time it's asked
  *  rather than stored, so it stays right across reloads, sleeping laptops and
@@ -299,16 +322,26 @@ export async function placeBet(m: DeskMarket, side: Side, dollars: number): Prom
     try {
       if (!m.custom) await db.rpcUpsertPublicMarket(m);      // materialise public markets on first bet
       const res = await db.rpcPlaceBet(m.id, side, dollars); // atomic server-side money move
-      applyBet(m, side, dollars, { balance: res.balance, pmBalance: res.pm_balance }, res.yes);
+      applyBet(m, side, dollars, res.shares, { balance: res.balance, pmBalance: res.pm_balance }, res.yes);
     } catch { return false; }
     return true;
   }
 
-  // guest/demo (localStorage): compute everything client-side
-  const nudge = Math.min(6, Math.max(1, Math.round(dollars / 40)));
-  const newYes = clamp(side === 'YES' ? m.yes + nudge : m.yes - nudge, 2, 98);
+  // guest/demo (localStorage): the same LMSR engine, run locally
+  const eng = engineOf(m);
+  const q = { qYes: eng.qYes, qNo: eng.qNo };
+  const shares = lmsr.sharesForSpend(q, side, dollars, eng.b);
+  const nextQ = side === 'YES' ? { qYes: q.qYes + shares, qNo: q.qNo } : { qYes: q.qYes, qNo: q.qNo + shares };
+  const newYes = clamp(Math.round(lmsr.priceYes(nextQ, eng.b) * 100), 1, 99);
   const w = walletFor(m);
-  applyBet(m, side, dollars, { ...pick(), [w]: round2(state[w] - dollars) }, newYes);
+  // stamp the advanced engine state onto the stored market
+  const stamp = (arr: DeskMarket[]) => arr.map((c) => (c.id === m.id ? {
+    ...c, ...eng, qYes: nextQ.qYes, qNo: nextQ.qNo,
+    sqYes: eng.sqYes + (side === 'YES' ? shares : 0),
+    sqNo: eng.sqNo + (side === 'NO' ? shares : 0),
+  } : c));
+  state = { ...state, markets: stamp(state.markets), custom: stamp(state.custom) };
+  applyBet(m, side, dollars, shares, { ...pick(), [w]: round2(state[w] - dollars) }, newYes);
   return true;
 }
 
@@ -316,11 +349,9 @@ const pick = () => ({ balance: state.balance, pmBalance: state.pmBalance });
 
 /** Shared local-state update after a bet (both live + guest use this). */
 function applyBet(
-  m: DeskMarket, side: Side, dollars: number,
+  m: DeskMarket, side: Side, dollars: number, shares: number,
   wallets: { balance: number; pmBalance: number }, newYes: number,
 ) {
-  const price = side === 'YES' ? m.yes : 100 - m.yes;
-  const shares = dollars / (price / 100);
   const positions = [...state.positions];
   const idx = positions.findIndex((p) => p.marketId === m.id && p.side === side);
   if (idx >= 0) positions[idx] = { ...positions[idx], shares: positions[idx].shares + shares, cost: positions[idx].cost + dollars };
@@ -390,19 +421,32 @@ export async function resolveMarket(code: string, outcome: Side): Promise<number
     catch { return null; }
   }
 
+  // Parimutuel payout: the pot (everything actually paid in) splits across the
+  // winning side's REAL shares. Never shares × $1 — that rule could pay out
+  // more than the market took in, minting points from nowhere. If the winning
+  // side holds zero shares there is nobody to pay, so the market voids and
+  // every stake is refunded instead. Mirrors term_resolve_market exactly.
+  const eng = engineOf(m);
+  const potValue = round2(lmsr.pot({ qYes: eng.qYes, qNo: eng.qNo }, eng.c0, eng.b));
+  const winShares = outcome === 'YES' ? eng.sqYes : eng.sqNo;
+  const voided = winShares <= 1e-9;
+  const finalOutcome: Side | 'VOID' = voided ? 'VOID' : outcome;
+
   let credited = 0;
   const positions = state.positions.map((pos) => {
     if (pos.marketId !== code || pos.settled) return pos;
-    const payout = pos.side === outcome ? round2(pos.shares) : 0;
+    const payout = voided
+      ? round2(pos.cost)
+      : pos.side === outcome ? round2(pos.shares * (potValue / winShares)) : 0;
     credited = round2(credited + payout);
-    return { ...pos, settled: { outcome, payout } };
+    return { ...pos, settled: { outcome: finalOutcome, payout } };
   });
 
-  // Price goes to the certainty the outcome now has, so any chart or sparkline
-  // ends where the market actually landed rather than at its last guess.
-  const settledYes = outcome === 'YES' ? 100 : 0;
+  // Price goes to the certainty the outcome now has; a void keeps its last
+  // price, since reality never picked a side the market could express.
+  const settledYes = voided ? m.yes : outcome === 'YES' ? 100 : 0;
   const roll = (arr: DeskMarket[]) => arr.map((c) => (
-    c.id === code ? { ...c, resolved: outcome, yes: settledYes, spark: [...c.spark.slice(-9), settledYes] } : c
+    c.id === code ? { ...c, resolved: finalOutcome, yes: settledYes, spark: [...c.spark.slice(-9), settledYes] } : c
   ));
   set({
     positions,
@@ -410,7 +454,7 @@ export async function resolveMarket(code: string, outcome: Side): Promise<number
     custom: roll(state.custom),
     markets: roll(state.markets),
   });
-  recordActivity({ code, kind: 'resolve', side: outcome });
+  recordActivity({ code, kind: 'resolve', side: voided ? undefined : outcome });
   return credited;
 }
 

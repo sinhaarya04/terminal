@@ -6,7 +6,7 @@ import type { DeskMarket } from './deskStore';
 
 export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean };
 
-type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | null };
+type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pq_yes: number | null; pq_no: number | null; sq_yes: number | null; sq_no: number | null; b: number | null; c0: number | null; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | 'VOID' | null };
 type BetRow = { market_code: string; side: 'YES' | 'NO'; shares: number; cost: number };
 
 const flatSpark = (yes: number) => [yes, yes, yes, yes, yes];
@@ -23,6 +23,12 @@ function rowToMarket(r: MarketRow): DeskMarket {
     ownerId: r.owner ?? undefined,
     pool: Number(r.pool),
     resolved: r.resolved ?? undefined,
+    qYes: r.pq_yes != null ? Number(r.pq_yes) : undefined,
+    qNo: r.pq_no != null ? Number(r.pq_no) : undefined,
+    sqYes: r.sq_yes != null ? Number(r.sq_yes) : undefined,
+    sqNo: r.sq_no != null ? Number(r.sq_no) : undefined,
+    b: r.b != null ? Number(r.b) : undefined,
+    c0: r.c0 != null ? Number(r.c0) : undefined,
   };
 }
 
@@ -99,11 +105,11 @@ export async function rpcUpsertPublicMarket(m: DeskMarket): Promise<void> {
   await supabase.rpc('term_upsert_public_market', { p_code: m.id, p_question: m.q, p_cat: m.cat, p_yes: m.yes });
 }
 
-export async function rpcPlaceBet(code: string, side: 'YES' | 'NO', dollars: number): Promise<{ balance: number; pm_balance: number; yes: number }> {
+export async function rpcPlaceBet(code: string, side: 'YES' | 'NO', dollars: number): Promise<{ balance: number; pm_balance: number; yes: number; shares: number }> {
   if (!supabase) throw new Error('offline');
   const { data, error } = await supabase.rpc('term_place_bet', { p_code: code, p_side: side, p_dollars: dollars });
   if (error) throw error;
-  return data as { balance: number; pm_balance: number; yes: number };
+  return data as { balance: number; pm_balance: number; yes: number; shares: number };
 }
 
 export async function rpcSetSeenIntro(): Promise<void> {

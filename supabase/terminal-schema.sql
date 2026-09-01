@@ -40,6 +40,38 @@ alter table public.term_markets add column if not exists closes_at   timestamptz
 alter table public.term_markets add column if not exists owner_handle text;
 alter table public.term_profiles add column if not exists pm_balance numeric not null default 1000;
 
+-- Hybrid engine state (LMSR pricing, parimutuel payout — docs/market-engine-notes.md).
+-- pq_* include the phantom opening-odds seed; sq_* are REAL held shares, which
+-- is what the payout splits over. c0 anchors the pot at zero at open.
+alter table public.term_markets add column if not exists pq_yes numeric not null default 0;
+alter table public.term_markets add column if not exists pq_no  numeric not null default 0;
+alter table public.term_markets add column if not exists sq_yes numeric not null default 0;
+alter table public.term_markets add column if not exists sq_no  numeric not null default 0;
+alter table public.term_markets add column if not exists b      numeric not null default 100;
+alter table public.term_markets add column if not exists c0     numeric not null default 0;
+-- 'VOID' = the winning side held zero shares; stakes were refunded.
+alter table public.term_markets drop constraint if exists term_markets_resolved_check;
+alter table public.term_markets add constraint term_markets_resolved_check
+  check (resolved in ('YES','NO','VOID'));
+
+-- ---------- LMSR math (mirrors src/lib/lmsr.ts — keep them agreeing on the
+-- worked example: b=100, 50 YES costs 28.093, then 50 NO costs 21.907,
+-- pot exactly 50, YES pays 1.000/share) ----------
+create or replace function public.term_lmsr_cost(qy numeric, qn numeric, p_b numeric)
+returns numeric language sql immutable as $lm$
+  select p_b * ( greatest(qy,qn)/p_b
+       + ln( exp(qy/p_b - greatest(qy,qn)/p_b) + exp(qn/p_b - greatest(qy,qn)/p_b) ) );
+$lm$;
+create or replace function public.term_lmsr_price_yes(qy numeric, qn numeric, p_b numeric)
+returns numeric language sql immutable as $lm$
+  select exp(qy/p_b - greatest(qy,qn)/p_b)
+       / ( exp(qy/p_b - greatest(qy,qn)/p_b) + exp(qn/p_b - greatest(qy,qn)/p_b) );
+$lm$;
+create or replace function public.term_lmsr_shares_for_spend(qx numeric, qo numeric, p_b numeric, k numeric)
+returns numeric language sql immutable as $lm$
+  select p_b * ln( exp(k/p_b + ln(exp(qx/p_b) + exp(qo/p_b))) - exp(qo/p_b) ) - qx;
+$lm$;
+
 -- ---------- bets: drives positions + P&L ----------
 create table if not exists public.term_bets (
   id          uuid primary key default gen_random_uuid(),
@@ -142,6 +174,9 @@ declare
   v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   v_handle text;
+  v_p numeric := greatest(0.02, least(0.98, p_yes / 100.0));
+  v_off numeric;
+  v_pqy numeric; v_pqn numeric; v_b numeric := 100;
   i int;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
@@ -154,10 +189,16 @@ begin
     end loop;
     exit when not exists (select 1 from public.term_markets where code = v_code);
   end loop;
-  insert into public.term_markets (code, owner, owner_handle, question, cat, closes, closes_at, yes, is_private)
-  values (v_code, auth.uid(), v_handle, p_question,
-          coalesce(nullif(p_cat,''),'Private'),
-          nullif(p_closes,''), p_closes_at, greatest(2, least(98, p_yes)), true);
+  -- opening odds arrive as phantom pricing shares; they never receive payout
+  v_off := v_b * ln(v_p / (1 - v_p));
+  v_pqy := greatest(v_off, 0);  v_pqn := greatest(-v_off, 0);
+  insert into public.term_markets
+    (code, owner, owner_handle, question, cat, closes, closes_at, yes, is_private,
+     pq_yes, pq_no, sq_yes, sq_no, b, c0)
+  values
+    (v_code, auth.uid(), v_handle, p_question, coalesce(nullif(p_cat,''),'Private'),
+     nullif(p_closes,''), p_closes_at, round(v_p * 100), true,
+     v_pqy, v_pqn, 0, 0, v_b, public.term_lmsr_cost(v_pqy, v_pqn, v_b));
   insert into public.term_activity (market_code, handle, kind) values (v_code, v_handle, 'create');
   return v_code;
 end;
@@ -181,50 +222,52 @@ create or replace function public.term_place_bet(
   p_code text, p_side text, p_dollars numeric)
 returns json language plpgsql security definer set search_path = public as $$
 declare
-  v_uid   uuid := auth.uid();
-  v_bal   numeric;
-  v_pm    numeric;
-  v_yes   numeric;
-  v_price numeric;
-  v_shares numeric;
-  v_nudge numeric;
-  v_private boolean;
-  v_closes_at timestamptz;
-  v_resolved text;
+  v_uid uuid := auth.uid();
+  v_bal numeric; v_pm numeric;
+  m record;
+  v_shares numeric; v_new_pqy numeric; v_new_pqn numeric; v_price numeric;
   v_handle text;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   if p_side not in ('YES','NO') then raise exception 'bad side'; end if;
   if p_dollars <= 0 then raise exception 'bad amount'; end if;
 
-  select yes, is_private, closes_at, resolved
-    into v_yes, v_private, v_closes_at, v_resolved
-    from public.term_markets where code = p_code for update;
-  if v_yes is null then raise exception 'no such market'; end if;
-  if v_resolved is not null then raise exception 'market already settled'; end if;
-  if v_closes_at is not null and now() >= v_closes_at then raise exception 'market closed'; end if;
+  select * into m from public.term_markets where code = p_code for update;
+  if m is null then raise exception 'no such market'; end if;
+  if m.resolved is not null then raise exception 'market already settled'; end if;
+  if m.closes_at is not null and now() >= m.closes_at then raise exception 'market closed'; end if;
 
-  -- Private markets spend the sim wallet, board markets the main balance.
   select balance, pm_balance into v_bal, v_pm
     from public.term_profiles where id = v_uid for update;
   if v_bal is null then raise exception 'no profile'; end if;
-  if v_private then
+  if m.is_private then
     if p_dollars > v_pm then raise exception 'insufficient balance'; end if;
   else
     if p_dollars > v_bal then raise exception 'insufficient balance'; end if;
   end if;
 
-  v_price  := case when p_side = 'YES' then v_yes else 100 - v_yes end;
-  v_shares := p_dollars / (v_price / 100.0);
-  v_nudge  := least(6, greatest(1, round(p_dollars / 40.0)));
-  v_yes    := greatest(2, least(98, case when p_side='YES' then v_yes + v_nudge else v_yes - v_nudge end));
+  -- LMSR: the spend buys however many shares the meter says it buys
+  if p_side = 'YES' then
+    v_shares := public.term_lmsr_shares_for_spend(m.pq_yes, m.pq_no, m.b, p_dollars);
+    v_new_pqy := m.pq_yes + v_shares;  v_new_pqn := m.pq_no;
+  else
+    v_shares := public.term_lmsr_shares_for_spend(m.pq_no, m.pq_yes, m.b, p_dollars);
+    v_new_pqy := m.pq_yes;  v_new_pqn := m.pq_no + v_shares;
+  end if;
+  v_price := public.term_lmsr_price_yes(v_new_pqy, v_new_pqn, m.b);
 
   insert into public.term_bets (market_code, user_id, side, shares, cost)
   values (p_code, v_uid, p_side, v_shares, p_dollars);
 
-  update public.term_markets set yes = v_yes, pool = pool + p_dollars where code = p_code;
+  update public.term_markets set
+    pq_yes = v_new_pqy, pq_no = v_new_pqn,
+    sq_yes = sq_yes + case when p_side='YES' then v_shares else 0 end,
+    sq_no  = sq_no  + case when p_side='NO'  then v_shares else 0 end,
+    yes = greatest(1, least(99, round(v_price * 100))),
+    pool = pool + p_dollars
+  where code = p_code;
 
-  if v_private then
+  if m.is_private then
     update public.term_profiles set pm_balance = pm_balance - p_dollars where id = v_uid
       returning balance, pm_balance into v_bal, v_pm;
     select handle into v_handle from public.term_profiles where id = v_uid;
@@ -235,7 +278,9 @@ begin
       returning balance, pm_balance into v_bal, v_pm;
   end if;
 
-  return json_build_object('balance', v_bal, 'pm_balance', v_pm, 'yes', v_yes);
+  return json_build_object('balance', v_bal, 'pm_balance', v_pm,
+                           'yes', greatest(1, least(99, round(v_price * 100))),
+                           'shares', v_shares);
 end;
 $$;
 
@@ -247,35 +292,68 @@ $$;
 create or replace function public.term_resolve_market(p_code text, p_outcome text)
 returns void language plpgsql security definer set search_path = public as $$
 declare
-  v_uid      uuid := auth.uid();
-  v_owner    uuid;
-  v_resolved text;
-  v_handle   text;
+  v_uid uuid := auth.uid();
+  m record;
+  v_pot numeric;
+  v_win_shares numeric;
+  v_handle text;
+  v_paid numeric := 0;
+  v_last uuid;
+  h record;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   if p_outcome not in ('YES','NO') then raise exception 'bad outcome'; end if;
 
-  select owner, resolved into v_owner, v_resolved
-    from public.term_markets where code = p_code for update;
-  if v_owner is null then raise exception 'no such market'; end if;
-  if v_owner <> v_uid then raise exception 'only the owner can settle this market'; end if;
-  if v_resolved is not null then raise exception 'already settled'; end if;
+  select * into m from public.term_markets where code = p_code for update;
+  if m is null or m.owner is null then raise exception 'no such market'; end if;
+  if m.owner <> v_uid then raise exception 'only the owner can settle this market'; end if;
+  if m.resolved is not null then raise exception 'already settled'; end if;
 
-  -- Winnings land in the sim wallet: only private markets have an owner, so
-  -- only private markets ever reach this function.
-  update public.term_profiles p
-     set pm_balance = p.pm_balance + w.payout
-    from (
-      select user_id, sum(shares) as payout
-        from public.term_bets
-       where market_code = p_code and side = p_outcome
-       group by user_id
-    ) w
-   where p.id = w.user_id;
+  -- parimutuel: the pot is everything actually paid in, split over the winning
+  -- side's REAL shares. Never shares x $1 — that minted points from nowhere.
+  v_pot := public.term_lmsr_cost(m.pq_yes, m.pq_no, m.b) - m.c0;
+  select coalesce(sum(shares),0) into v_win_shares
+    from public.term_bets where market_code = p_code and side = p_outcome;
+
+  if v_win_shares <= 0 then
+    -- everyone was on the losing side: nobody to pay, so refund every stake
+    update public.term_profiles p set pm_balance = p.pm_balance + r.refund
+      from (select user_id, sum(cost) as refund from public.term_bets
+             where market_code = p_code group by user_id) r
+      where p.id = r.user_id;
+    update public.term_markets set resolved = 'VOID', resolved_at = now() where code = p_code;
+    select handle into v_handle from public.term_profiles where id = v_uid;
+    insert into public.term_activity (market_code, handle, kind)
+    values (p_code, coalesce(v_handle,'member'), 'resolve');
+    return;
+  end if;
+
+  -- dust rule: all but the largest holder get their cut rounded to the cent;
+  -- the largest absorbs the residual, so the payouts sum to the pot exactly
+  for h in
+    select user_id, sum(shares) as sh from public.term_bets
+     where market_code = p_code and side = p_outcome
+     group by user_id order by sum(shares) desc, user_id
+  loop
+    v_last := h.user_id;
+  end loop;
+  for h in
+    select user_id, sum(shares) as sh from public.term_bets
+     where market_code = p_code and side = p_outcome
+     group by user_id order by sum(shares) desc, user_id
+  loop
+    if h.user_id = v_last then
+      update public.term_profiles set pm_balance = pm_balance + (v_pot - v_paid)
+        where id = h.user_id;
+    else
+      update public.term_profiles set pm_balance = pm_balance + round(v_pot * h.sh / v_win_shares, 2)
+        where id = h.user_id;
+      v_paid := v_paid + round(v_pot * h.sh / v_win_shares, 2);
+    end if;
+  end loop;
 
   update public.term_markets
-     set resolved = p_outcome,
-         resolved_at = now(),
+     set resolved = p_outcome, resolved_at = now(),
          yes = case when p_outcome = 'YES' then 100 else 0 end
    where code = p_code;
 
