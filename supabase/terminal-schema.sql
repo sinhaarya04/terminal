@@ -525,11 +525,22 @@ grant execute on function public.term_set_seen_intro() to authenticated;
 -- ---------- leaderboard ----------
 -- Ranks the PUBLIC board wallet only (personal fun-money is excluded). Exposes
 -- handle + public balance for every member past RLS, never email or pm_balance.
+drop function if exists public.term_leaderboard();
 create or replace function public.term_leaderboard()
-returns table (rank int, handle text, balance numeric, pnl numeric, is_me boolean)
+returns table (rank int, handle text, balance numeric, pnl numeric, brier numeric, n_settled int, is_me boolean)
 language sql security definer set search_path = public stable as $$
+  with br as (
+    select b.user_id,
+      avg(power(least(0.999, greatest(0.001, b.cost/nullif(b.shares,0)))
+        - case when m.is_multi then (case when b.outcome_idx=m.resolved_idx then 1 else 0 end)
+               else (case when (b.side='YES' and m.resolved='YES') or (b.side='NO' and m.resolved='NO') then 1 else 0 end) end
+      ,2)) as brier, count(*) as n
+    from public.term_bets b join public.term_markets m on m.code=b.market_code
+    where b.shares>0 and m.resolved in ('YES','NO','MULTI') group by b.user_id)
   select (row_number() over (order by p.balance desc, p.handle))::int,
-         coalesce(p.handle,'member'), p.balance, p.balance - 1000, p.id = auth.uid()
-  from public.term_profiles p order by p.balance desc, p.handle;
+         coalesce(p.handle,'member'), p.balance, p.balance-1000,
+         round(br.brier,3), coalesce(br.n,0)::int, p.id=auth.uid()
+  from public.term_profiles p left join br on br.user_id=p.id
+  order by p.balance desc, p.handle;
 $$;
 grant execute on function public.term_leaderboard() to authenticated;

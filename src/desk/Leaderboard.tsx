@@ -22,24 +22,35 @@ export default function Leaderboard() {
     <div className="grid-wrap lb-wrap">
       <div className="grid-head">
         <div className="kicker">Leaderboard · {rows?.length ?? '…'}</div>
-        <span className="lb-note mono">public board · P&L from $1,000</span>
+        <span className="lb-note mono">public board · ranked by balance · P&L from $1,000</span>
       </div>
       <div className="lb">
         <div className="lb-row lb-head mono">
-          <span>#</span><span>MEMBER</span><span>BALANCE</span><span>P&amp;L</span>
+          <span>#</span><span>MEMBER</span><span className="lb-r">BALANCE</span>
+          <span className="lb-r">P&amp;L</span><span className="lb-r" title="Brier score: mean squared error of the prices you took vs what actually happened. 0 is perfect, lower is sharper — calibration, not luck.">BRIER</span>
+          <span className="lb-r">BETS</span>
         </div>
         {(rows ?? []).map((r) => (
           <div key={r.handle} className={`lb-row ${r.isMe ? 'is-me' : ''} ${r.rank <= 3 ? 'is-top' : ''}`}>
             <span className="lb-rank mono">{r.rank}</span>
             <span className="lb-name">@{r.handle}{r.isMe && <em className="lb-you mono">you</em>}</span>
-            <span className="lb-bal mono">{money(r.balance)}</span>
-            <span className={`lb-pnl mono ${r.pnl > 0 ? 'is-yes' : r.pnl < 0 ? 'is-no' : 'is-flat'}`}>
+            <span className="lb-bal mono lb-r">{money(r.balance)}</span>
+            <span className={`lb-pnl mono lb-r ${r.pnl > 0 ? 'is-yes' : r.pnl < 0 ? 'is-no' : 'is-flat'}`}>
               {r.pnl > 0 ? '+' : ''}{money(r.pnl)}
             </span>
+            <span className={`lb-brier mono lb-r ${r.brier == null ? 'is-flat' : r.brier <= 0.25 ? 'is-yes' : r.brier >= 0.5 ? 'is-no' : ''}`}>
+              {r.brier == null ? '—' : r.brier.toFixed(3)}
+            </span>
+            <span className="lb-n mono lb-r">{r.nSettled || '—'}</span>
           </div>
         ))}
         {rows && rows.length === 0 && <p className="pane-empty-sub" style={{ padding: '24px 0' }}>No members yet.</p>}
       </div>
+      <p className="lb-explain">
+        <b>Brier</b> scores how well-judged your bets were: the squared gap between the price you paid
+        and what actually happened, averaged over your settled bets. <b>0</b> is perfect, and lower is
+        sharper — it rewards being right, not just lucky. Dash means no settled bets yet.
+      </p>
     </div>
   );
 }
