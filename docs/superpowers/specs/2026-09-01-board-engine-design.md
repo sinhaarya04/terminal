@@ -48,3 +48,12 @@ pricing quantities, so the first bet on an "82%" outcome fills at 50/50 odds.
   the public board), then a SQL audit: pool == Σcost, sq == Σshares, wallet
   delta == −Σcost, meter state consistent with a serial replay. Settle the
   market afterwards to return the play money.
+
+## Overnight finding: b needs a group decision
+
+At b=100, a single $50 spend moves a 41¢ outcome to 64¢ (mathematically
+correct; verified against the meter by hand). The club notes' own tuning rule
+("if a single ordinary trade swings the price more than a few percent, raise
+b") suggests b in the 300–500 range if typical stakes are $10–$100. b is a
+per-market column, so changing the default only affects newly created markets.
+Left at 100 pending discussion.
