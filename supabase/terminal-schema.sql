@@ -58,17 +58,17 @@ alter table public.term_markets add constraint term_markets_resolved_check
 -- worked example: b=100, 50 YES costs 28.093, then 50 NO costs 21.907,
 -- pot exactly 50, YES pays 1.000/share) ----------
 create or replace function public.term_lmsr_cost(qy numeric, qn numeric, p_b numeric)
-returns numeric language sql immutable as $lm$
+returns numeric language sql immutable set search_path = public as $lm$
   select p_b * ( greatest(qy,qn)/p_b
        + ln( exp(qy/p_b - greatest(qy,qn)/p_b) + exp(qn/p_b - greatest(qy,qn)/p_b) ) );
 $lm$;
 create or replace function public.term_lmsr_price_yes(qy numeric, qn numeric, p_b numeric)
-returns numeric language sql immutable as $lm$
+returns numeric language sql immutable set search_path = public as $lm$
   select exp(qy/p_b - greatest(qy,qn)/p_b)
        / ( exp(qy/p_b - greatest(qy,qn)/p_b) + exp(qn/p_b - greatest(qy,qn)/p_b) );
 $lm$;
 create or replace function public.term_lmsr_shares_for_spend(qx numeric, qo numeric, p_b numeric, k numeric)
-returns numeric language sql immutable as $lm$
+returns numeric language sql immutable set search_path = public as $lm$
   select p_b * ln( exp(k/p_b + ln(exp(qx/p_b) + exp(qo/p_b))) - exp(qo/p_b) ) - qx;
 $lm$;
 
@@ -134,33 +134,38 @@ alter table public.term_bets     enable row level security;
 
 -- Table privileges for the signed-in role (RLS still scopes which ROWS are
 -- visible; without these grants the role can't touch the table at all).
-grant select, insert, update on public.term_profiles to authenticated;
-grant select, insert            on public.term_markets  to authenticated;
-grant select, insert            on public.term_bets     to authenticated;
+-- SELECT only. Every write goes through a SECURITY DEFINER RPC (runs as the
+-- table owner), so authenticated must NOT hold direct insert/update — else a
+-- user could PATCH their own balance or insert an unpriced bet.
+-- docs/security-review.md, critical finding 2026-09-01.
+grant select on public.term_profiles to authenticated;
+grant select on public.term_markets  to authenticated;
+grant select on public.term_bets     to authenticated;
+revoke insert, update, delete on public.term_profiles from authenticated;
+revoke insert, update, delete on public.term_markets  from authenticated;
+revoke insert, update, delete on public.term_bets     from authenticated;
 
 -- profiles: you can read/update only your own row
 drop policy if exists term_profiles_self_sel on public.term_profiles;
 create policy term_profiles_self_sel on public.term_profiles
   for select using (auth.uid() = id);
+-- No self-update policy: a user with the update grant could set their own
+-- balance. Profiles change only via RPC (removed 2026-09-01).
 drop policy if exists term_profiles_self_upd on public.term_profiles;
-create policy term_profiles_self_upd on public.term_profiles
-  for update using (auth.uid() = id);
 
 -- markets: any signed-in user can read (needed to join by code); owners insert their own
 drop policy if exists term_markets_read on public.term_markets;
 create policy term_markets_read on public.term_markets
   for select using (auth.role() = 'authenticated');
+-- markets created only via term_create_market / term_upsert_public_market
 drop policy if exists term_markets_owner_ins on public.term_markets;
-create policy term_markets_owner_ins on public.term_markets
-  for insert with check (auth.uid() = owner);
 
 -- bets: read/insert only your own (writes normally go through the RPC below)
 drop policy if exists term_bets_self_sel on public.term_bets;
 create policy term_bets_self_sel on public.term_bets
   for select using (auth.uid() = user_id);
+-- bets written only via term_place_bet / term_sell_shares
 drop policy if exists term_bets_self_ins on public.term_bets;
-create policy term_bets_self_ins on public.term_bets
-  for insert with check (auth.uid() = user_id);
 
 -- ============================================================
 -- RPCs (security definer — money logic lives server-side)
