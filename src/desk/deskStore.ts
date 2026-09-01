@@ -241,8 +241,12 @@ export async function hydrateLive(userId: string) {
   let [mine, betMarkets, bets, trades, board] = await Promise.all([
     db.fetchMyMarkets(userId), db.fetchBetMarkets(), db.fetchMyBets(), db.fetchMyTrades(), db.fetchBoardMarkets(),
   ]);
-  // multi markets need their outcome rows for prices + trading
-  [mine, board] = await Promise.all([db.withOutcomes(mine), db.withOutcomes(board)]);
+  // multi markets need their outcome rows for prices, trading AND settled-payout
+  // derivation below — every source must be enriched, or a market that only
+  // appears via a bet (betMarkets) would resolve with no outcomes and pay 0.
+  [mine, board, betMarkets] = await Promise.all([
+    db.withOutcomes(mine), db.withOutcomes(board), db.withOutcomes(betMarkets),
+  ]);
   // merge fetched markets (for live price on Positions) into the public list,
   // plus every officer-created / materialised board market so the grid shows them
   const markets = SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] }));
@@ -252,18 +256,26 @@ export async function hydrateLive(userId: string) {
   // MARKET. Rehydrated positions on resolved markets get their settled stamp
   // derived here, or a paid-out position would come back marking to a price
   // that can never move again.
-  const lookup = new Map<string, DeskMarket>([...markets, ...mine, ...betMarkets].map((x) => [x.id, x]));
+  // order so an outcome-bearing copy wins on duplicate codes
+  const lookup = new Map<string, DeskMarket>([...markets, ...betMarkets, ...board, ...mine].map((x) => [x.id, x]));
   const positions: Position[] = bets.map((p) => {
     const mk = lookup.get(p.marketId);
-    if (!mk?.resolved) return p;
-    const winTotal = p.side === 'YES' ? mk.sqYes ?? 0 : mk.sqNo ?? 0;
-    // markets settled before the hybrid engine have no share totals — those
-    // actually paid the old $1/share, so their history reads what really happened
-    const perShare = winTotal > 0 ? (mk.pool || 0) / winTotal : 1;
-    const payout = mk.resolved === 'VOID'
-      ? round2(p.cost)
-      : p.side === mk.resolved ? round2(p.shares * perShare) : 0;
-    return { ...p, settled: { outcome: mk.resolved, payout } };
+    if (!mk?.resolved) return { ...p, outcomeIdx: p.outcomeIdx };
+    let payout: number;
+    if (mk.resolved === 'VOID') {
+      payout = round2(p.cost);
+    } else if (mk.resolved === 'MULTI') {
+      // multi: winner is the resolved outcome; pot splits over its real shares
+      const winSq = mk.outcomes?.find((o) => o.idx === mk.resolvedIdx)?.sq ?? 0;
+      const per = winSq > 0 ? (mk.pool || 0) / winSq : 0;
+      payout = p.outcomeIdx === mk.resolvedIdx ? round2(p.shares * per) : 0;
+    } else {
+      const winTotal = p.side === 'YES' ? mk.sqYes ?? 0 : mk.sqNo ?? 0;
+      // pre-engine markets have no share totals — they paid the old $1/share
+      const perShare = winTotal > 0 ? (mk.pool || 0) / winTotal : 1;
+      payout = p.side === mk.resolved ? round2(p.shares * perShare) : 0;
+    }
+    return { ...p, outcomeIdx: p.outcomeIdx, settled: { outcome: mk.resolved, payout } };
   });
   state = {
     ...state, live: true, userId,

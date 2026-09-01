@@ -40,7 +40,9 @@ export default function PositionsList({
             onClick={() => onSelect(r)}
           >
             <em className="li-code mono">
-              {r.p.marketId} · <span className={r.p.side === 'YES' ? 'is-yes' : 'is-no'}>{r.p.side}</span>
+              {r.p.marketId} · {r.p.outcomeIdx != null
+                ? <span className="is-yes">{getMarket(r.p.marketId)?.outcomes?.find((o) => o.idx === r.p.outcomeIdx)?.name ?? `#${r.p.outcomeIdx}`}</span>
+                : <span className={r.p.side === 'YES' ? 'is-yes' : 'is-no'}>{r.p.side}</span>}
               {r.p.settled && <b className="li-settled is-flat">closed</b>}
             </em>
             <span className={`li-q ${r.p.settled ? 'is-dim' : ''}`}>{m?.q || r.p.marketId}</span>

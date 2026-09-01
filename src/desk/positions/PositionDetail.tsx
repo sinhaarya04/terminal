@@ -34,7 +34,12 @@ export default function PositionDetail({ row }: { row: PositionRow | null }) {
       )}
 
       <div className="tk-calc mono">
-        <div><span>SIDE</span><b className={row.p.side === 'YES' ? 'is-yes' : 'is-no'}>{row.p.side}</b></div>
+        <div><span>{row.p.outcomeIdx != null ? 'OUTCOME' : 'SIDE'}</span>
+          <b className={row.p.outcomeIdx != null ? 'is-yes' : row.p.side === 'YES' ? 'is-yes' : 'is-no'}>
+            {row.p.outcomeIdx != null
+              ? (m?.outcomes?.find((o) => o.idx === row.p.outcomeIdx)?.name ?? `#${row.p.outcomeIdx}`)
+              : row.p.side}
+          </b></div>
         <div><span>SHARES</span><b>{row.p.shares.toFixed(1)}</b></div>
         <div><span>ENTRY</span><b>{entry.toFixed(0)}¢</b></div>
         {/* a settled position has no mark — the outcome replaced the price.

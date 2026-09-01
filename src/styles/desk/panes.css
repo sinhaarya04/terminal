@@ -576,3 +576,45 @@
   .lb-row{grid-template-columns:34px minmax(0,1fr) auto auto;gap:12px}
   .lb-row span:nth-child(3),.lb-row span:nth-child(6){display:none}
 }
+
+/* ============================================================
+   UI polish pass — interaction physics + intentional empties
+   Design read: dense dark prediction-markets terminal. Applies the
+   taste-skill principles that fit (spring easing, press feedback,
+   refined empties) and skips the ones that fight a terminal (airy
+   whitespace, squircles, glass-everywhere).
+   ============================================================ */
+
+/* One premium curve for every hover/press, replacing bare `ease`. Cards lift
+   with a hair of spring; the border and ground warm together. */
+.mkt, .li, .btn, .rail-dest, .grid-filter, .view-btn, .lb-row,
+.mt-outcome, .pg-card, .tk-chip, .tk-side, .mtype-opt, .code-pill {
+  transition-timing-function: var(--ease-smooth-out) !important;
+  transition-duration: 220ms !important;
+}
+.mkt:hover { transform: translateY(-3px); border-color: var(--border-2);
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.5); }
+.pg-card:hover { transform: translateY(-3px); }
+/* press feedback — everything you can click sinks a touch, like real hardware */
+.btn:active:not(:disabled), .mkt:active, .pg-card:active, .lb-row:active,
+.tk-chip:active, .tk-side:active, .mtype-opt:active { transform: scale(.985); }
+.mkt:active { transform: translateY(-1px) scale(.995); }
+
+/* list rows glide a hair right on hover instead of a flat bg swap */
+.li:hover { padding-left: 3px; }
+
+/* Intentional empty states: a faint bracket motif (the E[X] mark) above the
+   text, so an empty pane reads as designed, not unfinished. */
+.pane-empty { position: relative; }
+.pane-empty::before {
+  content: "[ \00B7 ]";
+  display: block; margin: 0 auto 14px; font-family: var(--serif);
+  font-size: 26px; letter-spacing: .12em; color: var(--border-2);
+  line-height: 1;
+}
+.pane-empty .mono:first-of-type { color: var(--muted); }
+.pane-empty-sub { max-width: 30ch; margin-left: auto; margin-right: auto; }
+
+/* the officer '+ New board market' and personal '+ New market' tiles get the
+   same lift as real cards so the grid feels of one piece */
+.pg-new:hover { transform: translateY(-3px); }

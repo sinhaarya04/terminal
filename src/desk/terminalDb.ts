@@ -72,16 +72,18 @@ export async function fetchBetMarkets(): Promise<DeskMarket[]> {
   return ((data ?? []) as MarketRow[]).map(rowToMarket);
 }
 
-export async function fetchMyBets(): Promise<{ marketId: string; side: 'YES' | 'NO'; shares: number; cost: number }[]> {
+export async function fetchMyBets(): Promise<{ marketId: string; side: 'YES' | 'NO'; shares: number; cost: number; outcomeIdx?: number }[]> {
   if (!supabase) return [];
-  const { data } = await supabase.from('term_bets').select('market_code,side,shares,cost');
+  const { data } = await supabase.from('term_bets').select('market_code,side,shares,cost,outcome_idx');
   // Sells are negative rows; a position is the NET of buys and sells per
   // market+side. Without this, a reload would show a sold-out position as a
   // pair of rows, one of them holding negative shares.
-  const agg = new Map<string, { marketId: string; side: 'YES' | 'NO'; shares: number; cost: number }>();
-  for (const b of (data ?? []) as BetRow[]) {
-    const k = `${b.market_code}|${b.side}`;
-    const cur = agg.get(k) ?? { marketId: b.market_code, side: b.side, shares: 0, cost: 0 };
+  type Row = BetRow & { outcome_idx: number | null };
+  const agg = new Map<string, { marketId: string; side: 'YES' | 'NO'; shares: number; cost: number; outcomeIdx?: number }>();
+  for (const b of (data ?? []) as Row[]) {
+    const oi = b.outcome_idx ?? undefined;
+    const k = `${b.market_code}|${b.side ?? ''}|${oi ?? ''}`;
+    const cur = agg.get(k) ?? { marketId: b.market_code, side: (b.side ?? 'YES') as 'YES' | 'NO', shares: 0, cost: 0, outcomeIdx: oi };
     cur.shares += Number(b.shares);
     cur.cost += Number(b.cost);
     agg.set(k, cur);
