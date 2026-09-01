@@ -17,6 +17,11 @@
   --serif:"Newsreader",Georgia,serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}
+/* The page moves vertically, full stop. Any element that leaks past the right
+   edge (a blur lobe, an intro ring, a wide table) becomes an internal styling
+   bug instead of a horizontal pan the whole phone can feel. */
+html,body{overflow-x:clip}
+@supports not (overflow-x:clip){html,body{overflow-x:hidden}}
 @media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
 body::before{content:"";position:fixed;inset:0;z-index:-1;background:
@@ -109,7 +114,7 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .desk-linkbtn:disabled{color:var(--faint);cursor:default}
 
 /* ---- intro ---- */
-.desk-intro{position:fixed;inset:0;background:#050609;display:flex;align-items:center;justify-content:center;z-index:50}
+.desk-intro{position:fixed;inset:0;background:#050609;display:flex;align-items:center;justify-content:center;z-index:50;overflow:hidden}
 .desk-intro-video{width:100%;height:100%;object-fit:cover}
 /* the lockup is 64px on desktop; at phone widths that overflows a 390px screen
    once the .3em-tracked tagline sits under it */
