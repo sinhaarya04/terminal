@@ -91,8 +91,16 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 
 /* ---- sign-in ---- */
 .desk-auth{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden}
-.desk-auth-back{position:absolute;top:26px;left:28px;z-index:3;font-size:13px;letter-spacing:.02em;color:var(--muted);transition:color .2s}
-.desk-auth-back:hover{color:var(--red-bright)}
+/* The shared .about-fluid was tuned as a landing-page HEADER band: blobs
+   clustered at the top, a fade-to-black across the lower half. Centered on a
+   laptop that read as a phone-width column floating in blackness. Here the
+   field owns the whole canvas: lobes pushed into the corners at viewport
+   scale, and the bottom fade swapped for an edge vignette. */
+.desk-auth .about-fluid .b1{width:58vw;height:58vw;left:-16%;top:-24%}
+.desk-auth .about-fluid .b2{width:62vw;height:62vw;right:-18%;top:-16%;left:auto}
+.desk-auth .about-fluid .b3{width:54vw;height:54vw;left:30%;top:auto;bottom:-32%}
+.desk-auth .about-fluid .blob{opacity:.4}
+.desk-auth .about-fluid::after{background:radial-gradient(130% 100% at 50% 42%,rgba(8,9,13,0) 52%,rgba(8,9,13,.82) 100%)}
 .desk-card{position:relative;z-index:2;width:min(456px,92vw);padding:44px 40px 34px;text-align:center;
   border:1px solid var(--border);border-radius:3px;
   background:rgba(9,10,15,.62);backdrop-filter:blur(14px)}

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { isAllowedEmail, ALLOWED_DOMAIN } from '../lib/authEmail';
 
@@ -81,8 +80,6 @@ export default function DeskSignIn() {
       <div className="about-fluid" aria-hidden="true">
         <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
       </div>
-
-      <Link to="/" className="desk-auth-back" aria-label="Back to E[X]">← E[X]</Link>
 
       <div className="desk-card">
         <div className="desk-lockup">E<span className="desk-brack">[</span>X<span className="desk-brack">]</span></div>
