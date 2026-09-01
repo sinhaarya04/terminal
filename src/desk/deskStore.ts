@@ -235,11 +235,27 @@ export async function hydrateLive(userId: string) {
   // merge fetched markets (for live price on Positions) into the public list
   const markets = SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] }));
   for (const bm of betMarkets) if (!bm.custom && !markets.some((x) => x.id === bm.id)) markets.push(bm);
+
+  // The bets table has no settled flag — settlement is a fact about the
+  // MARKET. Rehydrated positions on resolved markets get their settled stamp
+  // derived here, or a paid-out position would come back marking to a price
+  // that can never move again.
+  const lookup = new Map<string, DeskMarket>([...markets, ...mine, ...betMarkets].map((x) => [x.id, x]));
+  const positions: Position[] = bets.map((p) => {
+    const mk = lookup.get(p.marketId);
+    if (!mk?.resolved) return p;
+    const payout = mk.resolved === 'VOID'
+      ? round2(p.cost)
+      : p.side === mk.resolved && (p.side === 'YES' ? mk.sqYes : mk.sqNo)
+        ? round2(p.shares * ((mk.pool || 0) / (p.side === 'YES' ? mk.sqYes! : mk.sqNo!)))
+        : 0;
+    return { ...p, settled: { outcome: mk.resolved, payout } };
+  });
   state = {
     ...state, live: true, userId,
     user: { handle: profile.handle }, seenIntro: profile.seenIntro,
     balance: profile.balance, pmBalance: profile.pmBalance,
-    positions: bets, markets, custom: mine, joined: mine.map((m) => m.id),
+    positions, markets, custom: mine, joined: mine.map((m) => m.id),
     // The server has no activity table yet, so live mode starts with an empty
     // feed rather than inventing one. Local events still append as you play.
     activity: [],

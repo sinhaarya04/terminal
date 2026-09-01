@@ -71,7 +71,18 @@ export async function fetchBetMarkets(): Promise<DeskMarket[]> {
 export async function fetchMyBets(): Promise<{ marketId: string; side: 'YES' | 'NO'; shares: number; cost: number }[]> {
   if (!supabase) return [];
   const { data } = await supabase.from('term_bets').select('market_code,side,shares,cost');
-  return ((data ?? []) as BetRow[]).map((b) => ({ marketId: b.market_code, side: b.side, shares: Number(b.shares), cost: Number(b.cost) }));
+  // Sells are negative rows; a position is the NET of buys and sells per
+  // market+side. Without this, a reload would show a sold-out position as a
+  // pair of rows, one of them holding negative shares.
+  const agg = new Map<string, { marketId: string; side: 'YES' | 'NO'; shares: number; cost: number }>();
+  for (const b of (data ?? []) as BetRow[]) {
+    const k = `${b.market_code}|${b.side}`;
+    const cur = agg.get(k) ?? { marketId: b.market_code, side: b.side, shares: 0, cost: 0 };
+    cur.shares += Number(b.shares);
+    cur.cost += Number(b.cost);
+    agg.set(k, cur);
+  }
+  return [...agg.values()].filter((p) => p.shares > 1e-9 || Math.abs(p.cost) > 0.005);
 }
 
 export async function getMarketByCode(code: string): Promise<DeskMarket | null> {
