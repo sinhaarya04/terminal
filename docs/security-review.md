@@ -134,3 +134,41 @@ Code changes are all on branch `board-engine`, unmerged. Nothing pushed to main.
 - **3. Board close/lock — covered by the existing engine.** Board markets take a
   `closes_at`; `term_place_bet` already rejects `now() >= closes_at`, so a board
   market locks at close and waits for an officer to resolve.
+
+---
+
+## Protocol pass — 2026-09-01 (found TWO regressions on the shared DB)
+
+A full top-to-bottom test found that **a teammate had re-run the OLD schema on
+the shared project**, which silently reverted two of tonight's fixes. Both are
+now re-applied AND the branch schema file is corrected so re-adoption can't
+reintroduce them.
+
+1. **`term_place_bet` reverted to its pre-engine body** — old fixed-price share
+   math (no LMSR meter), and no wallet split, so a **private** market bet was
+   debited from PUB while its payout credited PRI: money crossed wallets.
+   (`term_sell_shares` was unaffected.) Caught by a conservation cycle: a
+   private binary bet moved PUB 1000→970 instead of PRI. Fixed
+   (`term_place_bet_restore_engine`); re-verified PUB untouched, PRI round-trips.
+2. **The write lockdown reverted** — the old schema recreated
+   `term_profiles_self_upd` / `term_markets_owner_ins` / `term_bets_self_ins`
+   and re-granted insert/update, reopening balance-edit, fake-market and
+   unpriced-bet. Re-verified all three at 403 after `term_relock_writes_v2`.
+
+**Operational risk (needs the group): this DB is shared and being edited by
+others. A security fix here is not durable until the team adopts the engine
+branch's `terminal-schema.sql`** (which no longer creates the permissive
+policies and ships the correct functions). Until then, re-runs of the old
+schema will keep trampling it.
+
+Everything else passed: binary + multi, personal + board, both void paths,
+rate limit (5 parallel → ≤2 through), wallet isolation, and the 3 security
+probes. Test markets deleted; tester account reset to the 1000/1000 grant.
+
+### Separate finding: historical point inflation (~+1183)
+The whole terminal economy currently totals ~7183 against 6000 granted
+(three accounts × 2000). This is **pre-fix** damage — the old $1/share payout
+and the balance-edit exploit, both open before tonight — not the current
+engine (which conserves, proven repeatedly). The clean remedy is a **season-1
+reset** to the grant for everyone before go-live, which the club notes already
+plan. Pairs naturally with the leaderboard.

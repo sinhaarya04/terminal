@@ -237,69 +237,54 @@ $$;
 
 -- Place a bet: checks balance, records the bet, debits balance, grows the
 -- pool, and nudges the price toward the side bought. Returns new balance + yes.
-create or replace function public.term_place_bet(
-  p_code text, p_side text, p_dollars numeric)
+create or replace function public.term_place_bet(p_code text, p_side text, p_dollars numeric)
 returns json language plpgsql security definer set search_path = public as $$
 declare
   v_uid uuid := auth.uid();
-  v_bal numeric; v_pm numeric;
-  m record;
-  v_shares numeric; v_new_pqy numeric; v_new_pqn numeric; v_price numeric;
-  v_handle text;
+  v_bal numeric; v_pm numeric; v_last timestamptz;
+  m record; v_shares numeric; v_new_pqy numeric; v_new_pqn numeric; v_price numeric; v_handle text;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   if p_side not in ('YES','NO') then raise exception 'bad side'; end if;
   if p_dollars <= 0 then raise exception 'bad amount'; end if;
-
   select * into m from public.term_markets where code = p_code for update;
   if m is null then raise exception 'no such market'; end if;
+  if m.is_multi then raise exception 'use term_place_bet_multi'; end if;
   if m.resolved is not null then raise exception 'market already settled'; end if;
   if m.closes_at is not null and now() >= m.closes_at then raise exception 'market closed'; end if;
-
-  select balance, pm_balance into v_bal, v_pm
+  select balance, pm_balance, last_action_at into v_bal, v_pm, v_last
     from public.term_profiles where id = v_uid for update;
   if v_bal is null then raise exception 'no profile'; end if;
-  if m.is_private then
-    if p_dollars > v_pm then raise exception 'insufficient balance'; end if;
-  else
-    if p_dollars > v_bal then raise exception 'insufficient balance'; end if;
-  end if;
-
-  -- LMSR: the spend buys however many shares the meter says it buys
+  if v_last is not null and now() - v_last < interval '150 milliseconds' then raise exception 'slow down'; end if;
+  if m.is_private then if p_dollars > v_pm then raise exception 'insufficient balance'; end if;
+  else if p_dollars > v_bal then raise exception 'insufficient balance'; end if; end if;
   if p_side = 'YES' then
     v_shares := public.term_lmsr_shares_for_spend(m.pq_yes, m.pq_no, m.b, p_dollars);
-    v_new_pqy := m.pq_yes + v_shares;  v_new_pqn := m.pq_no;
+    v_new_pqy := m.pq_yes + v_shares; v_new_pqn := m.pq_no;
   else
     v_shares := public.term_lmsr_shares_for_spend(m.pq_no, m.pq_yes, m.b, p_dollars);
-    v_new_pqy := m.pq_yes;  v_new_pqn := m.pq_no + v_shares;
+    v_new_pqy := m.pq_yes; v_new_pqn := m.pq_no + v_shares;
   end if;
   v_price := public.term_lmsr_price_yes(v_new_pqy, v_new_pqn, m.b);
-
   insert into public.term_bets (market_code, user_id, side, shares, cost)
   values (p_code, v_uid, p_side, v_shares, p_dollars);
-
-  update public.term_markets set
-    pq_yes = v_new_pqy, pq_no = v_new_pqn,
+  update public.term_markets set pq_yes = v_new_pqy, pq_no = v_new_pqn,
     sq_yes = sq_yes + case when p_side='YES' then v_shares else 0 end,
     sq_no  = sq_no  + case when p_side='NO'  then v_shares else 0 end,
-    yes = greatest(1, least(99, round(v_price * 100))),
-    pool = pool + p_dollars
+    yes = greatest(1, least(99, round(v_price*100))), pool = pool + p_dollars
   where code = p_code;
-
   if m.is_private then
-    update public.term_profiles set pm_balance = pm_balance - p_dollars where id = v_uid
-      returning balance, pm_balance into v_bal, v_pm;
+    update public.term_profiles set pm_balance = pm_balance - p_dollars, last_action_at = now()
+      where id = v_uid returning balance, pm_balance into v_bal, v_pm;
     select handle into v_handle from public.term_profiles where id = v_uid;
     insert into public.term_activity (market_code, handle, kind, side, dollars)
     values (p_code, coalesce(v_handle,'member'), 'bet', p_side, p_dollars);
   else
-    update public.term_profiles set balance = balance - p_dollars where id = v_uid
-      returning balance, pm_balance into v_bal, v_pm;
+    update public.term_profiles set balance = balance - p_dollars, last_action_at = now()
+      where id = v_uid returning balance, pm_balance into v_bal, v_pm;
   end if;
-
   return json_build_object('balance', v_bal, 'pm_balance', v_pm,
-                           'yes', greatest(1, least(99, round(v_price * 100))),
-                           'shares', v_shares);
+    'yes', greatest(1, least(99, round(v_price*100))), 'shares', v_shares);
 end;
 $$;
 
