@@ -197,7 +197,7 @@ function line(a: Activity) {
   switch (a.kind) {
     case 'create':  return 'opened the market';
     case 'join':    return 'joined';
-    case 'resolve': return `settled it ${a.side}`;
+    case 'resolve': return a.side ? `settled it ${a.side}` : 'voided the market — stakes refunded';
     case 'bet':     return `bought ${a.side} · ${money(a.dollars || 0)}`;
   }
 }
