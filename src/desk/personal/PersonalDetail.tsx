@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import DeskSpark from '../DeskSpark';
 import LiquidRange from '../../components/LiquidRange';
 import DateTimeField from '../../components/DateTimeField';
 import { endOfDay, formatClose, relativeClose } from '../../lib/closeTime';
 import { useNow } from '../../lib/useNow';
 import {
-  createMarket, resolveMarket, marketActivity, participants, useDesk, marketPhase,
+  createMarket, resolveMarket, marketActivity, participants, useDesk, marketPhase, refreshLiveMarket,
   money, type Activity, type DeskMarket, type Side,
 } from '../deskStore';
 import type { PersonalSel } from './PersonalList';
@@ -42,6 +42,11 @@ function MarketView({ code }: { code: string }) {
   // own rather than waiting for the next click.
   const now = useNow();
   const phase = marketPhase(m, now);
+
+  // Live mode: pull the server's view of this market on open, and again on
+  // every 30s tick while it stays open — cheap polling that makes other
+  // people's bets, joins and the settle show up without a reload.
+  useEffect(() => { void refreshLiveMarket(code); }, [code, now]);
 
   return (
     <div className="pane-body">

@@ -115,3 +115,27 @@ export async function rpcResolveMarket(code: string, outcome: 'YES' | 'NO'): Pro
   const { error } = await supabase.rpc('term_resolve_market', { p_code: code, p_outcome: outcome });
   if (error) throw error;
 }
+
+type ActivityRow = { id: string; market_code: string; handle: string; kind: 'create' | 'join' | 'bet' | 'resolve'; side: 'YES' | 'NO' | null; dollars: number | null; created_at: string };
+
+/** A market's feed, newest first. Written server-side by the RPCs. */
+export async function fetchActivity(code: string): Promise<{
+  id: string; code: string; handle: string; kind: ActivityRow['kind'];
+  side?: 'YES' | 'NO'; dollars?: number; at: number;
+}[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.from('term_activity')
+    .select('*').eq('market_code', code)
+    .order('created_at', { ascending: false }).limit(50);
+  return ((data ?? []) as ActivityRow[]).map((r) => ({
+    id: r.id, code: r.market_code, handle: r.handle, kind: r.kind,
+    side: r.side ?? undefined, dollars: r.dollars != null ? Number(r.dollars) : undefined,
+    at: Date.parse(r.created_at),
+  }));
+}
+
+/** Record that this account joined a market (once per user per market). */
+export async function rpcLogJoin(code: string): Promise<void> {
+  if (!supabase) return;
+  await supabase.rpc('term_log_join', { p_code: code });
+}

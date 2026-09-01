@@ -247,6 +247,23 @@ function recordActivity(e: Omit<Activity, 'id' | 'at' | 'handle'> & { handle?: s
   set({ activity: [ev, ...state.activity].slice(0, 200) });
 }
 
+/** Live mode: re-fetch one market's row and feed, so the pool, price, resolved
+ *  state and other people's activity reflect the server rather than whatever
+ *  this browser last saw. Guest mode has no server to ask, so it's a no-op. */
+export async function refreshLiveMarket(code: string): Promise<void> {
+  if (!state.live) return;
+  try {
+    const [m, feed] = await Promise.all([db.getMarketByCode(code), db.fetchActivity(code)]);
+    if (!m) return;
+    const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === code ? { ...m, spark: c.spark } : c));
+    // server truth replaces this market's slice of the feed; other codes keep
+    // their locally-recorded events
+    const activity = [...feed, ...state.activity.filter((a) => a.code !== code)]
+      .sort((a, b) => b.at - a.at);
+    set({ custom: roll(state.custom), markets: roll(state.markets), activity });
+  } catch { /* stale view is better than an error here */ }
+}
+
 /** Everyone who has shown up in a market's feed, most recently active first. */
 export function participants(code: string): { handle: string; at: number }[] {
   const seen = new Map<string, number>();
@@ -406,7 +423,10 @@ export async function joinByCode(code: string): Promise<DeskMarket | null> {
   } else if (!state.joined.includes(m.id)) {
     set({ joined: [m.id, ...state.joined] });
   }
-  if (isNew) recordActivity({ code: m.id, kind: 'join' });
+  if (isNew) {
+    recordActivity({ code: m.id, kind: 'join' });
+    if (state.live) { try { await db.rpcLogJoin(m.id); } catch { /* feed only */ } }
+  }
   return m;
 }
 
