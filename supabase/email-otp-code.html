@@ -9,9 +9,10 @@
   Deliberately app-neutral — the Supabase project is shared by Showdown and
   the Terminal, and both request codes through the same templates.
 
-  CRITICAL: no {{ .ConfirmationURL }} anywhere in this file. The token and the
-  URL are the same secret; if the URL ships, Outlook Safe Links prefetches it
-  and burns the code before the human can type it.
+  CRITICAL: the ConfirmationURL variable must not appear anywhere in this file
+  — not even in a comment, since Go templating evaluates comments too. The
+  token and the URL are the same secret; if the URL ships, Outlook Safe Links
+  prefetches it and burns the code before the human can type it.
 
   Adapted from the emails/build.mjs "Confirm signup" output — if that builder
   is still in use, port these changes back into it.
