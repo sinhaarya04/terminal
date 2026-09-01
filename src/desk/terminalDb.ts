@@ -6,7 +6,7 @@ import type { DeskMarket } from './deskStore';
 
 export type LiveProfile = { handle: string; balance: number; seenIntro: boolean };
 
-type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; yes: number; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | null };
+type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | null };
 type BetRow = { market_code: string; side: 'YES' | 'NO'; shares: number; cost: number };
 
 const flatSpark = (yes: number) => [yes, yes, yes, yes, yes];
@@ -14,7 +14,14 @@ const flatSpark = (yes: number) => [yes, yes, yes, yes, yes];
 function rowToMarket(r: MarketRow): DeskMarket {
   return {
     id: r.code, q: r.question, cat: r.cat, yes: Number(r.yes), closes: r.closes || 'TBD',
-    spark: flatSpark(Number(r.yes)), custom: r.is_private, owner: r.owner ? 'member' : 'house', pool: Number(r.pool),
+    closesAt: r.closes_at ? Date.parse(r.closes_at) : undefined,
+    spark: flatSpark(Number(r.yes)), custom: r.is_private,
+    // Two separate things: `owner` is what the UI prints, `ownerId` is what
+    // settlement authority is checked against. Collapsing them would either
+    // print a uuid at people or make every live market unsettleable.
+    owner: r.owner_handle ?? (r.owner ? 'member' : 'house'),
+    ownerId: r.owner ?? undefined,
+    pool: Number(r.pool),
     resolved: r.resolved ?? undefined,
   };
 }
@@ -64,13 +71,24 @@ export async function getMarketByCode(code: string): Promise<DeskMarket | null> 
   return data ? rowToMarket(data as MarketRow) : null;
 }
 
-export async function rpcCreateMarket(input: { q: string; cat: string; closes: string; yes: number }): Promise<string | null> {
+export async function rpcCreateMarket(
+  input: { q: string; cat: string; closes: string; yes: number; closesAt?: number },
+): Promise<string | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc('term_create_market', {
     p_question: input.q, p_cat: input.cat, p_closes: input.closes, p_yes: input.yes,
+    p_closes_at: input.closesAt != null ? new Date(input.closesAt).toISOString() : null,
   });
   if (error) throw error;
   return data as string;
+}
+
+/** Create this account's profile row if it doesn't exist yet. Called on
+ *  sign-in: there is no signup trigger, on purpose — see terminal-schema.sql. */
+export async function rpcEnsureProfile(): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('term_ensure_profile');
+  if (error) throw error;
 }
 
 export async function rpcUpsertPublicMarket(m: DeskMarket): Promise<void> {

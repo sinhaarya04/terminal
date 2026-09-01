@@ -34,6 +34,9 @@ export type DeskMarket = {
   owner?: string;    // handle of the creator
   pool?: number;     // total fake $ staked in a custom market
   resolved?: Side;   // set when the owner settles it; blocks further betting
+  // Live mode only: the owner's auth id. `owner` is a display handle and is not
+  // unique, so settlement authority is checked against this when it exists.
+  ownerId?: string;
   // When betting stops, epoch ms. Private markets only — the public board fills
   // `closes` with a display string that was never a date. Absent means the
   // market never closes on its own, which is how every market behaved before
@@ -184,6 +187,9 @@ export function signIn(handle: string) {
 
 /** Enter live mode for a real Supabase account and hydrate from the DB. */
 export async function hydrateLive(userId: string) {
+  // No trigger creates this row (the auth table is shared with the poker portal
+  // and the applicant flow), so the terminal makes its own profile on arrival.
+  try { await db.rpcEnsureProfile(); } catch { /* fall through to the null check */ }
   const profile = await db.fetchProfile();
   if (!profile) { // tables not set up yet / no profile row — fall back to guest
     set({ live: false });
@@ -313,7 +319,9 @@ export async function createMarket(
   const closesAt = input.closesAt != null && input.closesAt > Date.now()
     ? input.closesAt
     : undefined;
-  const code = state.live ? (await db.rpcCreateMarket({ ...input, yes })) ?? genCode() : genCode();
+  const code = state.live
+    ? (await db.rpcCreateMarket({ ...input, yes, closesAt })) ?? genCode()
+    : genCode();
   const m: DeskMarket = {
     id: code,
     q: input.q.trim(),
@@ -343,7 +351,11 @@ export async function createMarket(
 export async function resolveMarket(code: string, outcome: Side): Promise<number | null> {
   const m = state.custom.find((x) => x.id === code);
   if (!m || m.resolved) return null;
-  if (m.owner !== (state.user?.handle || 'you')) return null;
+  // Live markets carry the owner's auth id; guest markets only have a handle.
+  const mine = m.ownerId != null
+    ? m.ownerId === state.userId
+    : m.owner === (state.user?.handle || 'you');
+  if (!mine) return null;
 
   if (state.live) {
     try { await db.rpcResolveMarket(code, outcome); }

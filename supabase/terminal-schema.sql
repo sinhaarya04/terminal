@@ -23,7 +23,8 @@ create table if not exists public.term_markets (
   owner      uuid references auth.users(id) on delete set null,  -- null = public/system
   question   text not null,
   cat        text not null default 'Private',
-  closes     text,
+  closes     text,                            -- human label ("Fri, Sep 4 - 11:59pm")
+  closes_at  timestamptz,                     -- when betting stops; null = never
   yes        numeric not null default 50,     -- current YES price in cents
   pool       numeric not null default 0,      -- total credits staked
   is_private boolean not null default true,
@@ -34,6 +35,7 @@ create table if not exists public.term_markets (
 -- Existing deployments predate settlement; add the columns in place.
 alter table public.term_markets add column if not exists resolved    text;
 alter table public.term_markets add column if not exists resolved_at timestamptz;
+alter table public.term_markets add column if not exists closes_at   timestamptz;
 
 -- ---------- bets: drives positions + P&L ----------
 create table if not exists public.term_bets (
@@ -48,21 +50,26 @@ create table if not exists public.term_bets (
 create index if not exists term_bets_user_idx   on public.term_bets(user_id);
 create index if not exists term_bets_market_idx on public.term_bets(market_code);
 
--- ---------- create a profile automatically on signup ----------
-create or replace function public.term_handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
+-- ---------- create a profile on first sign-in ----------
+-- Deliberately NOT a trigger on auth.users. This project is shared: the poker
+-- portal and the applicant flow sign users up through the same auth table, and
+-- an AFTER INSERT trigger that raised would abort their signups too. A profile
+-- the terminal needs is the terminal's problem, so the client calls this on
+-- sign-in instead and nothing new sits in the shared signup path.
+--
+-- If a previous version of this file installed that trigger, remove it.
+drop trigger if exists term_on_auth_user_created on auth.users;
+drop function if exists public.term_handle_new_user();
+
+create or replace function public.term_ensure_profile()
+returns void language plpgsql security definer set search_path = public as $$
 begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
   insert into public.term_profiles (id, handle)
-  values (new.id, split_part(new.email, '@', 1))
+  values (auth.uid(), split_part(coalesce(auth.jwt() ->> 'email', ''), '@', 1))
   on conflict (id) do nothing;
-  return new;
 end;
 $$;
-
-drop trigger if exists term_on_auth_user_created on auth.users;
-create trigger term_on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.term_handle_new_user();
 
 -- ============================================================
 -- Row Level Security
@@ -107,7 +114,7 @@ create policy term_bets_self_ins on public.term_bets
 
 -- Create a private share-code market. Returns the new code.
 create or replace function public.term_create_market(
-  p_question text, p_cat text, p_closes text, p_yes numeric)
+  p_question text, p_cat text, p_closes text, p_yes numeric, p_closes_at timestamptz default null)
 returns text language plpgsql security definer set search_path = public as $$
 declare
   v_code text;
@@ -122,9 +129,9 @@ begin
     end loop;
     exit when not exists (select 1 from public.term_markets where code = v_code);
   end loop;
-  insert into public.term_markets (code, owner, question, cat, closes, yes, is_private)
+  insert into public.term_markets (code, owner, question, cat, closes, closes_at, yes, is_private)
   values (v_code, auth.uid(), p_question, coalesce(nullif(p_cat,''),'Private'),
-          nullif(p_closes,''), greatest(2, least(98, p_yes)), true);
+          nullif(p_closes,''), p_closes_at, greatest(2, least(98, p_yes)), true);
   return v_code;
 end;
 $$;
@@ -154,6 +161,8 @@ declare
   v_shares numeric;
   v_nudge numeric;
   v_private boolean;
+  v_closes_at timestamptz;
+  v_resolved text;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   if p_side not in ('YES','NO') then raise exception 'bad side'; end if;
@@ -163,8 +172,12 @@ begin
   if v_bal is null then raise exception 'no profile'; end if;
   if p_dollars > v_bal then raise exception 'insufficient balance'; end if;
 
-  select yes, is_private into v_yes, v_private from public.term_markets where code = p_code for update;
+  select yes, is_private, closes_at, resolved
+    into v_yes, v_private, v_closes_at, v_resolved
+    from public.term_markets where code = p_code for update;
   if v_yes is null then raise exception 'no such market'; end if;
+  if v_resolved is not null then raise exception 'market already settled'; end if;
+  if v_closes_at is not null and now() >= v_closes_at then raise exception 'market closed'; end if;
 
   v_price  := case when p_side = 'YES' then v_yes else 100 - v_yes end;
   v_shares := p_dollars / (v_price / 100.0);
@@ -230,7 +243,8 @@ begin
 end;
 $$;
 
-grant execute on function public.term_create_market(text,text,text,numeric) to authenticated;
+grant execute on function public.term_ensure_profile() to authenticated;
+grant execute on function public.term_create_market(text,text,text,numeric,timestamptz) to authenticated;
 grant execute on function public.term_upsert_public_market(text,text,text,numeric) to authenticated;
 grant execute on function public.term_place_bet(text,text,numeric) to authenticated;
 grant execute on function public.term_resolve_market(text,text) to authenticated;

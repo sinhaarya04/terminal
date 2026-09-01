@@ -29,13 +29,15 @@ export default function PersonalDetail({
 // settle (or someone's bet) repaints this pane instead of showing the snapshot
 // that was current when the row was clicked.
 function MarketView({ code }: { code: string }) {
-  const { custom, user } = useDesk();
+  const { custom, user, userId } = useDesk();
   const m = custom.find((x) => x.id === code);
   if (!m) return <div className="pane-body pane-empty"><p className="mono">Market not found</p></div>;
 
   const feed = marketActivity(code);
   const people = participants(code);
-  const isOwner = m.owner === (user?.handle || 'you');
+  // Same split as resolveMarket: auth id when the market came from the server,
+  // handle when it's a local guest market.
+  const isOwner = m.ownerId != null ? m.ownerId === userId : m.owner === (user?.handle || 'you');
   // Re-reads on the shared 30s tick, so a market crosses into `closed` on its
   // own rather than waiting for the next click.
   const now = useNow();
