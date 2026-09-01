@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
-import { useDesk, adminCreateBoardMarket } from '../deskStore';
+import { useDesk, adminCreateBoardMarket, createMultiMarket } from '../deskStore';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
+import OutcomeEditor, { type OutcomeDraft } from '../../components/OutcomeEditor';
 import { endOfDay } from '../../lib/closeTime';
 
 type Filter = 'All' | 'Live' | Category;
@@ -186,16 +187,24 @@ function AdminCreate({ onDone }: { onDone: () => void }) {
   const [cat, setCat] = useState('Campus');
   const [yes, setYes] = useState(50);
   const [closesAt, setClosesAt] = useState<number>(() => endOfDay(7));
+  const [multi, setMulti] = useState(false);
+  const [outcomes, setOutcomes] = useState<OutcomeDraft[]>([{ name: '' }, { name: '' }]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  const named = outcomes.map((o) => o.name.trim()).filter(Boolean);
+  const canSubmit = q.trim() && (!multi || named.length >= 2) && !busy;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!q.trim() || busy) return;
+    if (!canSubmit) return;
     setBusy(true);
-    const code = await adminCreateBoardMarket({ q, cat, yes, closesAt });
+    const code = multi
+      ? await createMultiMarket({ q, cat, closes: '', closesAt, outcomes: named, probs: named.map(() => 1 / named.length), board: true })
+      : await adminCreateBoardMarket({ q, cat, yes, closesAt });
     setBusy(false);
-    if (code) { setQ(''); onDone(); } else setErr('Could not create — admins only, and requires a live account.');
+    if (code) { setQ(''); setOutcomes([{ name: '' }, { name: '' }]); onDone(); }
+    else setErr('Could not create — admins only, and requires a live account.');
   };
 
   return (
@@ -210,17 +219,27 @@ function AdminCreate({ onDone }: { onDone: () => void }) {
           <span className="tk-label mono">Category</span>
           <CategorySelect value={cat} onChange={setCat} />
         </div>
-        <label className="tk-field">
-          <span className="tk-label mono">Opening Yes · {yes}%</span>
-          <input className="tk-range" type="range" min={5} max={95} value={yes}
-            onChange={(e) => setYes(Number(e.target.value))} />
-        </label>
+        <div className="tk-field">
+          <span className="tk-label mono">Type</span>
+          <div className="mtype" role="radiogroup" aria-label="Market type">
+            <button type="button" role="radio" aria-checked={!multi} className={`mtype-opt ${!multi ? 'is-on' : ''}`} onClick={() => setMulti(false)}>Yes / No</button>
+            <button type="button" role="radio" aria-checked={multi} className={`mtype-opt ${multi ? 'is-on' : ''}`} onClick={() => setMulti(true)}>Multiple outcomes</button>
+          </div>
+        </div>
+        {!multi && (
+          <label className="tk-field">
+            <span className="tk-label mono">Opening Yes · {yes}%</span>
+            <input className="tk-range" type="range" min={5} max={95} value={yes}
+              onChange={(e) => setYes(Number(e.target.value))} />
+          </label>
+        )}
         <div className="tk-field">
           <span className="tk-label mono">Closes</span>
           <DateTimeField value={closesAt} onChange={setClosesAt} label="Board market close" />
         </div>
+        {multi && <div className="tk-field admin-outcomes"><OutcomeEditor outcomes={outcomes} onChange={setOutcomes} /></div>}
       </div>
-      <button className="btn btn-red admin-create-go" type="submit" disabled={!q.trim() || busy}>
+      <button className="btn btn-red admin-create-go" type="submit" disabled={!canSubmit}>
         {busy ? 'Creating…' : 'Create board market'}
       </button>
       {err && <p className="join-msg mono is-no" role="alert">{err}</p>}

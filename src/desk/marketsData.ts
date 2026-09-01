@@ -184,20 +184,33 @@ export function useBoardEvents(): MarketEvent[] {
     });
     // officer-created board markets (code BX-…) become their own single-outcome
     // binary cards, newest first, ahead of the demo events
+    const PAL = ['#34d399','#5b9dff','#f5b53a','#b57bff','#ff3b3b','#2dd4bf','#f472b6','#a3e635'];
     const boardEvents: MarketEvent[] = markets
       .filter((m) => m.id.startsWith('BX-'))
-      .map((m) => ({
-        id: m.id,
-        cat: (CATEGORIES.includes(m.cat as Category) ? m.cat : 'Campus') as Category,
-        title: m.q,
-        vol: Math.round(m.pool || 0),
-        updated: m.resolved ? `settled ${m.resolved}` : 'open',
-        live: !m.resolved,
-        outcomes: [{
+      .map((m) => {
+        const base = {
+          id: m.id,
+          cat: (CATEGORIES.includes(m.cat as Category) ? m.cat : 'Campus') as Category,
+          title: m.q,
+          vol: Math.round(m.pool || 0),
+          updated: m.resolved ? 'settled' : 'open',
+          live: !m.resolved,
+        };
+        if (m.isMulti && m.outcomes?.length) {
+          // softmax prices across the real outcomes
+          const b = m.b ?? 100;
+          const ex = m.outcomes.map((o) => Math.exp(o.pq / b));
+          const S = ex.reduce((a, v) => a + v, 0);
+          return { ...base, outcomes: m.outcomes.map((o, i) => ({
+            name: o.name, code: m.id, yes: Math.round(ex[i] / S * 100),
+            color: PAL[i % PAL.length], path: [Math.round(ex[i] / S * 100)],
+          })) };
+        }
+        return { ...base, outcomes: [{
           name: 'Yes', code: m.id, yes: m.yes, color: '#34d399',
           path: m.spark && m.spark.length ? m.spark : [m.yes, m.yes],
-        }],
-      }));
+        }] };
+      });
     return [...boardEvents, ...overlaid];
   }, [markets, custom]);
 }

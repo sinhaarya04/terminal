@@ -3,7 +3,8 @@ import Rail, { type Destination } from './Rail';
 import Workspace, { type PaneKey } from './Workspace';
 import MarketsGrid from './markets/MarketsGrid';
 import MarketScreen from './markets/MarketScreen';
-import { ensureMarket, type DeskMarket, type Side } from './deskStore';
+import BoardMultiScreen from './markets/BoardMultiScreen';
+import { ensureMarket, getMarket, type DeskMarket, type Side } from './deskStore';
 import { outcomeToMarket, useBoardEvents, type MarketEvent, type Outcome } from './marketsData';
 import PositionsList, { type PositionRow } from './positions/PositionsList';
 import TradeHistoryPanel from './positions/TradeHistoryPanel';
@@ -76,14 +77,16 @@ export default function DeskTerminal() {
       <main className="desk-main">
         {dest === 'Markets' && (
           ev
-            ? <MarketScreen
+            ? (getMarket(ev.id)?.isMulti
+              ? <BoardMultiScreen code={ev.id} onBack={() => { setEvId(null); setOrder(null); }} />
+              : <MarketScreen
                 ev={ev}
                 order={order}
                 onPick={pickOutcome}
                 onSide={(sd) => setOrder((o) => (o ? { ...o, side: sd } : o))}
                 onDone={() => setOrder(null)}
                 onBack={() => { setEvId(null); setOrder(null); }}
-              />
+              />)
             : <MarketsGrid events={events} onOpen={selectEvent} />
         )}
         {dest === 'Positions' && (

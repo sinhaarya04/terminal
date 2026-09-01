@@ -521,3 +521,18 @@ grant execute on function public.term_upsert_public_market(text,text,text,numeri
 grant execute on function public.term_place_bet(text,text,numeric) to authenticated;
 grant execute on function public.term_resolve_market(text,text) to authenticated;
 grant execute on function public.term_set_seen_intro() to authenticated;
+
+-- ============================================================
+-- Multi-outcome markets ("who wins"): N mutually-exclusive outcomes, softmax
+-- prices summing to 1, one pot, one winner. Binary markets are the N=2 case and
+-- are untouched. The authoritative bodies live in the applied migrations
+-- (term_multi_outcome_schema / term_multi_outcome_rpcs / term_resolve_multi_store_idx):
+--   term_market_outcomes            one row per outcome (pq/sq)
+--   term_markets.is_multi, resolved_idx, resolved='MULTI'
+--   term_lmsr_cost_n / term_lmsr_shares_n    N-outcome math (mirror lmsr.ts)
+--   term_create_multi_market(...)   private (any user) or board (admin)
+--   term_place_bet_multi / term_sell_multi   trade one outcome, 150ms gap
+--   term_resolve_multi(code, idx)   owner-or-admin; pot to that outcome's
+--                                   holders in the market's wallet; void+refund
+--                                   if the winner holds no shares
+-- Kept as a pointer rather than duplicated to avoid drift. --
