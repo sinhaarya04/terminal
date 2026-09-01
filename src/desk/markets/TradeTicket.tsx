@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { placeBet, money, useDesk, marketPhase, walletFor, engineOf, type DeskMarket, type Side } from '../deskStore';
+import { placeBet, money, useDesk, marketPhase, walletFor, engineOf, getMarket, type DeskMarket, type Side } from '../deskStore';
 import * as lmsr from '../../lib/lmsr';
 import { useNow } from '../../lib/useNow';
 import SuccessCheck from '../../components/SuccessCheck';
@@ -68,11 +68,15 @@ export default function TradeTicket({
   // The hybrid engine quotes the real cost: shares come from the LMSR meter,
   // and the payout estimate is your cut of the pot as it would stand after
   // this trade — not "each share pays $1", which minted points from nowhere.
-  const eng = engineOf(market);
+  // Quote from the store's copy when one exists: the prop can be a snapshot
+  // staged before earlier bets, and a stale quote made every bettor's "cut if
+  // wins" read as 100% of the pot.
+  const live = getMarket(market.id) ?? market;
+  const eng = engineOf(live);
   const q = { qYes: eng.qYes, qNo: eng.qNo };
-  const price = side === 'YES' ? market.yes : 100 - market.yes; // cents, display
+  const price = side === 'YES' ? live.yes : 100 - live.yes; // cents, display
   const shares = lmsr.sharesForSpend(q, side, amount, eng.b);
-  const potAfter = (market.pool || 0) + amount;
+  const potAfter = (live.pool || 0) + amount;
   const winSharesAfter = (side === 'YES' ? eng.sqYes : eng.sqNo) + shares;
   const cutIfWins = winSharesAfter > 0 ? shares * (potAfter / winSharesAfter) : 0;
   const potPct = winSharesAfter > 0 ? Math.round((shares / winSharesAfter) * 100) : 0;

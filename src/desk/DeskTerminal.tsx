@@ -4,7 +4,7 @@ import Workspace, { type PaneKey } from './Workspace';
 import MarketsGrid from './markets/MarketsGrid';
 import MarketScreen from './markets/MarketScreen';
 import { ensureMarket, type DeskMarket, type Side } from './deskStore';
-import { outcomeToMarket, type MarketEvent, type Outcome } from './marketsData';
+import { outcomeToMarket, useBoardEvents, type MarketEvent, type Outcome } from './marketsData';
 import PositionsList, { type PositionRow } from './positions/PositionsList';
 import TradeHistoryPanel from './positions/TradeHistoryPanel';
 import PositionDetail from './positions/PositionDetail';
@@ -24,7 +24,11 @@ export default function DeskTerminal() {
   const [dest, setDest] = useState<Destination>('Markets');
   const [railOpen, setRailOpen] = useState(true);
   const [focus, setFocus] = useState<PaneKey>('list');
-  const [ev, setEv] = useState<MarketEvent | null>(null);
+  // the id, not a snapshot: the open screen must re-render with live prices
+  // after every trade, and a captured event object never would
+  const [evId, setEvId] = useState<string | null>(null);
+  const events = useBoardEvents();
+  const ev = evId != null ? events.find((e) => e.id === evId) ?? null : null;
   const [order, setOrder] = useState<{ m: DeskMarket; side: Side } | null>(null);
   const [posRow, setPosRow] = useState<PositionRow | null>(null);
   const [pSel, setPSel] = useState<PersonalSel | null>(null);
@@ -32,14 +36,14 @@ export default function DeskTerminal() {
 
   const pickOutcome = (o: Outcome, side: Side) => {
     if (!ev) return;
-    const m = outcomeToMarket(ev, o);
+    const m = outcomeToMarket(ev, o);   // ev is live-overlaid, so this prices from the store
     ensureMarket(m);
     setOrder({ m, side });
     setFocus('action');
   };
 
   const selectEvent = (next: MarketEvent) => {
-    setEv(next);
+    setEvId(next.id);
     setFocus('detail');
     // stage the new market's front-runner too, so the ticket never blanks out
     const staged = stageFor(next);
@@ -78,9 +82,9 @@ export default function DeskTerminal() {
                 onPick={pickOutcome}
                 onSide={(sd) => setOrder((o) => (o ? { ...o, side: sd } : o))}
                 onDone={() => setOrder(null)}
-                onBack={() => { setEv(null); setOrder(null); }}
+                onBack={() => { setEvId(null); setOrder(null); }}
               />
-            : <MarketsGrid onOpen={selectEvent} />
+            : <MarketsGrid events={events} onOpen={selectEvent} />
         )}
         {dest === 'Positions' && (
           <div className="pos-shell">

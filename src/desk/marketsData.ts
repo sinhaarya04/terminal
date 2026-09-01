@@ -156,3 +156,25 @@ export function outcomeToMarket(ev: MarketEvent, o: Outcome): DeskMarket {
 
 export const impliedMultiplier = (yes: number) => (yes > 0 ? (100 / yes) : 0);
 export type { Side };
+
+// ---- live overlay ----------------------------------------------------------
+// The static EVENTS above are seeds. Once an outcome has a real market in the
+// store (someone traded it), the store's price is the truth: the card, the
+// list row, the ladder and the chart's final point all follow it. Without this
+// the engine moved real meters while the board kept showing fiction.
+import { useMemo } from 'react';
+import { useDesk } from './deskStore';
+
+export function useBoardEvents(): MarketEvent[] {
+  const { markets, custom } = useDesk();
+  return useMemo(() => EVENTS.map((ev) => {
+    let touched = false;
+    const outcomes = ev.outcomes.map((o) => {
+      const live = [...markets, ...custom].find((m) => m.id === `${ev.id}:${o.name}`);
+      if (!live || live.yes === o.yes) return o;
+      touched = true;
+      return { ...o, yes: live.yes, path: [...o.path.slice(0, -1), live.yes] };
+    });
+    return touched ? { ...ev, outcomes } : ev;
+  }), [markets, custom]);
+}

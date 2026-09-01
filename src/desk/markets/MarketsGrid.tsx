@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CATEGORIES, EVENTS, type Category, type MarketEvent } from '../marketsData';
+import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
 
 type Filter = 'All' | 'Live' | Category;
 type View = 'grid' | 'list';
@@ -18,7 +18,7 @@ function readView(): View {
   }
 }
 
-export default function MarketsGrid({ onOpen }: { onOpen: (ev: MarketEvent) => void }) {
+export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[]; onOpen: (ev: MarketEvent) => void }) {
   const [filter, setFilter] = useState<Filter>('All');
   const [view, setView] = useState<View>(readView);
 
@@ -27,10 +27,10 @@ export default function MarketsGrid({ onOpen }: { onOpen: (ev: MarketEvent) => v
   }, [view]);
 
   const list = useMemo(() => {
-    if (filter === 'All') return EVENTS;
-    if (filter === 'Live') return EVENTS.filter((e) => e.live);
-    return EVENTS.filter((e) => e.cat === filter);
-  }, [filter]);
+    if (filter === 'All') return events;
+    if (filter === 'Live') return events.filter((e) => e.live);
+    return events.filter((e) => e.cat === filter);
+  }, [filter, events]);
 
   return (
     <div className="grid-wrap">

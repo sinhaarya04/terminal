@@ -208,10 +208,22 @@ $$;
 create or replace function public.term_upsert_public_market(
   p_code text, p_question text, p_cat text, p_yes numeric)
 returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_p numeric := greatest(0.02, least(0.98, p_yes / 100.0));
+  v_off numeric;
+  v_pqy numeric; v_pqn numeric; v_b numeric := 100;
 begin
-  insert into public.term_markets (code, owner, question, cat, yes, is_private)
-  values (p_code, null, p_question, coalesce(nullif(p_cat,''),'Market'),
-          greatest(2, least(98, p_yes)), false)
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  -- seed the engine from the card's displayed price, like private creation;
+  -- unseeded quantities filled the first bet on an "82%" outcome at 50/50
+  v_off := v_b * ln(v_p / (1 - v_p));
+  v_pqy := greatest(v_off, 0);  v_pqn := greatest(-v_off, 0);
+  insert into public.term_markets
+    (code, owner, question, cat, yes, is_private, pq_yes, pq_no, sq_yes, sq_no, b, c0)
+  values
+    (p_code, null, p_question, coalesce(nullif(p_cat,''),'Market'),
+     round(v_p * 100), false,
+     v_pqy, v_pqn, 0, 0, v_b, public.term_lmsr_cost(v_pqy, v_pqn, v_b))
   on conflict (code) do nothing;
 end;
 $$;

@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import MarketDetail from './MarketDetail';
 import TradeTicket from './TradeTicket';
+import { refreshLiveMarket } from '../deskStore';
+import { useNow } from '../../lib/useNow';
 import type { MarketEvent, Outcome } from '../marketsData';
 import type { DeskMarket, Side } from '../deskStore';
 
@@ -16,6 +19,11 @@ export default function MarketScreen({
   onDone: () => void;
   onBack: () => void;
 }) {
+  // live mode: other people's board trades reprice this screen on the shared
+  // 30s tick, same as the personal detail pane
+  const now = useNow();
+  const stagedId = order?.m.id;
+  useEffect(() => { if (stagedId) void refreshLiveMarket(stagedId); }, [stagedId, now]);
   return (
     <div className="mscreen">
       <button className="mscreen-back mono" onClick={onBack}>← All markets</button>
