@@ -178,13 +178,6 @@ export function useDesk(): DeskState {
 
 // ---- actions -------------------------------------------------------------
 
-/** Guest sign-in (no account) — local demo mode only. */
-export function signIn(handle: string) {
-  const h = handle.trim() || 'trader';
-  // Preserve seenIntro across sign-outs so the video is truly one-time.
-  set({ user: { handle: h }, live: false });
-}
-
 /** Enter live mode for a real Supabase account and hydrate from the DB. */
 export async function hydrateLive(userId: string) {
   // No trigger creates this row (the auth table is shared with the poker portal

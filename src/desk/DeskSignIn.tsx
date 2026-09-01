@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { signIn } from './deskStore';
 import { supabase } from '../lib/supabase';
 import { isAllowedEmail, ALLOWED_DOMAIN } from '../lib/authEmail';
 
-// Sign-in for the desk. Real path = Northeastern email code (Supabase). Guest
-// path = pick a handle and explore the demo locally (no account, no email).
-// When Supabase isn't configured, only the guest path shows.
+// Sign-in for the desk: Northeastern email + a 6-digit code (Supabase).
+// There is no guest mode — every desk is a real account, so every market,
+// bet and share code is the same one everyone else sees.
 //
 // A code, not a magic link: Northeastern is on Microsoft 365, and Defender
 // Safe Links fetches every URL in an inbound mail to scan it. A Supabase
@@ -28,7 +27,6 @@ export default function DeskSignIn() {
   const [note, setNote] = useState('');
   const [code, setCode] = useState('');
   const [cooldown, setCooldown] = useState(0);
-  const [handle, setHandle] = useState('');
   const codeRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -119,9 +117,9 @@ export default function DeskSignIn() {
         ) : (
           <>
             <h1 className="desk-h1">Step onto the desk.</h1>
-            <p className="desk-sub">Sign in with your Northeastern email for a real account, or explore as a guest with $1,000 in play credits.</p>
+            <p className="desk-sub">Sign in with your Northeastern email. You start with $1,000 in play credits.</p>
 
-            {supabase && (
+            {supabase ? (
               <>
                 <form className="desk-field" onSubmit={(e) => { e.preventDefault(); void sendCode(); }}>
                   <span className="tk-label mono">Northeastern email</span>
@@ -133,16 +131,14 @@ export default function DeskSignIn() {
                   </button>
                 </form>
                 {error && <p className="desk-join-msg is-no mono" role="alert">{error}</p>}
-                <div className="desk-or"><span>or</span></div>
               </>
+            ) : (
+              // No VITE_SUPABASE_* in this build — nothing to sign in to, and
+              // with guest mode gone, nothing to fall back on either.
+              <p className="desk-join-msg is-no mono" role="alert">
+                The terminal is offline — sign-in isn't configured in this build.
+              </p>
             )}
-
-            <form className="desk-field" onSubmit={(e) => { e.preventDefault(); signIn(handle); }}>
-              <span className="tk-label mono">Guest handle</span>
-              <input className="tk-input" value={handle} onChange={(e) => setHandle(e.target.value)}
-                placeholder="oracle_23" maxLength={20} />
-              <button className="btn btn-red desk-go" type="submit">Explore as guest</button>
-            </form>
           </>
         )}
 

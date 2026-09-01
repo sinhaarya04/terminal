@@ -7,10 +7,10 @@ import DeskTerminal from '../desk/DeskTerminal';
 import { usePageTitle } from '../lib/usePageTitle';
 
 // Immersive, self-contained terminal. Three states:
-//   signed out            → sign-in card (magic-link or guest)
+//   signed out            → sign-in card (email code; no guest mode)
 //   signed in, no intro   → intro video (once ever), then terminal
 //   signed in, seen intro → straight to the terminal
-// Live (real account) hydrates from Supabase; guest mode stays in localStorage.
+// Live (real account) hydrates from Supabase.
 export default function Desk() {
   usePageTitle('Terminal');
   const desk = useDesk();
