@@ -6,7 +6,7 @@ import type { DeskMarket } from './deskStore';
 
 export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean; isAdmin: boolean };
 
-type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pq_yes: number | null; pq_no: number | null; sq_yes: number | null; sq_no: number | null; b: number | null; c0: number | null; pool: number; is_private: boolean; resolved: 'YES' | 'NO' | 'VOID' | null; resolved_at: string | null };
+type MarketRow = { code: string; owner: string | null; question: string; cat: string; closes: string | null; closes_at: string | null; owner_handle: string | null; yes: number; pq_yes: number | null; pq_no: number | null; sq_yes: number | null; sq_no: number | null; b: number | null; c0: number | null; pool: number; is_private: boolean; is_multi: boolean | null; resolved: 'YES' | 'NO' | 'VOID' | 'MULTI' | null; resolved_idx: number | null; resolved_at: string | null };
 type BetRow = { market_code: string; side: 'YES' | 'NO'; shares: number; cost: number };
 
 const flatSpark = (yes: number) => [yes, yes, yes, yes, yes];
@@ -23,6 +23,8 @@ function rowToMarket(r: MarketRow): DeskMarket {
     ownerId: r.owner ?? undefined,
     pool: Number(r.pool),
     resolved: r.resolved ?? undefined,
+    resolvedIdx: r.resolved_idx ?? undefined,
+    isMulti: !!r.is_multi,
     resolvedAt: r.resolved_at ? Date.parse(r.resolved_at) : undefined,
     qYes: r.pq_yes != null ? Number(r.pq_yes) : undefined,
     qNo: r.pq_no != null ? Number(r.pq_no) : undefined,
@@ -138,7 +140,7 @@ export async function rpcResolveMarket(code: string, outcome: 'YES' | 'NO'): Pro
   if (error) throw error;
 }
 
-type ActivityRow = { id: string; market_code: string; handle: string; kind: 'create' | 'join' | 'bet' | 'resolve'; side: 'YES' | 'NO' | null; dollars: number | null; created_at: string };
+type ActivityRow = { id: string; market_code: string; handle: string; kind: 'create' | 'join' | 'bet' | 'sell' | 'resolve'; side: 'YES' | 'NO' | null; outcome: string | null; dollars: number | null; created_at: string };
 
 /** A market's feed, newest first. Written server-side by the RPCs. */
 export async function fetchActivity(code: string): Promise<{
@@ -156,7 +158,8 @@ export async function fetchActivity(code: string): Promise<{
   if (error) return null;
   return ((data ?? []) as ActivityRow[]).map((r) => ({
     id: r.id, code: r.market_code, handle: r.handle, kind: r.kind,
-    side: r.side ?? undefined, dollars: r.dollars != null ? Number(r.dollars) : undefined,
+    side: r.side ?? undefined, outcome: r.outcome ?? undefined,
+    dollars: r.dollars != null ? Number(r.dollars) : undefined,
     at: Date.parse(r.created_at),
   }));
 }
@@ -219,4 +222,57 @@ export async function fetchBoardMarkets(): Promise<DeskMarket[]> {
   if (!supabase) return [];
   const { data } = await supabase.from('term_markets').select('*').eq('is_private', false);
   return ((data ?? []) as MarketRow[]).map(rowToMarket);
+}
+
+
+export type MarketOutcome = { idx: number; name: string; pq: number; sq: number };
+
+/** Outcomes of a multi market, ordered. */
+export async function fetchOutcomes(code: string): Promise<MarketOutcome[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.from('term_market_outcomes')
+    .select('idx,name,pq,sq').eq('market_code', code).order('idx');
+  return ((data ?? []) as MarketOutcome[]).map((o) => ({ idx: o.idx, name: o.name, pq: Number(o.pq), sq: Number(o.sq) }));
+}
+
+/** Attach outcomes to any multi markets in a list (binary markets pass through). */
+export async function withOutcomes(markets: DeskMarket[]): Promise<DeskMarket[]> {
+  const multi = markets.filter((m) => m.isMulti);
+  if (!multi.length) return markets;
+  const map = new Map<string, MarketOutcome[]>();
+  await Promise.all(multi.map(async (m) => map.set(m.id, await fetchOutcomes(m.id))));
+  return markets.map((m) => m.isMulti ? { ...m, outcomes: map.get(m.id) } : m);
+}
+
+export async function rpcCreateMultiMarket(input: {
+  q: string; cat: string; closes: string; closesAt?: number; outcomes: string[]; probs: number[]; board: boolean;
+}): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('term_create_multi_market', {
+    p_question: input.q, p_cat: input.cat, p_closes: input.closes,
+    p_closes_at: input.closesAt != null ? new Date(input.closesAt).toISOString() : null,
+    p_outcomes: input.outcomes, p_probs: input.probs, p_board: input.board,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function rpcPlaceBetMulti(code: string, idx: number, dollars: number): Promise<{ balance: number; pm_balance: number; shares: number }> {
+  if (!supabase) throw new Error('offline');
+  const { data, error } = await supabase.rpc('term_place_bet_multi', { p_code: code, p_idx: idx, p_dollars: dollars });
+  if (error) throw error;
+  return data as { balance: number; pm_balance: number; shares: number };
+}
+
+export async function rpcSellMulti(code: string, idx: number, shares: number): Promise<{ balance: number; pm_balance: number; proceeds: number }> {
+  if (!supabase) throw new Error('offline');
+  const { data, error } = await supabase.rpc('term_sell_multi', { p_code: code, p_idx: idx, p_shares: shares });
+  if (error) throw error;
+  return data as { balance: number; pm_balance: number; proceeds: number };
+}
+
+export async function rpcResolveMulti(code: string, idx: number): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.rpc('term_resolve_multi', { p_code: code, p_idx: idx });
+  if (error) throw error;
 }

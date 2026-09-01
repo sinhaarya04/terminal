@@ -94,3 +94,57 @@ export function proceedsForSell(q: Quantities, side: 'YES' | 'NO', shares: numbe
     : { qYes: q.qYes, qNo: q.qNo - shares };
   return cost(q, b) - cost(next, b);
 }
+
+// ---- N-outcome LMSR --------------------------------------------------------
+// The binary functions above are the N=2 case of these. A multi-outcome market
+// (e.g. "who wins the Beanpot") holds one pricing quantity per outcome; exactly
+// one outcome wins and its holders split the pot. Prices are a softmax over all
+// outcomes, so they sum to 1 — a real distribution over the field, which the
+// "N independent binaries" hack can't give.
+
+/** Cost meter over N outcomes: C = b·ln(Σ e^(qᵢ/b)), log-sum-exp stabilised. */
+export function costN(q: number[], b: number = DEFAULT_B): number {
+  const m = Math.max(...q) / b;
+  let s = 0;
+  for (const qi of q) s += Math.exp(qi / b - m);
+  return b * (m + Math.log(s));
+}
+
+/** Live price of each outcome — softmax of the quantities, sums to 1. */
+export function pricesN(q: number[], b: number = DEFAULT_B): number[] {
+  const m = Math.max(...q) / b;
+  const ex = q.map((qi) => Math.exp(qi / b - m));
+  const s = ex.reduce((a, v) => a + v, 0);
+  return ex.map((v) => v / s);
+}
+
+/** Shares a spend buys on outcome `i`: the closed-form inverse of costN's Δ. */
+export function sharesForSpendN(q: number[], i: number, spend: number, b: number = DEFAULT_B): number {
+  if (spend <= 0) return 0;
+  const m = Math.max(...q) / b;
+  let sumAll = 0;
+  for (const qi of q) sumAll += Math.exp(qi / b - m);          // S/e^m
+  const others = sumAll - Math.exp(q[i] / b - m);              // (S − e^{q_i})/e^m
+  // e^{(q_i+Δ)/b}/e^m = e^{spend/b}·(S/e^m) − others
+  const inner = Math.exp(spend / b) * sumAll - others;
+  return b * (Math.log(inner) + m) - q[i];
+}
+
+/** Proceeds of selling `shares` of outcome `i` back to the meter. */
+export function proceedsForSellN(q: number[], i: number, shares: number, b: number = DEFAULT_B): number {
+  if (shares <= 0) return 0;
+  const next = q.slice();
+  next[i] -= shares;
+  return costN(q, b) - costN(next, b);
+}
+
+/** Pricing-quantity seed opening outcome `i` of N at probability `p`. Phantom:
+ *  steers the opening price, receives no payout, and c0 = costN(seed) anchors
+ *  the pot at zero. For a uniform open, pass every p = 1/N (seed stays 0s). */
+export function seedForOddsN(probs: number[], b: number = DEFAULT_B): number[] {
+  // q_i = b·ln(p_i) up to an additive constant (softmax is shift-invariant);
+  // normalise so the smallest is 0, keeping quantities tidy.
+  const raw = probs.map((p) => b * Math.log(Math.max(1e-6, p)));
+  const lo = Math.min(...raw);
+  return raw.map((r) => r - lo);
+}

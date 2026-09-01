@@ -515,3 +515,40 @@
 .cat-add{display:flex;gap:8px}
 .cat-add .tk-input{flex:1}
 .cat-add-go{padding:9px 16px;flex:none}
+
+/* ---- market type toggle + outcome editor ---- */
+.mtype{display:flex;gap:0;border:1px solid var(--border);border-radius:3px;overflow:hidden;width:fit-content}
+.mtype-opt{background:none;border:0;padding:8px 16px;cursor:pointer;color:var(--muted);
+  font-family:var(--font);font-size:12.5px;transition:background .15s,color .15s}
+.mtype-opt.is-on{background:var(--red);color:#08090d}
+.mtype-opt:disabled{color:var(--faint);cursor:not-allowed}
+.oe{display:block}
+.oe-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.oe-idx{width:16px;text-align:center;color:var(--faint);font-size:11px}
+.oe-input{flex:1}
+.oe-del{background:none;border:1px solid var(--border);color:var(--faint);border-radius:3px;
+  width:30px;height:34px;cursor:pointer;font-size:16px;flex:none}
+.oe-del:hover:not(:disabled){color:var(--red-bright);border-color:rgba(225,29,42,.5)}
+.oe-del:disabled{opacity:.3;cursor:default}
+.oe-add{margin-top:10px;background:none;border:0;color:var(--red-bright);cursor:pointer;
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:4px 0}
+
+/* ---- multi outcome ladder + ticket ---- */
+.mo-list{margin-top:14px;display:flex;flex-direction:column}
+.mo-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:baseline;
+  padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
+.mo-row:last-child{border-bottom:0}
+.mo-row.is-won{color:var(--green)}
+.mo-name{color:var(--text)}
+.mo-badge{font-style:normal;margin-left:8px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--green)}
+.mo-held{color:var(--faint);font-size:11px}
+.mo-price{font-variant-numeric:tabular-nums;color:var(--text)}
+.mo-settle-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.mt-outcomes{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.mt-outcome{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:11px 13px;border:1px solid var(--border);border-radius:3px;background:var(--glass);
+  cursor:pointer;text-align:left;color:var(--text);font-family:var(--font);font-size:13px;
+  transition:border-color .15s,background .15s}
+.mt-outcome:hover{border-color:var(--border-2)}
+.mt-outcome.is-on{border-color:rgba(225,29,42,.6);background:rgba(225,29,42,.05)}
+.mt-price{color:var(--muted);font-variant-numeric:tabular-nums}

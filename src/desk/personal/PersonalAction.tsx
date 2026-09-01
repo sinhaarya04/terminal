@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import TradeTicket from '../markets/TradeTicket';
+import MultiTicket from '../markets/MultiTicket';
 import { useDesk, marketPhase, type DeskMarket, type Side } from '../deskStore';
 import { useNow } from '../../lib/useNow';
 
@@ -34,10 +35,14 @@ export default function PersonalAction({
     );
   }
 
+  if (live?.isMulti && phase === 'open') {
+    return <MultiTicket market={live} onDone={onDone} />;
+  }
+
   if (phase === 'settled' && live) {
     return (
       <div className="pane-body pane-empty">
-        <p className="mono">{live.resolved === 'VOID' ? 'Market voided' : `Market settled ${live.resolved}`}</p>
+        <p className="mono">{live.resolved === 'VOID' ? 'Market voided' : live.resolved === 'MULTI' ? `Settled · ${live.outcomes?.find((o)=>o.idx===live.resolvedIdx)?.name ?? 'winner'} won` : `Market settled ${live.resolved}`}</p>
         <p className="pane-empty-sub">
           {live.resolved === 'VOID'
             ? 'Everyone held the losing side, so every stake was refunded.'

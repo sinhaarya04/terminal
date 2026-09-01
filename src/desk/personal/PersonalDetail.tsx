@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import DeskSpark from '../DeskSpark';
 import LiquidRange from '../../components/LiquidRange';
 import DateTimeField from '../../components/DateTimeField';
+import OutcomeEditor, { type OutcomeDraft } from '../../components/OutcomeEditor';
 import { endOfDay, formatClose, relativeClose } from '../../lib/closeTime';
 import { useNow } from '../../lib/useNow';
 import {
-  createMarket, resolveMarket, marketActivity, participants, useDesk, marketPhase, refreshLiveMarket,
+  createMarket, createMultiMarket, resolveMarket, resolveMulti, refreshMulti, outcomePrices,
+  marketActivity, participants, useDesk, marketPhase, refreshLiveMarket,
   money, type Activity, type DeskMarket, type Side,
 } from '../deskStore';
 export type PersonalSel = { kind: 'new' } | { kind: 'market'; m: DeskMarket };
@@ -29,7 +31,7 @@ export default function PersonalDetail({
 // settle (or someone's bet) repaints this pane instead of showing the snapshot
 // that was current when the row was clicked.
 function MarketView({ code }: { code: string }) {
-  const { custom, user, userId } = useDesk();
+  const { custom, user, userId, isAdmin } = useDesk();
   const m = custom.find((x) => x.id === code);
   if (!m) return <div className="pane-body pane-empty"><p className="mono">Market not found</p></div>;
 
@@ -46,7 +48,7 @@ function MarketView({ code }: { code: string }) {
   // Live mode: pull the server's view of this market on open, and again on
   // every 30s tick while it stays open — cheap polling that makes other
   // people's bets, joins and the settle show up without a reload.
-  useEffect(() => { void refreshLiveMarket(code); }, [code, now]);
+  useEffect(() => { void (m.isMulti ? refreshMulti(code) : refreshLiveMarket(code)); }, [code, now, m.isMulti]);
 
   return (
     <div className="pane-body">
@@ -68,27 +70,103 @@ function MarketView({ code }: { code: string }) {
       {m.resolved && (
         <p className={`settled-banner mono ${m.resolved === 'YES' ? 'is-yes' : m.resolved === 'NO' ? 'is-no' : ''}`} role="status">
           {m.resolved === 'VOID'
-            ? 'Voided — everyone held the losing side, so every stake was refunded'
-            : `Settled ${m.resolved} · the ${money(m.pool || 0)} pot was split across the winning shares`}
+            ? 'Voided — nobody held the winning outcome, so every stake was refunded'
+            : m.resolved === 'MULTI'
+              ? `Settled · ${m.outcomes?.find((o) => o.idx === m.resolvedIdx)?.name ?? 'a winner'} won — the ${money(m.pool || 0)} pot split across its holders`
+              : `Settled ${m.resolved} · the ${money(m.pool || 0)} pot was split across the winning shares`}
         </p>
       )}
 
       {m.spark && <DeskSpark pts={m.spark} up={m.spark[m.spark.length - 1] >= m.spark[0]} id={`pv-${m.id}`} />}
 
-      <div className="tk-calc mono">
-        {/* the pot is what winners split — everything traders paid in, nothing minted */}
-        <div><span>POT</span><b className="is-yes">{money(m.pool || 0)}</b></div>
-        <div><span>YES</span><b>{m.yes}¢</b></div>
-        <div><span>NO</span><b>{100 - m.yes}¢</b></div>
-        <PotCut m={m} />
-      </div>
+      {m.isMulti ? (
+        <MultiOutcomes m={m} />
+      ) : (
+        <div className="tk-calc mono">
+          {/* the pot is what winners split — everything traders paid in, nothing minted */}
+          <div><span>POT</span><b className="is-yes">{money(m.pool || 0)}</b></div>
+          <div><span>YES</span><b>{m.yes}¢</b></div>
+          <div><span>NO</span><b>{100 - m.yes}¢</b></div>
+          <PotCut m={m} />
+        </div>
+      )}
 
       <Participants people={people} owner={m.owner} />
 
-      {isOwner && phase !== 'settled' && <SettleBox code={code} q={m.q} />}
+      {(isOwner || isAdmin) && phase !== 'settled' && (
+        m.isMulti ? <MultiSettle m={m} /> : <SettleBox code={code} q={m.q} />
+      )}
 
       <Feed feed={feed} />
     </div>
+  );
+}
+
+// The outcome ladder for a multi market: name, live softmax price, and your
+// holding if any. Read-only — trading happens in the ticket pane.
+function MultiOutcomes({ m }: { m: DeskMarket }) {
+  const { positions } = useDesk();
+  const prices = outcomePrices(m);
+  const outs = m.outcomes ?? [];
+  return (
+    <>
+      <div className="tk-calc mono">
+        <div><span>POT</span><b className="is-yes">{money(m.pool || 0)}</b></div>
+      </div>
+      <div className="mo-list">
+        {outs.map((o, i) => {
+          const held = positions.filter((p) => p.marketId === m.id && p.outcomeIdx === o.idx && !p.settled).reduce((a, p) => a + p.shares, 0);
+          const won = m.resolved === 'MULTI' && m.resolvedIdx === o.idx;
+          return (
+            <div className={`mo-row ${won ? 'is-won' : ''}`} key={o.idx}>
+              <span className="mo-name">{o.name}{won && <em className="mo-badge mono">winner</em>}</span>
+              <span className="mo-held mono">{held > 0 ? `${held.toFixed(1)} sh` : ''}</span>
+              <span className="mo-price mono">{prices[i]}¢</span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// Officer/owner picks the winning outcome. Pays that outcome's holders out of
+// the pot; a winner with no shares voids and refunds.
+function MultiSettle({ m }: { m: DeskMarket }) {
+  const [pending, setPending] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const outs = m.outcomes ?? [];
+  const chosen = outs.find((o) => o.idx === pending);
+  const confirm = async () => {
+    if (pending == null || busy) return;
+    setBusy(true);
+    const ok = await resolveMulti(m, pending);
+    setBusy(false);
+    if (!ok) setErr('Could not settle this market.'); else setPending(null);
+  };
+  return (
+    <section className="pv-block pv-settle">
+      <div className="pv-head mono">Settle · pick the winner</div>
+      {pending != null ? (
+        <>
+          <p className="pv-confirm">Settle <b>{chosen?.name}</b> as the winner? The
+            {' '}{money(m.pool || 0)} pot splits across everyone holding it; every other
+            outcome pays nothing. Can't be undone.</p>
+          <div className="pv-settle-row">
+            <button className="btn btn-red pv-btn" type="button" onClick={confirm} disabled={busy}>{busy ? 'Settling…' : `Confirm ${chosen?.name}`}</button>
+            <button className="pv-cancel" type="button" onClick={() => setPending(null)} disabled={busy}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <div className="mo-settle-grid">
+          {outs.map((o) => (
+            <button key={o.idx} type="button" className="tk-side pv-btn" onClick={() => setPending(o.idx)}>{o.name}</button>
+          ))}
+        </div>
+      )}
+      {err && <p className="join-msg mono is-no" role="alert">{err}</p>}
+    </section>
   );
 }
 
@@ -197,9 +275,9 @@ function line(a: Activity) {
   switch (a.kind) {
     case 'create':  return 'opened the market';
     case 'join':    return 'joined';
-    case 'resolve': return a.side ? `settled it ${a.side}` : 'voided the market — stakes refunded';
-    case 'bet':     return `bought ${a.side} · ${money(a.dollars || 0)}`;
-    case 'sell':    return `sold ${a.side} · ${money(a.dollars || 0)}`;
+    case 'resolve': return a.outcome ? `settled it — ${a.outcome} won` : a.side ? `settled it ${a.side}` : 'voided the market — stakes refunded';
+    case 'bet':     return `bought ${a.outcome ?? a.side} · ${money(a.dollars || 0)}`;
+    case 'sell':    return `sold ${a.outcome ?? a.side} · ${money(a.dollars || 0)}`;
   }
 }
 
@@ -235,14 +313,27 @@ function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
   // text is what produced markets that never ended.
   const [closesAt, setClosesAt] = useState<number>(() => endOfDay(1));
   const [yes, setYes] = useState(50);
+  const [multi, setMulti] = useState(false);
+  const [outcomes, setOutcomes] = useState<OutcomeDraft[]>([{ name: '' }, { name: '' }]);
   const [busy, setBusy] = useState(false);
+  const { live } = useDesk();
+
+  const named = outcomes.map((o) => o.name.trim()).filter(Boolean);
+  const canSubmit = q.trim() && (!multi || named.length >= 2) && !busy;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!q.trim() || busy) return;
+    if (!canSubmit) return;
     setBusy(true);
-    // `closes` stays the human label on the record; `closesAt` is what the
-    // lifecycle actually reads.
+    if (multi) {
+      const code = await createMultiMarket({
+        q, cat, closes: formatClose(closesAt), closesAt,
+        outcomes: named, probs: named.map(() => 1 / named.length), board: false,
+      });
+      setBusy(false);
+      if (code) { setQ(''); setOutcomes([{ name: '' }, { name: '' }]); onCreated({ id: code, q, cat, yes: 0, closes: formatClose(closesAt), spark: [], custom: true } as DeskMarket); }
+      return;
+    }
     const m = await createMarket({ q, cat, closes: formatClose(closesAt), yes, closesAt });
     setBusy(false);
     setQ(''); setClosesAt(endOfDay(1)); setYes(50);
@@ -267,6 +358,14 @@ function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
         <DateTimeField value={closesAt} onChange={setClosesAt} label="Market close date and time" />
       </div>
       <div className="tk-field">
+        <span className="tk-label mono">Type</span>
+        <div className="mtype" role="radiogroup" aria-label="Market type">
+          <button type="button" role="radio" aria-checked={!multi} className={`mtype-opt ${!multi ? 'is-on' : ''}`} onClick={() => setMulti(false)}>Yes / No</button>
+          <button type="button" role="radio" aria-checked={multi} className={`mtype-opt ${multi ? 'is-on' : ''}`} onClick={() => setMulti(true)} disabled={!live} title={live ? '' : 'Multiple outcomes need a live account'}>Multiple outcomes</button>
+        </div>
+      </div>
+      {multi && <div className="tk-field"><OutcomeEditor outcomes={outcomes} onChange={setOutcomes} /></div>}
+      {!multi && <div className="tk-field">
         <span className="tk-label mono">Opening Yes odds · {yes}¢</span>
         <LiquidRange
           value={yes}
@@ -275,8 +374,8 @@ function CreateForm({ onCreated }: { onCreated: (m: DeskMarket) => void }) {
           onChange={setYes}
           label={`Opening Yes odds, ${yes} cents`}
         />
-      </div>
-      <button className="btn btn-red tk-go" type="submit" disabled={!q.trim() || busy}>
+      </div>}
+      <button className="btn btn-red tk-go" type="submit" disabled={!canSubmit}>
         {busy ? 'Creating…' : 'Generate share code'}
       </button>
     </form>

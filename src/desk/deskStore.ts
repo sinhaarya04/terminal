@@ -22,7 +22,8 @@ export type Position = {
   // Set once the market settles. The position stops marking to market and is
   // worth exactly what it paid out, so Positions can show a closed row with a
   // final P&L instead of a price that will never move again.
-  settled?: { outcome: Side | 'VOID'; payout: number };
+  settled?: { outcome: Side | 'VOID' | 'MULTI'; payout: number };
+  outcomeIdx?: number;   // multi-market positions: which outcome this holds
 };
 
 export type DeskMarket = {
@@ -35,9 +36,14 @@ export type DeskMarket = {
   custom?: boolean;  // true for user-created markets
   owner?: string;    // handle of the creator
   pool?: number;     // total fake $ staked in a custom market
-  // YES/NO = the outcome; VOID = the winning side held zero shares, so every
-  // stake was refunded instead (there was nobody to pay the pot to).
-  resolved?: Side | 'VOID';
+  // YES/NO = the binary outcome; MULTI = a multi-outcome market settled to
+  // resolvedIdx; VOID = the winning side held zero shares, everyone refunded.
+  resolved?: Side | 'VOID' | 'MULTI';
+  resolvedIdx?: number;
+  // Multi-outcome markets ("who wins"): one market, N mutually-exclusive
+  // outcomes, softmax prices summing to 1. Absent on binary markets.
+  isMulti?: boolean;
+  outcomes?: { idx: number; name: string; pq: number; sq: number }[];
   resolvedAt?: number;   // when it settled — places payouts on the balance timeline
   // Live mode only: the owner's auth id. `owner` is a display handle and is not
   // unique, so settlement authority is checked against this when it exists.
@@ -88,7 +94,8 @@ export type Activity = {
   code: string;      // market share code the event belongs to
   handle: string;
   kind: 'create' | 'join' | 'bet' | 'sell' | 'resolve';
-  side?: Side;       // bet + resolve
+  side?: Side;       // bet + resolve (binary)
+  outcome?: string;  // bet + resolve (multi): the outcome name
   dollars?: number;  // bet only
   at: number;        // epoch ms
 };
@@ -231,9 +238,11 @@ export async function hydrateLive(userId: string) {
     set({ live: false });
     return;
   }
-  const [mine, betMarkets, bets, trades, board] = await Promise.all([
+  let [mine, betMarkets, bets, trades, board] = await Promise.all([
     db.fetchMyMarkets(userId), db.fetchBetMarkets(), db.fetchMyBets(), db.fetchMyTrades(), db.fetchBoardMarkets(),
   ]);
+  // multi markets need their outcome rows for prices + trading
+  [mine, board] = await Promise.all([db.withOutcomes(mine), db.withOutcomes(board)]);
   // merge fetched markets (for live price on Positions) into the public list,
   // plus every officer-created / materialised board market so the grid shows them
   const markets = SEED_PUBLIC.map((m) => ({ ...m, spark: [...m.spark] }));
@@ -346,6 +355,114 @@ export function walletFor(m: DeskMarket): 'balance' | 'pmBalance' {
   return m.custom ? 'pmBalance' : 'balance';
 }
 
+/** Live prices (cents) for a multi market's outcomes — softmax, sums to 100. */
+export function outcomePrices(m: DeskMarket): number[] {
+  if (!m.outcomes?.length) return [];
+  const b = m.b ?? 100;
+  return lmsr.pricesN(m.outcomes.map((o) => o.pq), b).map((p) => Math.round(p * 100));
+}
+
+/** Create a multi-outcome market. `board` (admin only) makes a public BX-
+ *  market; otherwise a private EX- market in the caller's own list. */
+export async function createMultiMarket(input: {
+  q: string; cat: string; closes: string; closesAt?: number;
+  outcomes: string[]; probs: number[]; board: boolean;
+}): Promise<string | null> {
+  if (!state.live) return null;   // multi markets are server-side only
+  if (input.board && !state.isAdmin) return null;
+  try {
+    const code = await db.rpcCreateMultiMarket(input);
+    if (!code) return null;
+    const fresh = await db.getMarketByCode(code);
+    if (fresh) {
+      const [withO] = await db.withOutcomes([fresh]);
+      const key = input.board ? 'markets' : 'custom';
+      set({ [key]: [withO, ...state[key]], joined: input.board ? state.joined : [code, ...state.joined] } as Partial<DeskState>);
+    }
+    return code;
+  } catch { return null; }
+}
+
+/** Refresh one multi market's row + outcomes from the server. */
+async function refreshMulti(code: string) {
+  if (!state.live) return;
+  try {
+    const m = await db.getMarketByCode(code);
+    if (!m) return;
+    const [withO] = await db.withOutcomes([m]);
+    const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === code ? { ...withO, spark: c.spark } : c));
+    set({ custom: roll(state.custom), markets: roll(state.markets) });
+  } catch { /* stale is better than an error */ }
+}
+export { refreshMulti };
+
+/** Buy `dollars` of outcome `idx` on a multi market. */
+export async function placeBetMulti(m: DeskMarket, idx: number, dollars: number): Promise<boolean> {
+  if (!state.live) return false;
+  const wallet = walletFor(m);
+  if (dollars <= 0 || dollars > state[wallet]) return false;
+  if (marketPhase(getMarket(m.id) ?? m) !== 'open') return false;
+  try {
+    const res = await db.rpcPlaceBetMulti(m.id, idx, dollars);
+    const name = m.outcomes?.find((o) => o.idx === idx)?.name ?? `#${idx}`;
+    state = { ...state, positions: upsertPos(state.positions, m.id, undefined, res.shares, dollars, idx),
+      trades: [{ id: `${m.id}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, marketId: m.id, q: `${m.q} — ${name}`,
+        kind: 'buy' as const, side: 'YES' as const, dollars, shares: res.shares, wallet: (wallet === 'pmBalance' ? 'sim' : 'board') as 'sim'|'board', at: Date.now() }, ...state.trades].slice(0,300) };
+    if (m.custom) recordActivity({ code: m.id, kind: 'bet', dollars, outcome: name });
+    set({ balance: round2(res.balance), pmBalance: round2(res.pm_balance) });
+    await refreshMulti(m.id);
+    return true;
+  } catch { return false; }
+}
+
+/** Sell `shares` of outcome `idx` back to the multi meter. */
+export async function sellMulti(m: DeskMarket, idx: number, shares: number): Promise<number | null> {
+  if (!state.live || shares <= 0) return null;
+  const held = state.positions.filter((p) => p.marketId === m.id && p.outcomeIdx === idx && !p.settled).reduce((a, p) => a + p.shares, 0);
+  if (shares > held + 1e-9) return null;
+  try {
+    const res = await db.rpcSellMulti(m.id, idx, shares);
+    const wallet = walletFor(m);
+    const positions = state.positions.map((p) => {
+      if (p.marketId !== m.id || p.outcomeIdx !== idx || p.settled) return p;
+      const frac = Math.min(1, shares / p.shares);
+      return { ...p, shares: p.shares - shares, cost: round2(p.cost * (1 - frac)) };
+    }).filter((p) => p.settled || p.shares > 1e-9);
+    const name = m.outcomes?.find((o) => o.idx === idx)?.name ?? `#${idx}`;
+    state = { ...state, positions, trades: [{ id: `${m.id}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, marketId: m.id, q: `${m.q} — ${name}`,
+      kind: 'sell' as const, side: 'YES' as const, dollars: res.proceeds, shares, wallet: (wallet === 'pmBalance' ? 'sim' : 'board') as 'sim'|'board', at: Date.now() }, ...state.trades].slice(0,300) };
+    if (m.custom) recordActivity({ code: m.id, kind: 'sell', dollars: res.proceeds, outcome: name });
+    set({ balance: round2(res.balance), pmBalance: round2(res.pm_balance) });
+    await refreshMulti(m.id);
+    return res.proceeds;
+  } catch { return null; }
+}
+
+/** Settle a multi market to winning outcome `idx` (owner or admin). */
+export async function resolveMulti(m: DeskMarket, idx: number): Promise<boolean> {
+  if (!state.live) return false;
+  const owns = m.ownerId != null ? m.ownerId === state.userId : m.owner === (state.user?.handle || 'you');
+  if (!owns && !state.isAdmin) return false;
+  try {
+    await db.rpcResolveMulti(m.id, idx);
+    const wallet = walletFor(m);
+    const winName = m.outcomes?.find((o) => o.idx === idx)?.name;
+    const winSq = m.outcomes?.find((o) => o.idx === idx)?.sq ?? 0;
+    const pot = m.pool ?? 0;
+    let credited = 0;
+    const positions = state.positions.map((pos) => {
+      if (pos.marketId !== m.id || pos.settled) return pos;
+      const payout = pos.outcomeIdx === idx && winSq > 0 ? round2(pos.shares * (pot / winSq)) : 0;
+      credited = round2(credited + payout);
+      return { ...pos, settled: { outcome: 'MULTI' as const, payout } };
+    });
+    const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === m.id ? { ...c, resolved: 'MULTI' as const, resolvedIdx: idx } : c));
+    set({ positions, [wallet]: round2(state[wallet] + credited), custom: roll(state.custom), markets: roll(state.markets) } as Partial<DeskState>);
+    recordActivity({ code: m.id, kind: 'resolve', outcome: winName });
+    return true;
+  } catch { return false; }
+}
+
 export async function placeBet(m: DeskMarket, side: Side, dollars: number): Promise<boolean> {
   if (dollars <= 0 || dollars > state[walletFor(m)]) return false;
   // Betting is an `open`-only action: a settled market has already paid out, and
@@ -394,6 +511,16 @@ function stampEngine(m: DeskMarket, side: Side, shares: number) {
 }
 
 const pick = () => ({ balance: state.balance, pmBalance: state.pmBalance });
+
+/** Insert or accumulate a position row for a market+side (binary) or
+ *  market+outcome (multi). */
+function upsertPos(positions: Position[], marketId: string, side: Side | undefined, shares: number, cost: number, outcomeIdx?: number): Position[] {
+  const out = [...positions];
+  const idx = out.findIndex((p) => p.marketId === marketId && p.outcomeIdx === outcomeIdx && p.side === side && !p.settled);
+  if (idx >= 0) out[idx] = { ...out[idx], shares: out[idx].shares + shares, cost: round2(out[idx].cost + cost) };
+  else out.push({ marketId, side: side ?? 'YES', shares, cost, outcomeIdx });
+  return out;
+}
 
 /** Shared local-state update after a bet (both live + guest use this). */
 function applyBet(
