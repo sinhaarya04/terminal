@@ -526,7 +526,7 @@
 .kalshi-bar{display:grid;grid-template-columns:1fr 2fr;gap:14px 18px;align-items:end;margin-bottom:16px}
 @media(max-width:720px){.kalshi-bar{grid-template-columns:1fr}}
 .kalshi-bar .tk-field{margin-bottom:0}
-.kalshi-list{display:flex;flex-direction:column;gap:8px}
+.kalshi-list{display:flex;flex-direction:column;gap:8px;max-height:48vh;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
 .kalshi-row{display:flex;align-items:center;gap:14px;padding:10px 12px;
   border:1px solid var(--border);border-radius:3px;background:var(--glass)}
 .kalshi-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
