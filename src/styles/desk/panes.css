@@ -514,6 +514,34 @@
 .admin-create-go{margin-top:14px;padding:10px 22px}
 @media(max-width:720px){.admin-create-grid{grid-template-columns:1fr}}
 
+/* ---- create-mode tabs (Manual / Add from Kalshi) ---- */
+.admin-mode{display:flex;gap:0;border:1px solid var(--border);border-radius:3px;
+  overflow:hidden;width:fit-content;margin-bottom:16px}
+.admin-mode-tab{background:none;border:0;padding:8px 16px;cursor:pointer;color:var(--muted);
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;transition:background .15s,color .15s}
+.admin-mode-tab+.admin-mode-tab{border-left:1px solid var(--border)}
+.admin-mode-tab.is-on{background:var(--red);color:#08090d}
+
+/* ---- Kalshi catalog picker ---- */
+.kalshi-bar{display:grid;grid-template-columns:1fr 2fr;gap:14px 18px;align-items:end;margin-bottom:16px}
+@media(max-width:720px){.kalshi-bar{grid-template-columns:1fr}}
+.kalshi-bar .tk-field{margin-bottom:0}
+.kalshi-list{display:flex;flex-direction:column;gap:8px}
+.kalshi-row{display:flex;align-items:center;gap:14px;padding:10px 12px;
+  border:1px solid var(--border);border-radius:3px;background:var(--glass)}
+.kalshi-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.kalshi-title{font-size:14px;line-height:1.35;color:var(--text)}
+.kalshi-sub{display:flex;align-items:center;gap:8px;font-size:10.5px;
+  letter-spacing:.06em;color:var(--faint);flex-wrap:wrap}
+.kalshi-tag{text-transform:uppercase;letter-spacing:.12em}
+.kalshi-opt{color:var(--muted);padding-left:8px;border-left:1px solid var(--border)}
+.kalshi-odds{flex:none;width:52px;text-align:right;font-size:14px;color:var(--text)}
+.kalshi-add{flex:none;padding:7px 18px;font-size:12.5px}
+.kalshi-add:disabled{opacity:.55;cursor:default}
+.kalshi-hint{color:var(--faint);font-size:11px;letter-spacing:.05em;margin:12px 2px 2px}
+.kalshi-ok{color:var(--green);font-size:12px;letter-spacing:.04em;margin-bottom:10px}
+.kalshi-ok strong{font-family:var(--mono)}
+
 /* ---- category select ---- */
 .cat-select{cursor:pointer;appearance:none;-webkit-appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--faint) 50%),linear-gradient(135deg,var(--faint) 50%,transparent 50%);

@@ -186,7 +186,7 @@ export function useBoardEvents(): MarketEvent[] {
     // binary cards, newest first, ahead of the demo events
     const PAL = ['#34d399','#5b9dff','#f5b53a','#b57bff','#ff3b3b','#2dd4bf','#f472b6','#a3e635'];
     const boardEvents: MarketEvent[] = markets
-      .filter((m) => m.id.startsWith('BX-'))
+      .filter((m) => m.id.startsWith('BX-') || m.id.startsWith('KX-'))
       .map((m) => {
         const base = {
           id: m.id,

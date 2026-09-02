@@ -218,11 +218,58 @@ export async function rpcAdminCreateBoardMarket(
   return data as string;
 }
 
+/** One row of the Kalshi catalog, shaped for the admin picker. */
+export type KalshiCatalogItem = {
+  ticker: string;
+  eventTitle: string;
+  subTitle: string | null;
+  category: string;
+  yesOdds: number;   // cents, 0..100
+  closeTime: string | null;
+};
+
+type KalshiRow = {
+  ticker: string; event_title: string; sub_title: string | null;
+  category: string; yes_odds: number | null; close_time: string | null;
+};
+
+/** Search the Kalshi catalog (~14k rows) server-side. Only active, not-yet-added
+ *  markets come back, capped at 50 rows and ordered by opening odds. `cat` empty
+ *  means all categories; `q` empty means no title filter. */
+export async function searchKalshiCatalog(
+  cat: string, q: string, limit = 50,
+): Promise<KalshiCatalogItem[]> {
+  if (!supabase) return [];
+  let query = supabase
+    .from('term_kalshi_catalog')
+    .select('ticker,event_title,sub_title,category,yes_odds,close_time')
+    .is('added_market_code', null)
+    .eq('status', 'active');
+  if (cat) query = query.eq('category', cat);
+  const term = q.trim();
+  if (term) query = query.ilike('event_title', `%${term}%`);
+  const { data, error } = await query.order('yes_odds').limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as KalshiRow[]).map((r) => ({
+    ticker: r.ticker, eventTitle: r.event_title, subTitle: r.sub_title,
+    category: r.category, yesOdds: Number(r.yes_odds ?? 0), closeTime: r.close_time,
+  }));
+}
+
+/** Admin only: seed a board market from a Kalshi catalog ticker. Server-gated.
+ *  Returns the new market code, or null when offline. */
+export async function rpcCreateFromKalshi(ticker: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('term_admin_create_from_kalshi', { p_ticker: ticker });
+  if (error) throw error;
+  return data as string;
+}
+
 /** All public board markets from the DB (officer-created BX- markets plus any
  *  materialised outcomes). Rendered as their own cards on the grid. */
 export async function fetchBoardMarkets(): Promise<DeskMarket[]> {
   if (!supabase) return [];
-  const { data } = await supabase.from('term_markets').select('*').eq('is_private', false);
+  const { data } = await supabase.from('term_markets').select('*').eq('is_private', false).eq('listed', true);
   return ((data ?? []) as MarketRow[]).map(rowToMarket);
 }
 

@@ -1,10 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
-import { useDesk, adminCreateBoardMarket, createMultiMarket } from '../deskStore';
+import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, createMultiMarket } from '../deskStore';
+import { searchKalshiCatalog, type KalshiCatalogItem } from '../terminalDb';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
 import OutcomeEditor, { type OutcomeDraft } from '../../components/OutcomeEditor';
 import { endOfDay } from '../../lib/closeTime';
+
+// The Kalshi catalog carries its own coarse taxonomy, distinct from the desk's
+// seven board categories. An empty value means "every category".
+const KALSHI_CATS = [
+  'Sports', 'Politics', 'Elections', 'Economics', 'Financials', 'Companies',
+  'Culture', 'Entertainment', 'Science and Technology', 'Climate and Weather',
+  'Health', 'World', 'Crypto',
+];
 
 type Filter = 'All' | 'Live' | Category;
 type View = 'grid' | 'list';
@@ -183,6 +192,24 @@ function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void
 
 
 function AdminCreate({ onDone }: { onDone: () => void }) {
+  const [mode, setMode] = useState<'manual' | 'kalshi'>('manual');
+
+  return (
+    <div className="admin-create">
+      <div className="admin-mode" role="tablist" aria-label="Create mode">
+        <button type="button" role="tab" aria-selected={mode === 'manual'}
+          className={`admin-mode-tab mono ${mode === 'manual' ? 'is-on' : ''}`}
+          onClick={() => setMode('manual')}>Manual</button>
+        <button type="button" role="tab" aria-selected={mode === 'kalshi'}
+          className={`admin-mode-tab mono ${mode === 'kalshi' ? 'is-on' : ''}`}
+          onClick={() => setMode('kalshi')}>Add from Kalshi</button>
+      </div>
+      {mode === 'manual' ? <ManualCreate onDone={onDone} /> : <KalshiPicker />}
+    </div>
+  );
+}
+
+function ManualCreate({ onDone }: { onDone: () => void }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('Campus');
   const [yes, setYes] = useState(50);
@@ -208,7 +235,7 @@ function AdminCreate({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <form className="admin-create" onSubmit={submit}>
+    <form className="admin-create-form" onSubmit={submit}>
       <div className="admin-create-grid">
         <label className="tk-field">
           <span className="tk-label mono">Question</span>
@@ -244,5 +271,105 @@ function AdminCreate({ onDone }: { onDone: () => void }) {
       </button>
       {err && <p className="join-msg mono is-no" role="alert">{err}</p>}
     </form>
+  );
+}
+
+const CAP = 50;
+
+function KalshiPicker() {
+  const [cat, setCat] = useState('');
+  const [q, setQ] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const [rows, setRows] = useState<KalshiCatalogItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [pending, setPending] = useState<string | null>(null);
+  const [added, setAdded] = useState<{ ticker: string; code: string } | null>(null);
+  // A late response from a stale query must never overwrite a newer one.
+  const seq = useRef(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    const run = ++seq.current;
+    setLoading(true);
+    setErr('');
+    searchKalshiCatalog(cat, debounced, CAP)
+      .then((res) => { if (run === seq.current) setRows(res); })
+      .catch(() => { if (run === seq.current) setErr('Could not reach the catalog — try again.'); })
+      .finally(() => { if (run === seq.current) setLoading(false); });
+  }, [cat, debounced]);
+
+  const add = async (item: KalshiCatalogItem) => {
+    setPending(item.ticker);
+    setErr('');
+    const code = await adminCreateFromKalshi(item.ticker);
+    setPending(null);
+    if (code) {
+      setRows((rs) => rs.filter((r) => r.ticker !== item.ticker));
+      setAdded({ ticker: item.ticker, code });
+    } else {
+      setErr('Could not add — admins only, and requires a live account.');
+    }
+  };
+
+  const capped = rows.length >= CAP;
+
+  return (
+    <div className="kalshi">
+      <div className="kalshi-bar">
+        <label className="tk-field kalshi-cat">
+          <span className="tk-label mono">Category</span>
+          <select className="tk-input cat-select" value={cat} onChange={(e) => setCat(e.target.value)}>
+            <option value="">All categories</option>
+            {KALSHI_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <label className="tk-field kalshi-search">
+          <span className="tk-label mono">Search</span>
+          <input className="tk-input" value={q} maxLength={80}
+            placeholder="Search Kalshi markets by question…" onChange={(e) => setQ(e.target.value)} />
+        </label>
+      </div>
+
+      {added && (
+        <p className="kalshi-ok mono" role="status">
+          Added to the board as <strong>{added.code}</strong>.
+        </p>
+      )}
+      {err && <p className="join-msg mono is-no" role="alert">{err}</p>}
+
+      <div className="kalshi-list">
+        {loading && rows.length === 0 ? (
+          <p className="kalshi-hint mono">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="kalshi-hint mono">No open markets match — widen the category or search.</p>
+        ) : (
+          rows.map((r) => (
+            <div className="kalshi-row" key={r.ticker}>
+              <span className="kalshi-main">
+                <span className="kalshi-title">{r.eventTitle}</span>
+                <span className="kalshi-sub mono">
+                  <span className="kalshi-tag">{r.category}</span>
+                  {r.subTitle && <span className="kalshi-opt">{r.subTitle}</span>}
+                </span>
+              </span>
+              <span className="kalshi-odds mono">{Math.round(r.yesOdds)}&#162;</span>
+              <button className="btn btn-red kalshi-add" type="button"
+                disabled={pending === r.ticker} onClick={() => add(r)}>
+                {pending === r.ticker ? 'Adding…' : 'Add'}
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {capped && (
+        <p className="kalshi-hint mono">Showing the first {CAP} — refine your search to narrow it.</p>
+      )}
+    </div>
   );
 }

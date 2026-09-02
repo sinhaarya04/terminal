@@ -610,6 +610,23 @@ export async function adminCreateBoardMarket(
   } catch { return null; }
 }
 
+/** Admin only: seed a board market from a Kalshi catalog ticker, then fold the
+ *  freshly created market into the board. Returns the new code or null. */
+export async function adminCreateFromKalshi(ticker: string): Promise<string | null> {
+  if (!state.isAdmin) return null;
+  if (!state.live) return null;   // board markets are server-side only
+  try {
+    const code = await db.rpcCreateFromKalshi(ticker);
+    if (code) {
+      const board = await db.fetchBoardMarkets();
+      const markets = [...state.markets];
+      for (const bm of board) if (!markets.some((x) => x.id === bm.id)) markets.push(bm);
+      set({ markets });
+    }
+    return code;
+  } catch { return null; }
+}
+
 /** Sell shares back to the meter for their live LMSR value: C(q) − C(q−s).
  *  A true exit — cash lands now, the price ticks down, and the pot shrinks by
  *  exactly the proceeds, so conservation holds. Returns the proceeds, or null
