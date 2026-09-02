@@ -262,6 +262,20 @@ export async function searchKalshiCatalog(
   }));
 }
 
+/** True number of still-open options for a Kalshi event. The picker page is
+ *  capped (.limit), so grouping its rows under-counts a big event; this counts
+ *  the whole event server-side without pulling the rows. */
+export async function kalshiEventOptionCount(eventTicker: string): Promise<number> {
+  if (!supabase) return 0;
+  const { count } = await supabase
+    .from('term_kalshi_catalog')
+    .select('ticker', { count: 'exact', head: true })
+    .eq('event_ticker', eventTicker)
+    .is('added_market_code', null)
+    .eq('status', 'active');
+  return count ?? 0;
+}
+
 /** Admin only: seed a board market from a Kalshi catalog ticker. Server-gated.
  *  Returns the new market code, or null when offline. */
 export async function rpcCreateFromKalshi(ticker: string): Promise<string | null> {

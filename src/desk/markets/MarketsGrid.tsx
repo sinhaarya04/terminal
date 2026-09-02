@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
 import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMultiFromKalshi, createMultiMarket } from '../deskStore';
-import { searchKalshiCatalog, type KalshiCatalogItem } from '../terminalDb';
+import { searchKalshiCatalog, kalshiEventOptionCount, type KalshiCatalogItem } from '../terminalDb';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
 import OutcomeEditor, { type OutcomeDraft } from '../../components/OutcomeEditor';
@@ -331,6 +331,8 @@ function KalshiPicker() {
   const [added, setAdded] = useState<{ ticker: string; code: string } | null>(null);
   // A late response from a stale query must never overwrite a newer one.
   const seq = useRef(0);
+  // True option counts per event (the page is capped, so grouping under-counts).
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q), 250);
@@ -370,6 +372,19 @@ function KalshiPicker() {
       const lead = options.reduce((a, b) => (b.yesOdds > a.yesOdds ? b : a), options[0]);
       return { kind: 'event', eventTicker: o.ticker, eventTitle: options[0].eventTitle, category: options[0].category, options, lead };
     });
+  }, [rows]);
+
+  // Fetch the true option count for each mutually-exclusive event on the page.
+  useEffect(() => {
+    const evTickers = [...new Set(
+      rows.filter((r) => r.eventMutuallyExclusive && r.eventTicker).map((r) => r.eventTicker as string),
+    )];
+    if (!evTickers.length) { setCounts({}); return; }
+    let cancelled = false;
+    Promise.all(evTickers.map(async (t) => [t, await kalshiEventOptionCount(t)] as const))
+      .then((pairs) => { if (!cancelled) setCounts(Object.fromEntries(pairs)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [rows]);
 
   const addBinary = async (item: KalshiCatalogItem) => {
@@ -436,7 +451,7 @@ function KalshiPicker() {
                 <span className="kalshi-title">{e.eventTitle}</span>
                 <span className="kalshi-sub mono">
                   <span className="kalshi-tag">{e.category}</span>
-                  <span className="kalshi-opt">{e.options.length} options</span>
+                  <span className="kalshi-opt">{counts[e.eventTicker] ?? e.options.length} options</span>
                 </span>
               </span>
               <span className="kalshi-odds mono">{Math.round(e.lead.yesOdds)}&#162;</span>

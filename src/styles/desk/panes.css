@@ -274,7 +274,7 @@
 /* an expanded tile drops the square lock and lets the extra rows grow the card
    rather than being clipped by the aspect-ratio + overflow:hidden */
 .mkt.is-expanded{aspect-ratio:auto;height:auto}
-.mkt.is-expanded .mkt-rows{overflow:visible}
+.mkt.is-expanded .mkt-rows{max-height:44vh;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
 
 .mkt-foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;
   padding-top:12px;font-size:10px;letter-spacing:.08em;color:var(--faint)}

@@ -27,6 +27,18 @@ export type Category =
 
 export const CATEGORIES: Category[] = ['Sports', 'Crypto', 'Econ', 'Tech', 'Weather', 'Campus', 'Culture'];
 
+// Kalshi's own category names don't match the board's tabs; fold them in so a
+// picked market lands under the right filter instead of defaulting to Campus.
+const KALSHI_CAT_MAP: Record<string, Category> = {
+  Sports: 'Sports', Crypto: 'Crypto', Economics: 'Econ', Financials: 'Econ', Companies: 'Econ',
+  'Science and Technology': 'Tech', 'Climate and Weather': 'Weather', Entertainment: 'Culture',
+  Politics: 'Culture', Elections: 'Culture', World: 'Culture', Health: 'Culture',
+  Social: 'Culture', Transportation: 'Culture',
+};
+export function toBoardCategory(c: string): Category {
+  return (CATEGORIES as string[]).includes(c) ? (c as Category) : (KALSHI_CAT_MAP[c] ?? 'Campus');
+}
+
 // E[X] chart palette — distinct hues that read on the dark board.
 const C = {
   red: '#ff3b3b',
@@ -190,7 +202,7 @@ export function useBoardEvents(): MarketEvent[] {
       .map((m) => {
         const base = {
           id: m.id,
-          cat: (CATEGORIES.includes(m.cat as Category) ? m.cat : 'Campus') as Category,
+          cat: toBoardCategory(m.cat),
           title: m.q,
           vol: Math.round(m.pool || 0),
           updated: m.resolved ? 'settled' : 'open',
