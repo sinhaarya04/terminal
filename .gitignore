@@ -12,3 +12,9 @@ vite.config.js
 
 # Supabase CLI artifacts
 supabase/.temp/
+
+# Agent skill / tooling install artifacts (local only)
+.agents/
+.claude/
+skills-lock.json
+*.vsix
