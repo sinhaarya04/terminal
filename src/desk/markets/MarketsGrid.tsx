@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
-import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, createMultiMarket } from '../deskStore';
+import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMultiFromKalshi, createMultiMarket } from '../deskStore';
 import { searchKalshiCatalog, type KalshiCatalogItem } from '../terminalDb';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
@@ -121,12 +121,46 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
   );
 }
 
+function OutcomeLine({ o }: { o: MarketEvent['outcomes'][number] }) {
+  return (
+    <span className="mkt-row">
+      <span className="mkt-name">
+        {o.meta && <span className="mkt-meta">{o.meta}</span>}{o.name}
+      </span>
+      <span className="mkt-pct mono">{o.yes}%</span>
+      {/* the bar is the whole reason these read at a glance */}
+      <span className="mkt-bar"><i style={{ width: `${o.yes}%`, background: o.color }} /></span>
+    </span>
+  );
+}
+
 function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void }) {
-  const top = [...ev.outcomes].sort((a, b) => b.yes - a.yes).slice(0, 3);
-  const more = ev.outcomes.length - top.length;
+  const [expanded, setExpanded] = useState(false);
+  const sorted = [...ev.outcomes].sort((a, b) => b.yes - a.yes);
+  const top = sorted.slice(0, 5);
+  const rest = sorted.slice(5);
+
+  const open = () => onOpen(ev);
+  // The tile is a role="button" div so the expand toggle can be a real nested
+  // <button> without nesting buttons. Match a native button's keyboard open.
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+  };
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setExpanded((v) => !v);
+  };
 
   return (
-    <button className="mkt" onClick={() => onOpen(ev)} aria-label={`Open ${ev.title}`}>
+    <div
+      className={`mkt${expanded ? ' is-expanded' : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={onKey}
+      aria-label={`Open ${ev.title}`}
+    >
       <span className="mkt-top">
         <span className="mkt-cat mono">{ev.cat}</span>
         {ev.live && (
@@ -139,24 +173,25 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => voi
       <span className="mkt-title">{ev.title}</span>
 
       <span className="mkt-rows">
-        {top.map((o) => (
-          <span className="mkt-row" key={o.name}>
-            <span className="mkt-name">
-              {o.meta && <span className="mkt-meta">{o.meta}</span>}{o.name}
-            </span>
-            <span className="mkt-pct mono">{o.yes}%</span>
-            {/* the bar is the whole reason these read at a glance */}
-            <span className="mkt-bar"><i style={{ width: `${o.yes}%`, background: o.color }} /></span>
-          </span>
-        ))}
-        {more > 0 && <span className="mkt-more mono">+{more} more</span>}
+        {top.map((o) => <OutcomeLine key={o.name} o={o} />)}
+        {expanded && rest.map((o) => <OutcomeLine key={o.name} o={o} />)}
+        {rest.length > 0 && (
+          <button
+            type="button"
+            className="mkt-more-btn mono"
+            aria-expanded={expanded}
+            onClick={toggle}
+          >
+            {expanded ? 'Show less' : `+${rest.length} more`}
+          </button>
+        )}
       </span>
 
       <span className="mkt-foot mono">
         <span>VOL {vol(ev.vol)}</span>
         <span>{ev.updated}</span>
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -276,6 +311,15 @@ function ManualCreate({ onDone }: { onDone: () => void }) {
 
 const CAP = 50;
 
+// One rendered picker row: either a single binary market, or a mutually-
+// exclusive Kalshi event collapsed into a single "Add event" row.
+type BinaryEntry = { kind: 'binary'; item: KalshiCatalogItem };
+type EventEntry = {
+  kind: 'event'; eventTicker: string; eventTitle: string; category: string;
+  options: KalshiCatalogItem[]; lead: KalshiCatalogItem;
+};
+type PickerEntry = BinaryEntry | EventEntry;
+
 function KalshiPicker() {
   const [cat, setCat] = useState('');
   const [q, setQ] = useState('');
@@ -303,7 +347,32 @@ function KalshiPicker() {
       .finally(() => { if (run === seq.current) setLoading(false); });
   }, [cat, debounced]);
 
-  const add = async (item: KalshiCatalogItem) => {
+  // Group the returned page: mutually-exclusive events collapse to one "Add
+  // event" row (the whole event becomes one multi market); everything else
+  // stays a per-market binary "Add" row. Grouping is within the fetched page,
+  // matching the server-side .limit — the "refine your search" hint covers the
+  // rest. Rows arrive ordered by odds ascending, so an event's lead is its max.
+  const entries = useMemo<PickerEntry[]>(() => {
+    const groups = new Map<string, KalshiCatalogItem[]>();
+    const order: ({ t: 'b'; item: KalshiCatalogItem } | { t: 'e'; ticker: string })[] = [];
+    for (const r of rows) {
+      if (r.eventMutuallyExclusive && r.eventTicker) {
+        const g = groups.get(r.eventTicker);
+        if (g) { g.push(r); }
+        else { groups.set(r.eventTicker, [r]); order.push({ t: 'e', ticker: r.eventTicker }); }
+      } else {
+        order.push({ t: 'b', item: r });
+      }
+    }
+    return order.map<PickerEntry>((o) => {
+      if (o.t === 'b') return { kind: 'binary', item: o.item };
+      const options = groups.get(o.ticker)!;
+      const lead = options.reduce((a, b) => (b.yesOdds > a.yesOdds ? b : a), options[0]);
+      return { kind: 'event', eventTicker: o.ticker, eventTitle: options[0].eventTitle, category: options[0].category, options, lead };
+    });
+  }, [rows]);
+
+  const addBinary = async (item: KalshiCatalogItem) => {
     setPending(item.ticker);
     setErr('');
     const code = await adminCreateFromKalshi(item.ticker);
@@ -311,6 +380,19 @@ function KalshiPicker() {
     if (code) {
       setRows((rs) => rs.filter((r) => r.ticker !== item.ticker));
       setAdded({ ticker: item.ticker, code });
+    } else {
+      setErr('Could not add — admins only, and requires a live account.');
+    }
+  };
+
+  const addEvent = async (ev: EventEntry) => {
+    setPending(ev.eventTicker);
+    setErr('');
+    const code = await adminCreateMultiFromKalshi(ev.eventTicker);
+    setPending(null);
+    if (code) {
+      setRows((rs) => rs.filter((r) => r.eventTicker !== ev.eventTicker));
+      setAdded({ ticker: ev.eventTicker, code });
     } else {
       setErr('Could not add — admins only, and requires a live account.');
     }
@@ -348,22 +430,37 @@ function KalshiPicker() {
         ) : rows.length === 0 ? (
           <p className="kalshi-hint mono">No open markets match — widen the category or search.</p>
         ) : (
-          rows.map((r) => (
-            <div className="kalshi-row" key={r.ticker}>
+          entries.map((e) => (e.kind === 'event' ? (
+            <div className="kalshi-row" key={`ev-${e.eventTicker}`}>
               <span className="kalshi-main">
-                <span className="kalshi-title">{r.eventTitle}</span>
+                <span className="kalshi-title">{e.eventTitle}</span>
                 <span className="kalshi-sub mono">
-                  <span className="kalshi-tag">{r.category}</span>
-                  {r.subTitle && <span className="kalshi-opt">{r.subTitle}</span>}
+                  <span className="kalshi-tag">{e.category}</span>
+                  <span className="kalshi-opt">{e.options.length} options</span>
                 </span>
               </span>
-              <span className="kalshi-odds mono">{Math.round(r.yesOdds)}&#162;</span>
+              <span className="kalshi-odds mono">{Math.round(e.lead.yesOdds)}&#162;</span>
               <button className="btn btn-red kalshi-add" type="button"
-                disabled={pending === r.ticker} onClick={() => add(r)}>
-                {pending === r.ticker ? 'Adding…' : 'Add'}
+                disabled={pending === e.eventTicker} onClick={() => addEvent(e)}>
+                {pending === e.eventTicker ? 'Adding…' : 'Add event'}
               </button>
             </div>
-          ))
+          ) : (
+            <div className="kalshi-row" key={e.item.ticker}>
+              <span className="kalshi-main">
+                <span className="kalshi-title">{e.item.eventTitle}</span>
+                <span className="kalshi-sub mono">
+                  <span className="kalshi-tag">{e.item.category}</span>
+                  {e.item.subTitle && <span className="kalshi-opt">{e.item.subTitle}</span>}
+                </span>
+              </span>
+              <span className="kalshi-odds mono">{Math.round(e.item.yesOdds)}&#162;</span>
+              <button className="btn btn-red kalshi-add" type="button"
+                disabled={pending === e.item.ticker} onClick={() => addBinary(e.item)}>
+                {pending === e.item.ticker ? 'Adding…' : 'Add'}
+              </button>
+            </div>
+          )))
         )}
       </div>
 

@@ -221,16 +221,21 @@ export async function rpcAdminCreateBoardMarket(
 /** One row of the Kalshi catalog, shaped for the admin picker. */
 export type KalshiCatalogItem = {
   ticker: string;
+  eventTicker: string;
   eventTitle: string;
   subTitle: string | null;
   category: string;
   yesOdds: number;   // cents, 0..100
   closeTime: string | null;
+  // A mutually-exclusive event ("who wins") groups its markets into one
+  // multi-outcome board market; a non-exclusive event stays per-market binary.
+  eventMutuallyExclusive: boolean;
 };
 
 type KalshiRow = {
-  ticker: string; event_title: string; sub_title: string | null;
+  ticker: string; event_ticker: string; event_title: string; sub_title: string | null;
   category: string; yes_odds: number | null; close_time: string | null;
+  event_mutually_exclusive: boolean | null;
 };
 
 /** Search the Kalshi catalog (~14k rows) server-side. Only active, not-yet-added
@@ -242,7 +247,7 @@ export async function searchKalshiCatalog(
   if (!supabase) return [];
   let query = supabase
     .from('term_kalshi_catalog')
-    .select('ticker,event_title,sub_title,category,yes_odds,close_time')
+    .select('ticker,event_ticker,event_title,sub_title,category,yes_odds,close_time,event_mutually_exclusive')
     .is('added_market_code', null)
     .eq('status', 'active');
   if (cat) query = query.eq('category', cat);
@@ -251,8 +256,9 @@ export async function searchKalshiCatalog(
   const { data, error } = await query.order('yes_odds').limit(limit);
   if (error) throw error;
   return ((data ?? []) as KalshiRow[]).map((r) => ({
-    ticker: r.ticker, eventTitle: r.event_title, subTitle: r.sub_title,
+    ticker: r.ticker, eventTicker: r.event_ticker, eventTitle: r.event_title, subTitle: r.sub_title,
     category: r.category, yesOdds: Number(r.yes_odds ?? 0), closeTime: r.close_time,
+    eventMutuallyExclusive: !!r.event_mutually_exclusive,
   }));
 }
 
@@ -261,6 +267,16 @@ export async function searchKalshiCatalog(
 export async function rpcCreateFromKalshi(ticker: string): Promise<string | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc('term_admin_create_from_kalshi', { p_ticker: ticker });
+  if (error) throw error;
+  return data as string;
+}
+
+/** Admin only: seed ONE multi-outcome board market from a Kalshi event ticker
+ *  (a mutually-exclusive event, all its options folded in). Server-gated.
+ *  Returns the new market code, or null when offline. */
+export async function rpcCreateMultiFromKalshi(eventTicker: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('term_admin_create_multi_from_kalshi', { p_event_ticker: eventTicker });
   if (error) throw error;
   return data as string;
 }
