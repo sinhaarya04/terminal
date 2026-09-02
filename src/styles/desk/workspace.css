@@ -13,6 +13,14 @@
      where close is quicker than open). */
   transition:grid-template-columns var(--duration-fast) var(--ease-smooth-out)}
 .desk-term.rail-hidden{grid-template-columns:0px 1fr}
+/* Desktop is a fixed-height shell: the whole app is exactly one viewport tall,
+   the rail stays pinned (its wallets never scroll out of reach), and only the
+   main column scrolls its own content. Mobile keeps the growable body + fixed
+   bottom bar defined in the max-width:899px block below. */
+@media(min-width:900px){
+  .desk-term{height:100vh;min-height:0;overflow:hidden}
+  .desk-main{height:100vh;overflow-y:auto}
+}
 
 /* pull-tab — hidden while the rail is open, slides in once it is away */
 .rail-tab{position:fixed;left:0;top:18px;z-index:70;

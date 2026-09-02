@@ -485,17 +485,25 @@
   .thp-row>span:nth-child(4),.thp-row>span:nth-child(5),.thp-row>span:nth-child(8){display:none}
 }
 
-/* ---- desk headers: bracketed, not dashed ----
-   The hairline-dash kicker read as unfinished. Desk headers now carry the
-   brand's own motif — red brackets around a bold white label — scoped here so
-   the marketing pages keep their dash. */
+/* ---- desk section headers ----
+   The hairline dash read as unfinished; the bracket motif read as noisy. Desk
+   headers now use a solid red accent tick before a bright, bold uppercase
+   label — a terminal section marker with weight to it. Scoped here so the
+   marketing pages keep their dash. */
 .desk-root .kicker,.desk-term .kicker,.mscreen .kicker,.grid-wrap .kicker{
-  color:var(--text);font-weight:600;letter-spacing:.15em;gap:7px}
+  position:relative;display:inline-flex;align-items:flex-start;
+  color:var(--text);font-weight:600;font-size:11.5px;letter-spacing:.18em;
+  line-height:1.35;gap:0;padding:0 1px 5px 11px}
+/* The L-marker: a vertical stroke rising at the start of the label and an
+   underline running the full width beneath it, joined at the bottom-left. The
+   vertical is inset to the label's own height, so a two-line header carries a
+   stroke twice as tall, top-aligned with the first line. */
 .desk-root .kicker::before,.desk-term .kicker::before,.mscreen .kicker::before,.grid-wrap .kicker::before{
-  content:"[";width:auto;height:auto;background:none;color:var(--red-bright);
-  font-weight:500;transform:translateY(-1px)}
+  content:"";position:absolute;left:0;top:1px;bottom:0;height:auto;
+  width:2px;border-radius:1px 1px 0 0;background:var(--red-bright)}
 .desk-root .kicker::after,.desk-term .kicker::after,.mscreen .kicker::after,.grid-wrap .kicker::after{
-  content:"]";color:var(--red-bright);font-weight:500;transform:translateY(-1px)}
+  content:"";position:absolute;left:0;right:0;bottom:0;
+  height:2px;border-radius:0 1px 1px 0;background:var(--red-bright)}
 
 /* ---- admin (officer) controls ---- */
 .grid-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
@@ -603,14 +611,14 @@
 /* list rows glide a hair right on hover instead of a flat bg swap */
 .li:hover { padding-left: 3px; }
 
-/* Intentional empty states: a faint bracket motif (the E[X] mark) above the
-   text, so an empty pane reads as designed, not unfinished. */
+/* Intentional empty states: a short red accent rule above the text — the same
+   marker language as the section headers — so an empty pane reads as designed,
+   not unfinished. */
 .pane-empty { position: relative; }
 .pane-empty::before {
-  content: "[ \00B7 ]";
-  display: block; margin: 0 auto 14px; font-family: var(--serif);
-  font-size: 26px; letter-spacing: .12em; color: var(--border-2);
-  line-height: 1;
+  content: "";
+  display: block; width: 30px; height: 2px; border-radius: 1px;
+  margin: 0 auto 16px; background: var(--red-bright); opacity: .5;
 }
 .pane-empty .mono:first-of-type { color: var(--muted); }
 .pane-empty-sub { max-width: 30ch; margin-left: auto; margin-right: auto; }
