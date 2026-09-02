@@ -712,3 +712,166 @@ begin
     execute format('revoke insert, update, delete, truncate on public.%I from anon, authenticated', t);
   end loop;
 end $lock$;
+
+-- ============================================================================
+-- Kalshi multi-outcome events  (2026-09-02)
+-- A whole mutually-exclusive Kalshi event -> one N-outcome market. See
+-- docs/superpowers/specs/2026-09-02-kalshi-catalog-oracle-design.md.
+-- ============================================================================
+
+-- Each multi outcome remembers the Kalshi market ticker it came from, so the
+-- oracle can map the settled winner back to the outcome index.
+alter table public.term_market_outcomes add column if not exists kalshi_ticker text;
+
+-- Fix: the multi price-history trigger inserted into term_price_history without
+-- its NOT-NULL `yes` column, which had silently broken ALL multi creation.
+create or replace function public.term_log_tick_multi()
+returns trigger language plpgsql security definer set search_path to 'public' as $function$
+declare v_b numeric; v_yes numeric;
+begin
+  if tg_op = 'INSERT' or new.pq is distinct from old.pq then
+    select b into v_b from public.term_markets where code = new.market_code;
+    select 100 * exp(new.pq / v_b) / nullif(sum(exp(pq / v_b)), 0)
+      into v_yes from public.term_market_outcomes where market_code = new.market_code;
+    insert into public.term_price_history (market_code, outcome_idx, yes, pq_yes, b, kind)
+    values (new.market_code, new.idx, coalesce(round(v_yes, 4), 0), new.pq, v_b,
+            case when tg_op = 'INSERT' then 'open' else 'trade' end);
+  end if;
+  return new;
+end $function$;
+
+-- Admin picks a whole event -> one seeded, listed multi board market; each
+-- outcome stores its Kalshi ticker; all the event's catalog rows are linked.
+create or replace function public.term_admin_create_multi_from_kalshi(
+  p_event_ticker text, p_closes_at timestamptz default null)
+returns text language plpgsql security definer set search_path to 'public' as $function$
+declare
+  v_uid uuid := auth.uid();
+  v_admin boolean; v_handle text;
+  v_code text;
+  v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  v_b numeric := 100;
+  v_n int; v_all_me boolean; v_any_linked boolean;
+  v_cat text; v_question text; v_closes_at timestamptz;
+  v_sum numeric := 0; v_lo numeric; i int; r record;
+  v_probs numeric[] := '{}'; v_names text[] := '{}';
+  v_tickers text[] := '{}'; v_seed numeric[] := '{}';
+begin
+  if v_uid is null then raise exception 'not signed in'; end if;
+  select handle, is_admin into v_handle, v_admin from public.term_profiles where id = v_uid;
+  if not coalesce(v_admin,false) then raise exception 'admins only'; end if;
+
+  select count(*),
+         bool_and(coalesce(c.event_mutually_exclusive,false)),
+         bool_or(c.added_market_code is not null
+                 and exists (select 1 from public.term_markets m where m.code = c.added_market_code))
+    into v_n, v_all_me, v_any_linked
+    from public.term_kalshi_catalog c
+   where c.event_ticker = p_event_ticker;
+
+  if coalesce(v_n,0) = 0 then raise exception 'unknown kalshi event'; end if;
+  if not coalesce(v_all_me,false) then raise exception 'event is not mutually exclusive; only one-winner events supported'; end if;
+  if coalesce(v_any_linked,false) then raise exception 'already added to the board'; end if;
+
+  for r in
+    select ticker, sub_title, title, yes_odds, event_title, category, close_time
+      from public.term_kalshi_catalog
+     where event_ticker = p_event_ticker
+     order by ticker
+  loop
+    v_names   := array_append(v_names, coalesce(nullif(r.sub_title,''), nullif(r.title,''), r.ticker));
+    v_tickers := array_append(v_tickers, r.ticker);
+    v_probs   := array_append(v_probs, greatest(0.01, coalesce(r.yes_odds,0)/100.0));
+    v_cat      := coalesce(v_cat, nullif(r.category,''));
+    v_question := coalesce(v_question, nullif(r.event_title,''));
+    if r.close_time is not null then
+      v_closes_at := greatest(coalesce(v_closes_at, r.close_time), r.close_time);
+    end if;
+  end loop;
+
+  v_n := array_length(v_names,1);
+  if v_n < 2 then raise exception 'need at least 2 outcomes'; end if;
+
+  select sum(x) into v_sum from unnest(v_probs) x;
+  for i in 1..v_n loop v_probs[i] := v_probs[i] / v_sum; end loop;
+
+  for i in 1..v_n loop v_seed[i] := v_b * ln(v_probs[i]); end loop;
+  select min(x) into v_lo from unnest(v_seed) x;
+  for i in 1..v_n loop v_seed[i] := v_seed[i] - v_lo; end loop;
+
+  v_question  := coalesce(v_question, p_event_ticker);
+  v_closes_at := coalesce(p_closes_at, v_closes_at);
+
+  loop
+    v_code := 'KM-';
+    for i in 1..4 loop v_code := v_code || substr(v_alpha,1+floor(random()*length(v_alpha))::int,1); end loop;
+    exit when not exists (select 1 from public.term_markets where code = v_code);
+  end loop;
+
+  insert into public.term_markets
+    (code, owner, owner_handle, question, cat, closes_at, yes, is_private, is_multi, listed, b, c0, event_ticker)
+  values
+    (v_code, null, null, v_question, coalesce(v_cat,'Board'), v_closes_at, 0, false, true, true, v_b,
+     public.term_lmsr_cost_n(v_seed, v_b), p_event_ticker);
+
+  for i in 1..v_n loop
+    insert into public.term_market_outcomes (market_code, idx, name, pq, sq, kalshi_ticker)
+    values (v_code, i, v_names[i], v_seed[i], 0, v_tickers[i]);
+  end loop;
+
+  update public.term_kalshi_catalog set added_market_code = v_code where event_ticker = p_event_ticker;
+
+  insert into public.term_activity (market_code, handle, kind)
+  values (v_code, coalesce(v_handle,'admin'), 'create');
+  return v_code;
+end $function$;
+revoke all on function public.term_admin_create_multi_from_kalshi(text, timestamptz) from anon;
+grant execute on function public.term_admin_create_multi_from_kalshi(text, timestamptz) to authenticated;
+
+-- System multi resolver (kalshi-resolve edge function, service_role). No auth
+-- check -> callable by NOBODY at the client tier. Idempotent; board only.
+create or replace function public.term_resolve_multi_from_oracle(p_market_code text, p_winning_idx integer)
+returns void language plpgsql security definer set search_path to 'public' as $function$
+declare
+  m record; v_pot numeric; v_win numeric; v_paid numeric := 0; v_last uuid; h record; v_name text;
+begin
+  select * into m from public.term_markets where code = p_market_code for update;
+  if m is null or not m.is_multi then raise exception 'no such multi market'; end if;
+  if m.owner is not null then raise exception 'not a board market'; end if;
+  if m.resolved is not null then return; end if;         -- idempotent
+  select name into v_name from public.term_market_outcomes
+   where market_code = p_market_code and idx = p_winning_idx;
+  if v_name is null then raise exception 'bad outcome'; end if;
+  v_pot := round(m.pool, 2);
+  select coalesce(sum(shares),0) into v_win
+    from public.term_bets where market_code = p_market_code and outcome_idx = p_winning_idx;
+  if v_win <= 0 then
+    update public.term_profiles p set balance = p.balance + r.refund
+      from (select user_id, sum(cost) as refund from public.term_bets
+             where market_code = p_market_code group by user_id) r where p.id = r.user_id;
+    update public.term_markets set resolved = 'VOID', resolved_at = now() where code = p_market_code;
+    insert into public.term_activity (market_code, handle, kind) values (p_market_code, 'oracle', 'resolve');
+    return;
+  end if;
+  for h in select user_id, sum(shares) as sh from public.term_bets
+     where market_code = p_market_code and outcome_idx = p_winning_idx group by user_id
+     order by sum(shares) desc, user_id
+  loop v_last := h.user_id; end loop;
+  for h in select user_id, sum(shares) as sh from public.term_bets
+     where market_code = p_market_code and outcome_idx = p_winning_idx group by user_id
+     order by sum(shares) desc, user_id
+  loop
+    if h.user_id = v_last then
+      update public.term_profiles set balance = balance + (v_pot - v_paid) where id = h.user_id;
+    else
+      update public.term_profiles set balance = balance + round(v_pot * h.sh / v_win, 2) where id = h.user_id;
+      v_paid := v_paid + round(v_pot * h.sh / v_win, 2);
+    end if;
+  end loop;
+  update public.term_markets set resolved = 'MULTI', resolved_idx = p_winning_idx, resolved_at = now()
+   where code = p_market_code;
+  insert into public.term_activity (market_code, handle, kind, outcome)
+  values (p_market_code, 'oracle', 'resolve', v_name);
+end $function$;
+revoke all on function public.term_resolve_multi_from_oracle(text, integer) from public;
+revoke all on function public.term_resolve_multi_from_oracle(text, integer) from anon, authenticated;
