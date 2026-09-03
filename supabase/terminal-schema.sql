@@ -875,3 +875,25 @@ begin
 end $function$;
 revoke all on function public.term_resolve_multi_from_oracle(text, integer) from public;
 revoke all on function public.term_resolve_multi_from_oracle(text, integer) from anon, authenticated;
+
+-- ============================================================================
+-- Guard: raw Kalshi imports never hit the live board  (2026-09-02)
+-- The ingest pipeline bulk-inserts source='kalshi' rows into term_markets on
+-- the SHARED project. Those belong in the catalog (the pick-list), not the live
+-- board — only admin-created markets (source='internal', explicit listed=true)
+-- list. This trigger makes that invariant hold no matter how often ingest runs.
+-- ============================================================================
+create or replace function public.term_kalshi_import_unlisted()
+returns trigger language plpgsql set search_path to 'public' as $$
+begin
+  if new.source = 'kalshi' then new.listed := false; end if;
+  return new;
+end $$;
+drop trigger if exists term_kalshi_import_unlisted on public.term_markets;
+create trigger term_kalshi_import_unlisted
+  before insert on public.term_markets
+  for each row execute function public.term_kalshi_import_unlisted();
+
+-- ingest-log table (created by the ingest pipeline) inherits the same write
+-- lockdown as every other term_ table.
+revoke insert, update, delete, truncate on public.term_ingest_log from anon, authenticated;
