@@ -669,3 +669,18 @@
 /* the officer '+ New board market' and personal '+ New market' tiles get the
    same lift as real cards so the grid feels of one piece */
 .pg-new:hover { transform: translateY(-3px); }
+
+/* ---- page titles ----
+   Top-level screen headers (Markets · 10, Leaderboard · 3, Personal · N) step
+   up from the small tracked L-marker label to a real large title: SF Pro,
+   28px/700, tight tracking. The L-marker stays on every *pane* header — this
+   only promotes the one title that names the screen you're on. */
+.grid-head .kicker,.pg-head .kicker,.grid-wrap>.kicker{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",var(--font);
+  font-size:28px;font-weight:700;letter-spacing:-.022em;line-height:1.15;
+  text-transform:none;color:var(--text);padding:0;gap:0}
+.grid-head .kicker::before,.pg-head .kicker::before,.grid-wrap>.kicker::before,
+.grid-head .kicker::after,.pg-head .kicker::after,.grid-wrap>.kicker::after{content:none}
+@media(max-width:560px){
+  .grid-head .kicker,.pg-head .kicker,.grid-wrap>.kicker{font-size:22px}
+}
