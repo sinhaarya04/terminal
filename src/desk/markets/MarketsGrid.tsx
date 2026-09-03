@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
 import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMultiFromKalshi, createMultiMarket } from '../deskStore';
 import { searchKalshiCatalog, kalshiEventOptionCount, type KalshiCatalogItem } from '../terminalDb';
+import { useTilt } from '../useTilt';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
 import OutcomeEditor, { type OutcomeDraft } from '../../components/OutcomeEditor';
@@ -136,6 +137,7 @@ function OutcomeLine({ o }: { o: MarketEvent['outcomes'][number] }) {
 
 function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void }) {
   const [expanded, setExpanded] = useState(false);
+  const tilt = useTilt();
   const sorted = [...ev.outcomes].sort((a, b) => b.yes - a.yes);
   const top = sorted.slice(0, 5);
   const rest = sorted.slice(5);
@@ -160,6 +162,7 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => voi
       onClick={open}
       onKeyDown={onKey}
       aria-label={`Open ${ev.title}`}
+      {...(expanded ? {} : tilt)}
     >
       <span className="mkt-top">
         <span className="mkt-cat mono">{ev.cat}</span>

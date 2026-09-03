@@ -239,6 +239,7 @@
   padding:16px;border:1px solid var(--border);border-radius:3px;background:transparent;
   font-family:var(--font);color:var(--text);overflow:visible;
   transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+.mkt{will-change:transform;transform-origin:center}
 .mkt:hover{border-color:var(--border-2);background:rgba(255,255,255,.02);transform:translateY(-2px)}
 .mkt:focus-visible{outline:2px solid var(--red-bright);outline-offset:2px}
 

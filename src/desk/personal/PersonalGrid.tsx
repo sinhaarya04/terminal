@@ -4,6 +4,7 @@ import {
   type DeskMarket,
 } from '../deskStore';
 import { useNow } from '../../lib/useNow';
+import { useTilt } from '../useTilt';
 import { formatClose, relativeClose } from '../../lib/closeTime';
 
 // The Personal tab's home: sim wallet + P&L up top, then a compact grid of
@@ -14,6 +15,7 @@ import { formatClose, relativeClose } from '../../lib/closeTime';
 export default function PersonalGrid({
   onOpen, onNew,
 }: { onOpen: (m: DeskMarket) => void; onNew: () => void }) {
+  const tilt = useTilt();
   const { custom, positions, pmBalance } = useDesk();
   const now = useNow();
   const [code, setCode] = useState('');
@@ -70,7 +72,7 @@ export default function PersonalGrid({
         {custom.map((m) => {
           const phase = marketPhase(m, now);
           return (
-            <button key={m.id} className="mkt pg-card" onClick={() => onOpen(m)}>
+            <button key={m.id} className="mkt pg-card" onClick={() => onOpen(m)} {...tilt}>
               <div className="mkt-top">
                 <span className="mkt-cat">{m.id}</span>
                 <span className={`mkt-live pg-phase ${phase === 'settled' ? (m.resolved === 'YES' ? 'is-yes' : m.resolved === 'NO' ? 'is-no' : 'is-flat') : phase === 'closed' ? 'is-flat' : 'is-yes'}`}>
