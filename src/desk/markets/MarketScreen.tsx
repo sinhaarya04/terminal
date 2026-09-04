@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import MarketDetail from './MarketDetail';
 import TradeTicket from './TradeTicket';
 import BoardAdmin from './BoardAdmin';
+import Icon from '../../components/Icon';
 import { refreshLiveMarket } from '../deskStore';
 import { useNow } from '../../lib/useNow';
 import type { MarketEvent, Outcome } from '../marketsData';
@@ -27,7 +28,10 @@ export default function MarketScreen({
   useEffect(() => { if (stagedId) void refreshLiveMarket(stagedId); }, [stagedId, now]);
   return (
     <div className="mscreen">
-      <button className="mscreen-back mono" onClick={onBack}>← All markets</button>
+      <div className="mscreen-bar">
+        <button className="mscreen-back" onClick={onBack}><Icon name="arrow-left" size={14} />All markets</button>
+        <span className="mscreen-crumb"><Icon name="chevron-right" size={12} /><b>{ev.title}</b></span>
+      </div>
       <div className="mscreen-body">
         <div className="mscreen-main">
           <MarketDetail ev={ev} onPick={onPick} />

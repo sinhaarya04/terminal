@@ -105,42 +105,51 @@ export default function TradeTicket({
     <div className="pane-body">
       <div className="kicker">Ticket</div>
       <p className="tk-q">{market.q}</p>
-      <div className="tk-code mono">{market.id}{market.cat ? ` · ${market.cat}` : ''}</div>
+      <div className="tk-code">
+        <span className="mono">{market.id}</span>
+        {market.cat && <span className="mkt-cat">{market.cat}</span>}
+      </div>
 
-      <div className="tk-sides">
-        <button className={`tk-side is-yes ${side === 'YES' ? 'is-on' : ''}`} onClick={() => onSide('YES')}>YES</button>
-        <button className={`tk-side is-no ${side === 'NO' ? 'is-on' : ''}`} onClick={() => onSide('NO')}>NO</button>
+      <div className="tk-sides" role="radiogroup" aria-label="Side">
+        <button role="radio" aria-checked={side === 'YES'} className={`tk-side is-yes ${side === 'YES' ? 'is-on' : ''}`} onClick={() => onSide('YES')}>
+          Yes<small>{live.yes}¢</small>
+        </button>
+        <button role="radio" aria-checked={side === 'NO'} className={`tk-side is-no ${side === 'NO' ? 'is-on' : ''}`} onClick={() => onSide('NO')}>
+          No<small>{100 - live.yes}¢</small>
+        </button>
       </div>
 
       <label className={`tk-field t-input-wrap ${tooMuch ? 'is-error' : ''}`}>
-        <span className="tk-label mono">Amount ($)</span>
-        <input
-          ref={inputRef}
-          className={`tk-input mono t-input ${tooMuch ? 'is-error' : ''}`}
-          type="number"
-          min={1}
-          value={amount}
-          onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
-        />
-        <span className="t-error-msg tk-err mono" role="alert">Not enough credits.</span>
+        <span className="tk-label">Amount<span className="mono">{market.custom ? 'Private' : 'Public'} {money(balance)}</span></span>
+        <span className="tk-amount">
+          <input
+            ref={inputRef}
+            className={`tk-input mono t-input ${tooMuch ? 'is-error' : ''}`}
+            type="number"
+            min={1}
+            value={amount}
+            onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
+          />
+        </span>
+        <span className="t-error-msg tk-err" role="alert">Not enough credits.</span>
       </label>
       <div className="tk-chips">{chip(10)}{chip(25)}{chip(50)}{chip(100)}</div>
 
-      <div className="tk-calc mono">
-        <div><span>PRICE</span><b>{price}¢</b></div>
-        <div><span>SHARES</span><b>{shares.toFixed(1)}</b></div>
-        <div><span>COST</span><b>{money(amount)}</b></div>
+      <div className="tk-calc">
+        <div><span>Price</span><b>{price}¢</b></div>
+        <div><span>Shares</span><b>{shares.toFixed(1)}</b></div>
+        <div><span>Cost</span><b>{money(amount)}</b></div>
         {/* your slice of the pot as it stands after this buy — it grows as the
             other side pays in and shrinks as your side gets crowded */}
-        <div><span>CUT IF {side} WINS</span><b className="is-yes">{money(cutIfWins)} · {potPct}%</b></div>
-        <div>
-          <span>{market.custom ? 'PRI BALANCE AFTER' : 'PUB BALANCE AFTER'}</span>
+        <div><span>Cut if {side === 'YES' ? 'Yes' : 'No'} wins</span><b className="is-yes">{money(cutIfWins)} · {potPct}%</b></div>
+        <div className="is-total">
+          <span>{market.custom ? 'Private' : 'Public'} balance after</span>
           <b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b>
         </div>
       </div>
 
-      <button className="btn btn-red tk-go" disabled={amount <= 0 || busy} onClick={confirm}>
-        {busy ? 'Placing…' : `Buy ${side} · ${money(amount)}`}
+      <button className={`btn ${side === 'YES' ? 'btn-yes' : 'btn-no'} tk-go`} disabled={amount <= 0 || busy} onClick={confirm}>
+        {busy ? 'Placing…' : `Buy ${side === 'YES' ? 'Yes' : 'No'} · ${money(amount)}`}
       </button>
     </div>
   );

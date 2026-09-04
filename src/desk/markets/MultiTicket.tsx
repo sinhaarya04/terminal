@@ -46,7 +46,7 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
     <div className="pane-body">
       <div className="kicker">Ticket</div>
       <p className="tk-q">{live.q}</p>
-      <div className="tk-code mono">{live.id} · {outs.length} outcomes</div>
+      <div className="tk-code"><span className="mono">{live.id}</span><span className="mkt-cat">{outs.length} outcomes</span></div>
 
       <div className="mt-outcomes" role="radiogroup" aria-label="Outcome">
         {outs.map((o, i) => (
@@ -59,9 +59,11 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
       </div>
 
       <label className={`tk-field t-input-wrap ${tooMuch ? 'is-error' : ''}`}>
-        <span className="tk-label mono">Amount ($)</span>
-        <input className={`tk-input mono ${tooMuch ? 'is-error' : ''}`} type="number" min={1}
-          value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} />
+        <span className="tk-label">Amount<span className="mono">{live.custom ? 'Private' : 'Public'} {money(balance)}</span></span>
+        <span className="tk-amount">
+          <input className={`tk-input mono ${tooMuch ? 'is-error' : ''}`} type="number" min={1}
+            value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} />
+        </span>
       </label>
       <div className="tk-chips">
         {[10, 25, 50, 100].map((v) => (
@@ -69,12 +71,12 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
         ))}
       </div>
 
-      <div className="tk-calc mono">
-        <div><span>PRICE</span><b>{iPos >= 0 ? prices[iPos] : 0}¢</b></div>
-        <div><span>SHARES</span><b>{shares.toFixed(1)}</b></div>
-        <div><span>COST</span><b>{money(amount)}</b></div>
-        <div><span>CUT IF IT WINS</span><b className="is-yes">{money(cutIfWins)}</b></div>
-        <div><span>{live.custom ? 'PRI' : 'PUB'} BALANCE AFTER</span>
+      <div className="tk-calc">
+        <div><span>Price</span><b>{iPos >= 0 ? prices[iPos] : 0}¢</b></div>
+        <div><span>Shares</span><b>{shares.toFixed(1)}</b></div>
+        <div><span>Cost</span><b>{money(amount)}</b></div>
+        <div><span>Cut if it wins</span><b className="is-yes">{money(cutIfWins)}</b></div>
+        <div className="is-total"><span>{live.custom ? 'Private' : 'Public'} balance after</span>
           <b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b></div>
       </div>
 

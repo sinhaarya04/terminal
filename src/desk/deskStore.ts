@@ -301,6 +301,14 @@ export function signOut() {
   set({ user: null });
 }
 
+/** Dev-only preview: a guest desk (localStorage, no Supabase) so the signed-in
+ *  screens can be viewed and styled without a Northeastern account. Guarded by
+ *  the caller on `import.meta.env.DEV`; a production build never reaches it. */
+export function previewSignIn(handle = 'preview') {
+  if (state.live) return;
+  set({ user: { handle }, seenIntro: true });
+}
+
 export async function markIntroSeen() {
   if (state.live) { try { await db.rpcSetSeenIntro(); } catch { /* best-effort */ } }
   set({ seenIntro: true });

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import Icon from '../components/Icon';
 
 export type PaneKey = 'list' | 'detail' | 'action';
 type Mode = 'wide' | 'mid' | 'narrow';
@@ -38,7 +39,7 @@ export default function Workspace({
       <div className="ws ws-narrow">
         {prev && (
           <button className="ws-back" onClick={() => onFocus(prev)}>
-            ← {prev === 'list' ? 'Markets' : 'Detail'}
+            <Icon name="arrow-left" size={14} /> {prev === 'list' ? 'Back to list' : 'Back to detail'}
           </button>
         )}
         <div className="ws-pane ws-pane-solo">

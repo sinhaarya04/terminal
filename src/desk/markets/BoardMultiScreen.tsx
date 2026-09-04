@@ -3,6 +3,7 @@ import { getMarket, outcomePrices, resolveMulti, marketPhase, useDesk, money } f
 import { useNow } from '../../lib/useNow';
 import { formatClose, relativeClose } from '../../lib/closeTime';
 import MultiTicket from './MultiTicket';
+import Icon from '../../components/Icon';
 
 // The expanded view of a multi-outcome board market: outcome ladder + live
 // prices on the left, the multi ticket docked right. Officers get a
@@ -14,7 +15,14 @@ export default function BoardMultiScreen({ code, onBack }: { code: string; onBac
   const [pending, setPending] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!m) return <div className="mscreen"><button className="mscreen-back mono" onClick={onBack}>← All markets</button><div className="pane-body pane-empty"><p className="mono">Market not found</p></div></div>;
+  if (!m) {
+    return (
+      <div className="mscreen">
+        <div className="mscreen-bar"><button className="mscreen-back" onClick={onBack}><Icon name="arrow-left" size={14} />All markets</button></div>
+        <div className="pane-body pane-empty"><p className="mono">Market not found</p></div>
+      </div>
+    );
+  }
 
   const prices = outcomePrices(m);
   const outs = m.outcomes ?? [];
@@ -31,13 +39,17 @@ export default function BoardMultiScreen({ code, onBack }: { code: string; onBac
 
   return (
     <div className="mscreen">
-      <button className="mscreen-back mono" onClick={onBack}>← All markets</button>
+      <div className="mscreen-bar">
+        <button className="mscreen-back" onClick={onBack}><Icon name="arrow-left" size={14} />All markets</button>
+        <span className="mscreen-crumb"><Icon name="chevron-right" size={12} /><b>{m.q}</b></span>
+      </div>
       <div className="mscreen-body">
         <div className="mscreen-main">
           <div className="pane-body">
-            <div className="kicker">
-              {m.cat}{m.closesAt != null && phase !== 'settled' && <> · {relativeClose(m.closesAt, now)}</>}
-              {m.closesAt != null && ` · closes ${formatClose(m.closesAt)}`}
+            <div className="detail-meta">
+              <span className="mkt-cat">{m.cat}</span>
+              {m.closesAt != null && phase !== 'settled' && <><span className="sep" />{relativeClose(m.closesAt, now)}</>}
+              {m.closesAt != null && <><span className="sep" />closes {formatClose(m.closesAt)}</>}
             </div>
             <h2 className="detail-h">{m.q}</h2>
             {m.resolved === 'MULTI' && (

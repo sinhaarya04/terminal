@@ -14,6 +14,7 @@ import CloseTicket from './positions/CloseTicket';
 import PersonalGrid from './personal/PersonalGrid';
 import PersonalDetail, { type PersonalSel } from './personal/PersonalDetail';
 import PersonalAction from './personal/PersonalAction';
+import Icon from '../components/Icon';
 
 // Opening a market stages its front-runner in the ticket, so the ticket is never
 // blank on arrival. Staging is not placing — the order still needs an explicit Buy.
@@ -44,11 +45,11 @@ export default function DeskTerminal() {
     setFocus('action');
   };
 
-  const selectEvent = (next: MarketEvent) => {
+  // Opening from a card stages the front-runner; opening from one of a card's
+  // quick Yes/No buttons stages that exact outcome and side instead.
+  const selectEvent = (next: MarketEvent, pick?: { o: Outcome; side: Side }) => {
     setEvId(next.id);
-    setFocus('detail');
-    // stage the new market's front-runner too, so the ticket never blanks out
-    const staged = stageFor(next);
+    const staged = pick ? { m: outcomeToMarket(next, pick.o), side: pick.side } : stageFor(next);
     ensureMarket(staged.m);
     setOrder(staged);
     setFocus('detail');
@@ -72,7 +73,7 @@ export default function DeskTerminal() {
         aria-controls="desk-rail"
         {...(railOpen ? { inert: true } : {})}
       >
-        ›
+        <Icon name="chevron-right" size={14} />
       </button>
 
       <main className="desk-main">
@@ -109,8 +110,16 @@ export default function DeskTerminal() {
         {dest === 'Personal' && (
           pSel
             ? <div className="mscreen">
-                <button className="mscreen-back mono"
-                  onClick={() => { setPSel(null); setCreated(null); }}>← My markets</button>
+                <div className="mscreen-bar">
+                  <button className="mscreen-back"
+                    onClick={() => { setPSel(null); setCreated(null); }}>
+                    <Icon name="arrow-left" size={14} />My markets
+                  </button>
+                  <span className="mscreen-crumb">
+                    <Icon name="chevron-right" size={12} />
+                    <b>{pSel.kind === 'new' ? 'New market' : pSel.m.q}</b>
+                  </span>
+                </div>
                 <div className="mscreen-body">
                   <div className="mscreen-main">
                     <PersonalDetail sel={pSel}

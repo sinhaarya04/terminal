@@ -18,7 +18,7 @@ export default function PositionDetail({ row }: { row: PositionRow | null }) {
 
   return (
     <div className="pane-body">
-      <div className="kicker">Position · {row.p.marketId}</div>
+      <div className="kicker">Position<span className="mono" style={{ fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>{row.p.marketId}</span></div>
       <h2 className="detail-h">{m?.q || row.p.marketId}</h2>
 
       {m?.spark && (
@@ -33,24 +33,24 @@ export default function PositionDetail({ row }: { row: PositionRow | null }) {
         </p>
       )}
 
-      <div className="tk-calc mono">
-        <div><span>{row.p.outcomeIdx != null ? 'OUTCOME' : 'SIDE'}</span>
+      <div className="tk-calc">
+        <div><span>{row.p.outcomeIdx != null ? 'Outcome' : 'Side'}</span>
           <b className={row.p.outcomeIdx != null ? 'is-yes' : row.p.side === 'YES' ? 'is-yes' : 'is-no'}>
             {row.p.outcomeIdx != null
               ? (m?.outcomes?.find((o) => o.idx === row.p.outcomeIdx)?.name ?? `#${row.p.outcomeIdx}`)
-              : row.p.side}
+              : (row.p.side === 'YES' ? 'Yes' : 'No')}
           </b></div>
-        <div><span>SHARES</span><b>{row.p.shares.toFixed(1)}</b></div>
-        <div><span>ENTRY</span><b>{entry.toFixed(0)}¢</b></div>
+        <div><span>Shares</span><b>{row.p.shares.toFixed(1)}</b></div>
+        <div><span>Entry</span><b>{entry.toFixed(0)}¢</b></div>
         {/* a settled position has no mark — the outcome replaced the price.
             per-share is the pot split, not a fixed $1 */}
-        <div><span>{row.p.settled ? 'PAID/SHARE' : 'MARK'}</span>
+        <div><span>{row.p.settled ? 'Paid per share' : 'Mark'}</span>
           <b>{row.p.settled
             ? `${row.p.shares > 0 ? Math.round((row.p.settled.payout / row.p.shares) * 100) : 0}¢`
             : `${mark}¢`}</b></div>
-        <div><span>COST</span><b>{money(row.p.cost)}</b></div>
-        <div><span>{row.p.settled ? 'PAYOUT' : 'VALUE'}</span><b>{money(row.value)}</b></div>
-        <div><span>P&amp;L</span><b className={row.pnl >= 0 ? 'is-yes' : 'is-no'}>
+        <div><span>Cost</span><b>{money(row.p.cost)}</b></div>
+        <div><span>{row.p.settled ? 'Payout' : 'Value'}</span><b>{money(row.value)}</b></div>
+        <div className="is-total"><span>P&amp;L</span><b className={row.pnl >= 0 ? 'is-yes' : 'is-no'}>
           {row.pnl >= 0 ? '+' : ''}{money(row.pnl)}</b></div>
       </div>
     </div>

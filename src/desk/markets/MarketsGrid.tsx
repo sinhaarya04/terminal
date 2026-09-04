@@ -3,6 +3,8 @@ import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
 import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMultiFromKalshi, createMultiMarket } from '../deskStore';
 import { searchKalshiCatalog, kalshiEventOptionCount, type KalshiCatalogItem } from '../terminalDb';
 import { useTilt } from '../useTilt';
+import Icon from '../../components/Icon';
+import type { Side } from '../deskStore';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
 import OutcomeEditor, { type OutcomeDraft } from '../../components/OutcomeEditor';
@@ -33,7 +35,19 @@ function readView(): View {
   }
 }
 
-export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[]; onOpen: (ev: MarketEvent) => void }) {
+type Outcome = MarketEvent['outcomes'][number];
+export type OpenFn = (ev: MarketEvent, pick?: { o: Outcome; side: Side }) => void;
+
+// A two-outcome event whose answers are literally Yes/No gets priced quick
+// buttons on its card; anything else shows its ladder.
+const yesNo = (ev: MarketEvent): Outcome | null => {
+  if (ev.outcomes.length !== 2) return null;
+  const names = ev.outcomes.map((o) => o.name.trim().toLowerCase());
+  if (!names.includes('yes') || !names.includes('no')) return null;
+  return ev.outcomes.find((o) => o.name.trim().toLowerCase() === 'yes') ?? null;
+};
+
+export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[]; onOpen: OpenFn }) {
   const { isAdmin } = useDesk();
   const [filter, setFilter] = useState<Filter>('All');
   const [view, setView] = useState<View>(readView);
@@ -52,12 +66,14 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
   return (
     <div className="grid-wrap">
       <div className="grid-head">
-        <div className="kicker">Markets · {list.length}</div>
-        {isAdmin && (
-          <button className="btn btn-red admin-new" onClick={() => setAdminOpen((o) => !o)}>
-            {adminOpen ? 'Cancel' : '+ New board market'}
-          </button>
-        )}
+        <div className="kicker">Markets<span className="title-count">{list.length}</span></div>
+        <div className="head-actions">
+          {isAdmin && (
+            <button className={`btn ${adminOpen ? 'btn-ghost' : 'btn-red'} admin-new`} onClick={() => setAdminOpen((o) => !o)}>
+              {adminOpen ? <><Icon name="close" />Cancel</> : <><Icon name="plus" />New board market</>}
+            </button>
+          )}
+        </div>
       </div>
       {isAdmin && adminOpen && <AdminCreate onDone={() => setAdminOpen(false)} />}
 
@@ -68,7 +84,7 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
               key={f}
               role="tab"
               aria-selected={filter === f}
-              className={`grid-filter mono ${filter === f ? 'is-on' : ''}`}
+              className={`grid-filter ${filter === f ? 'is-on' : ''}`}
               onClick={() => setFilter(f)}
             >
               {f === 'Live' ? <span className="t-shimmer" data-text="Live">Live</span> : f}
@@ -83,10 +99,7 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
             onClick={() => setView('grid')}
             title="Grid view"
           >
-            <svg viewBox="0 0 16 16" aria-hidden="true" width="13" height="13">
-              <rect x="1" y="1" width="6" height="6" /><rect x="9" y="1" width="6" height="6" />
-              <rect x="1" y="9" width="6" height="6" /><rect x="9" y="9" width="6" height="6" />
-            </svg>
+            <Icon name="grid" size={14} />
             <span className="u-sr">Grid</span>
           </button>
           <button
@@ -95,10 +108,7 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
             onClick={() => setView('list')}
             title="List view"
           >
-            <svg viewBox="0 0 16 16" aria-hidden="true" width="13" height="13">
-              <rect x="1" y="2" width="14" height="2" /><rect x="1" y="7" width="14" height="2" />
-              <rect x="1" y="12" width="14" height="2" />
-            </svg>
+            <Icon name="list" size={14} />
             <span className="u-sr">List</span>
           </button>
         </div>
@@ -111,13 +121,18 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
       ) : (
         <div className="mlist">
           <div className="mlist-head mono" aria-hidden="true">
-            <span>Market</span><span>Top outcome</span><span className="r">Vol</span><span className="r">Updated</span>
+            <span>Market</span><span>Top outcome</span><span className="r">Chance</span><span>Trade</span><span className="r">Volume</span><span className="r">Updated</span>
           </div>
           {list.map((ev) => <Row key={ev.id} ev={ev} onOpen={onOpen} />)}
         </div>
       )}
 
-      {list.length === 0 && <p className="pane-empty-sub">Nothing in this category yet.</p>}
+      {list.length === 0 && (
+        <div className="pane-empty">
+          <p className="pane-empty-title">Nothing here yet</p>
+          <p className="pane-empty-sub">No open markets in this category. Try another filter.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -135,14 +150,27 @@ function OutcomeLine({ o }: { o: MarketEvent['outcomes'][number] }) {
   );
 }
 
-function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void }) {
+// Movement since the start of the outcome's price path: the number a trader
+// glances at before the chance itself.
+function ChanceDelta({ o }: { o: Outcome }) {
+  const d = o.path.length > 1 ? Math.round(o.yes - o.path[0]) : 0;
+  if (!d) return <span className="mkt-chance-delta is-flat">0</span>;
+  return <span className={`mkt-chance-delta ${d > 0 ? 'is-yes' : 'is-no'}`}>{d > 0 ? '+' : ''}{d}</span>;
+}
+
+function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
   const [expanded, setExpanded] = useState(false);
-  const tilt = useTilt();
+  const tilt = useTilt(4);
   const sorted = [...ev.outcomes].sort((a, b) => b.yes - a.yes);
-  const top = sorted.slice(0, 5);
-  const rest = sorted.slice(5);
+  const yes = yesNo(ev);
+  const top = yes ? [yes] : sorted.slice(0, 5);
+  const rest = yes ? [] : sorted.slice(5);
 
   const open = () => onOpen(ev);
+  const quick = (side: Side) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (yes) onOpen(ev, { o: yes, side });
+  };
   // The tile is a role="button" div so the expand toggle can be a real nested
   // <button> without nesting buttons. Match a native button's keyboard open.
   const onKey = (e: React.KeyboardEvent) => {
@@ -165,16 +193,22 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => voi
       {...(expanded ? {} : tilt)}
     >
       <span className="mkt-top">
-        <span className="mkt-cat mono">{ev.cat}</span>
-        {ev.live && (
-          <span className="mkt-live mono">
-            <span className="t-shimmer" data-text="Live">Live</span>
-          </span>
-        )}
+        <span className="mkt-cat">{ev.cat}</span>
+        {ev.live && <span className="mkt-live"><span className="t-shimmer" data-text="Live">Live</span></span>}
       </span>
 
       <span className="mkt-title">{ev.title}</span>
 
+      {yes ? (
+        <span className="mkt-chance">
+          <span>
+            <em>Chance</em>
+            <b>{yes.yes}%</b>
+          </span>
+          <span className="mkt-bar"><i style={{ width: `${yes.yes}%`, background: yes.color }} /></span>
+          <ChanceDelta o={yes} />
+        </span>
+      ) : (
       <span className="mkt-rows">
         {top.map((o) => <OutcomeLine key={o.name} o={o} />)}
         {expanded && rest.map((o) => <OutcomeLine key={o.name} o={o} />)}
@@ -185,29 +219,44 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => voi
             aria-expanded={expanded}
             onClick={toggle}
           >
-            {expanded ? 'Show less' : `+${rest.length} more`}
+            {expanded ? 'Show less' : `${rest.length} more`}
           </button>
         )}
       </span>
+      )}
 
-      <span className="mkt-foot mono">
-        <span>VOL {vol(ev.vol)}</span>
-        <span>{ev.updated}</span>
+      {yes && (
+        <span className="mkt-qa">
+          <button type="button" className="qa is-yes" onClick={quick('YES')} aria-label={`Buy Yes at ${yes.yes} cents`}>
+            Yes <b>{yes.yes}¢</b>
+          </button>
+          <button type="button" className="qa is-no" onClick={quick('NO')} aria-label={`Buy No at ${100 - yes.yes} cents`}>
+            No <b>{100 - yes.yes}¢</b>
+          </button>
+        </span>
+      )}
+
+      <span className="mkt-foot">
+        <span><Icon name="signal" />{vol(ev.vol)} vol</span>
+        <span><Icon name="clock" />{ev.updated}</span>
       </span>
     </div>
   );
 }
 
-function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void }) {
+function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
   const lead = [...ev.outcomes].sort((a, b) => b.yes - a.yes)[0];
   const more = ev.outcomes.length - 1;
+  const quick = (side: Side) => (e: React.MouseEvent) => { e.stopPropagation(); onOpen(ev, { o: lead, side }); };
 
   return (
-    <button className="mrow" onClick={() => onOpen(ev)} aria-label={`Open ${ev.title}`}>
+    <div className="mrow" role="button" tabIndex={0} onClick={() => onOpen(ev)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(ev); } }}
+      aria-label={`Open ${ev.title}`}>
       <span className="mrow-main">
-        <span className="mrow-meta mono">
-          {ev.cat}
-          {ev.live && <> · <span className="t-shimmer" data-text="Live">Live</span></>}
+        <span className="mrow-meta">
+          <span className="mkt-cat">{ev.cat}</span>
+          {ev.live && <span className="mkt-live" style={{ marginLeft: 0 }}><span className="t-shimmer" data-text="Live">Live</span></span>}
         </span>
         <span className="mrow-title">{ev.title}</span>
       </span>
@@ -221,10 +270,14 @@ function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: (e: MarketEvent) => void
         <span className="mrow-bar"><i style={{ width: `${lead.yes}%`, background: lead.color }} /></span>
       </span>
 
-      <span className="mrow-pct mono">{lead.yes}%</span>
-      <span className="mrow-vol mono r">{vol(ev.vol)}</span>
-      <span className="mrow-upd mono r">{ev.updated}</span>
-    </button>
+      <span className="mrow-pct r">{lead.yes}%</span>
+      <span className="mrow-qa">
+        <button type="button" className="qa is-yes" onClick={quick('YES')} aria-label={`Buy Yes on ${lead.name}`}>Yes <b>{lead.yes}¢</b></button>
+        <button type="button" className="qa is-no" onClick={quick('NO')} aria-label={`Buy No on ${lead.name}`}>No <b>{100 - lead.yes}¢</b></button>
+      </span>
+      <span className="mrow-vol r">{vol(ev.vol)}</span>
+      <span className="mrow-upd r">{ev.updated}</span>
+    </div>
   );
 }
 

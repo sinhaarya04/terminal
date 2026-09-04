@@ -1,133 +1,213 @@
+/* ============================================================
+   E[X] Terminal — design tokens + base
+   Direction: an institutional trading desk. Near-flat dark surfaces stacked
+   by elevation, hairline borders, one accent (brand red) reserved for the
+   current thing and the primary action, green/red only ever meaning up/down
+   or yes/no. Numbers sit in a mono with tabular figures; everything else is
+   the system sans at a desk-app size.
+   ============================================================ */
 :root{
-  --bg:#08090d;
-  --bg2:#0c0e14;
-  --text:#eef0f4;
-  --muted:#9aa2b1;
-  --faint:#7b8394;
-  --glass:rgba(255,255,255,.02);
-  --glass-2:rgba(255,255,255,.038);
-  --border:rgba(255,255,255,.10);
-  --border-2:rgba(255,255,255,.16);
-  --red:#e11d2a;
-  --red-bright:#ff3b3b;
+  /* ground + elevation: each step is a little lighter and a little cooler */
+  --bg:#090a0e;
+  --bg2:#0d0f15;
+  --surface:#11141b;
+  --surface-2:#161a23;
+  --surface-3:#1c212c;
+  --text:#f1f3f7;
+  --muted:#a5adbe;
+  --faint:#6e7688;
+  --glass:rgba(255,255,255,.025);
+  --glass-2:rgba(255,255,255,.045);
+  --border:rgba(255,255,255,.075);
+  --border-2:rgba(255,255,255,.13);
+  --border-3:rgba(255,255,255,.2);
+  /* brand */
+  --red:#e0212f;
+  --red-bright:#ff4d57;
+  --red-deep:#b8121f;
+  --red-soft:rgba(224,33,47,.12);
+  --red-line:rgba(224,33,47,.45);
+  /* market colours */
   --green:#34d399;
+  --green-soft:rgba(52,211,153,.12);
+  --green-line:rgba(52,211,153,.38);
   --down:#f87171;
+  --down-soft:rgba(248,113,113,.12);
+  --down-line:rgba(248,113,113,.36);
+  --lav:#b9a7e8;
+  --lav-soft:rgba(185,167,232,.12);
+  /* type */
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --serif:"Newsreader",Georgia,serif;
+  /* radii: tighter inside, softer on containers */
+  --r-1:4px;
+  --r-2:6px;
+  --r-3:10px;
+  --r-4:14px;
+  /* elevation: shadows carry the ground's blue-black, never neutral black */
+  --shadow-1:0 1px 2px rgba(3,4,8,.5);
+  --shadow-2:0 8px 24px -8px rgba(3,4,8,.65),0 2px 6px rgba(3,4,8,.4);
+  --shadow-3:0 24px 60px -16px rgba(3,4,8,.8),0 6px 18px rgba(3,4,8,.45);
+  /* z scale */
+  --z-rail:40;
+  --z-pop:50;
+  --z-menu:60;
+  --z-tab:70;
+  --z-intro:100;
+  --focus:0 0 0 3px rgba(255,77,87,.28);
 }
 *{margin:0;padding:0;box-sizing:border-box}
-/* The page moves vertically, full stop. Any element that leaks past the right
-   edge (a blur lobe, an intro ring, a wide table) becomes an internal styling
-   bug instead of a horizontal pan the whole phone can feel. */
 html,body{overflow-x:clip}
 @supports not (overflow-x:clip){html,body{overflow-x:hidden}}
 @media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
-body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:
-  radial-gradient(700px 380px at 82% -10%, rgba(225,29,42,.12), transparent 62%),
-  radial-gradient(620px 360px at 4% 4%, rgba(225,29,42,.05), transparent 60%),
-  var(--bg);pointer-events:none}
-::selection{background:var(--red);color:#08090d}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  font-feature-settings:"cv11","ss01";text-rendering:optimizeLegibility}
+/* a single, quiet light source at the top; no colour wash across the desk */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(900px 420px at 50% -12%, rgba(224,33,47,.08), transparent 65%),
+  var(--bg)}
+::selection{background:var(--red);color:#fff}
 a{color:inherit;text-decoration:none}
-:focus-visible{outline:2px solid var(--red-bright);outline-offset:2px}
+:focus-visible{outline:none;box-shadow:var(--focus)}
 svg{display:block}
-.mono{font-family:var(--mono);font-feature-settings:"tnum"}
+button{font-family:inherit;color:inherit}
+input,select,textarea{font-family:inherit;color:inherit}
+.mono{font-family:var(--mono);font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
 .wrap-wide{max-width:1200px;margin:0 auto;padding:0 24px}
-/* ---------- kit primitives kept for later redesign tasks ---------- */
-.kicker{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--red-bright);margin-bottom:18px}
-.kicker::before{content:"";width:24px;height:1px;background:var(--red-bright)}
-/* letter-spacing baseline for h1-h3; .mcard-title (h3) has no letter-spacing
-   of its own and depends on this rule for its current look */
 h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .h-sec{font-size:clamp(30px,4.2vw,48px);line-height:1.1}
 .lead{font-size:clamp(18px,2vw,21px);color:var(--muted);font-weight:400;line-height:1.5;max-width:34ch;margin:18px auto 0}
-/* buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:3px;padding:13px 28px;font-size:15px;font-weight:500;border:1px solid transparent;letter-spacing:.01em;
-  cursor:pointer;font-family:var(--font);background:transparent;
-  transition:color .16s ease,border-color .16s ease}
-/* orange "solid" buttons: outline at rest, orange fills left→right on hover */
-.btn-red{position:relative;overflow:hidden;z-index:0;background:transparent;border-color:var(--red);color:var(--red-bright)}
-.btn-red::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--red);transform:scaleX(0);transform-origin:left;transition:transform .3s cubic-bezier(.4,.7,.3,1)}
-.btn-red:hover{color:#08090d}
-.btn-red:hover::before{transform:scaleX(1)}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.btn:disabled::before{transform:scaleX(0)}
-@media(prefers-reduced-motion:reduce){.btn-red::before{transition:none}}
+
+/* ---------- labels ----------
+   The section label: small, tracked, medium weight, with a red tick. The tick
+   is the only decoration; underlines and brackets read as noise at desk
+   density. Sentence-case and title variants live with the pages. */
+.kicker{display:inline-flex;align-items:center;gap:8px;font-family:var(--font);font-size:11px;
+  font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.kicker::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--red-bright);flex:none}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--r-2);
+  padding:0 16px;height:36px;font-size:13px;font-weight:600;letter-spacing:.005em;white-space:nowrap;
+  border:1px solid transparent;cursor:pointer;background:transparent;color:var(--text);
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .12s ease,box-shadow .16s ease}
+.btn:active:not(:disabled){transform:translateY(1px) scale(.99)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+/* primary: solid brand red. The old outline-that-fills read as a link, not a
+   commit — a trade button has to look like it does something. */
+.btn-red{background:var(--red);border-color:var(--red);color:#fff;
+  box-shadow:0 1px 0 rgba(255,255,255,.12) inset,var(--shadow-1)}
+.btn-red:hover:not(:disabled){background:#ec2f3d;border-color:#ec2f3d}
+.btn-red:disabled{box-shadow:none}
+/* side-coloured commits: a Yes buy is green, a No buy is red-down — the same
+   colours the sides carry everywhere else, so the button confirms the choice */
+.btn-yes{background:#1fb981;border-color:#1fb981;color:#04110b;box-shadow:0 1px 0 rgba(255,255,255,.14) inset,var(--shadow-1)}
+.btn-yes:hover:not(:disabled){background:#2ccb90;border-color:#2ccb90}
+.btn-no{background:#e4444f;border-color:#e4444f;color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.12) inset,var(--shadow-1)}
+.btn-no:hover:not(:disabled){background:#f05560;border-color:#f05560}
+.btn-ghost{background:transparent;border-color:var(--border-2);color:var(--text)}
+.btn-ghost:hover:not(:disabled){background:var(--glass-2);border-color:var(--border-3)}
+.btn-quiet{background:var(--surface-2);border-color:var(--border);color:var(--muted)}
+.btn-quiet:hover:not(:disabled){color:var(--text);border-color:var(--border-2);background:var(--surface-3)}
+.btn-sm{height:30px;padding:0 12px;font-size:12px}
+.btn-lg{height:44px;padding:0 20px;font-size:14px;border-radius:var(--r-3)}
+.btn svg{width:14px;height:14px;flex:none}
+
+/* ---------- brand ---------- */
 .brand{display:flex;align-items:center;gap:12px}
 .brand .div{width:1px;height:18px;background:var(--border-2)}
 .brand .neu-logo{height:26px;width:auto;display:block}
 @media(max-width:560px){.brand .div{display:none}.brand .neu-logo{height:22px}}
+
+/* ---------- legacy blob field (sign-in backdrop only now) ---------- */
 .blob{position:absolute;border-radius:50%;filter:blur(85px);mix-blend-mode:screen;will-change:transform,opacity}
 .b1{width:50vw;height:50vw;left:-8%;top:-14%;background:radial-gradient(circle at 38% 38%,rgba(255,80,80,.85),rgba(255,80,80,0) 68%);opacity:.42;animation:drift1 28s ease-in-out infinite alternate}
 .b2{width:54vw;height:54vw;right:-12%;top:-8%;background:radial-gradient(circle at 50% 50%,rgba(200,30,45,.80),rgba(200,30,45,0) 66%);opacity:.40;animation:drift2 34s ease-in-out infinite alternate;animation-delay:-7s}
 .b3{width:48vw;height:48vw;left:16%;bottom:-26%;background:radial-gradient(circle at 50% 50%,rgba(140,20,28,.9),rgba(140,20,28,0) 64%);opacity:.46;animation:drift3 31s ease-in-out infinite alternate;animation-delay:-13s}
-/* phones: fewer, softer blobs — the 85px blur + screen blending is a real GPU/battery cost */
 @media(max-width:680px){.blob{filter:blur(60px)}}
 @keyframes drift1{0%{transform:translate(0,0) scale(1) rotate(0deg)}100%{transform:translate(8vw,6vh) scale(1.28) rotate(26deg)}}
 @keyframes drift2{0%{transform:translate(0,0) scale(1.12) rotate(0deg)}100%{transform:translate(-7vw,9vh) scale(.84) rotate(-24deg)}}
 @keyframes drift3{0%{transform:translate(0,0) scale(.9) rotate(0deg)}100%{transform:translate(6vw,-8vh) scale(1.22) rotate(20deg)}}
 @media(prefers-reduced-motion:reduce){.blob{animation:none!important}}
-/* liquid-glass blob backdrop, contained to the header, fading into the page below */
 .about-fluid{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
 .about-fluid::after{content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(8,9,13,0) 0%,rgba(8,9,13,0) 55%,rgba(8,9,13,.6) 80%,rgba(8,9,13,1) 100%)}
+  background:linear-gradient(to bottom,rgba(9,10,14,0) 0%,rgba(9,10,14,0) 55%,rgba(9,10,14,.6) 80%,rgba(9,10,14,1) 100%)}
 .about-fluid .blob{opacity:.34;bottom:auto}
-.about-fluid .b1{left:-6%;top:-30%}
-.about-fluid .b2{right:-10%;top:-24%}
-.about-fluid .b3{left:24%;top:-10%}
+
 /* ============================================================
-   /terminal — full-screen demo desk (modest red/dark/glass)
+   /terminal — the desk root
    ============================================================ */
-.desk-root{--desk-w:min(1760px,93vw);position:relative;min-height:100vh;overflow-x:hidden;color:var(--text);
+.desk-root{position:relative;min-height:100vh;overflow-x:hidden;color:var(--text);
   background:
-    radial-gradient(1300px 760px at 50% -10%, rgba(225,29,42,.22), transparent 60%),
-    radial-gradient(760px 420px at 84% -8%, rgba(225,29,42,.12), transparent 62%),
-    radial-gradient(680px 400px at 6% 3%, rgba(225,29,42,.07), transparent 60%),
+    radial-gradient(1300px 760px at 50% -10%, rgba(224,33,47,.22), transparent 60%),
+    radial-gradient(760px 420px at 84% -8%, rgba(224,33,47,.12), transparent 62%),
+    radial-gradient(680px 400px at 6% 3%, rgba(224,33,47,.07), transparent 60%),
     var(--bg)}
 .desk-brack{color:var(--red-bright)}
-.is-yes{color:var(--green)}.is-no{color:var(--down)}
+.is-yes{color:var(--green)}.is-no{color:var(--down)}.is-flat{color:var(--faint)}
 
-/* ---- sign-in ---- */
-.desk-auth{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden}
-/* The shared .about-fluid was tuned as a landing-page HEADER band: blobs
-   clustered at the top, a fade-to-black across the lower half. Centered on a
-   laptop that read as a phone-width column floating in blackness. Here the
-   field owns the whole canvas: lobes pushed into the corners at viewport
-   scale, and the bottom fade swapped for an edge vignette. */
-.desk-auth .about-fluid .b1{width:58vw;height:58vw;left:-16%;top:-24%}
-.desk-auth .about-fluid .b2{width:62vw;height:62vw;right:-18%;top:-16%;left:auto}
-.desk-auth .about-fluid .b3{width:54vw;height:54vw;left:30%;top:auto;bottom:-32%}
-.desk-auth .about-fluid .blob{opacity:.4}
-.desk-auth .about-fluid::after{background:radial-gradient(130% 100% at 50% 42%,rgba(8,9,13,0) 52%,rgba(8,9,13,.82) 100%)}
-.desk-card{position:relative;z-index:2;width:min(456px,92vw);padding:44px 40px 34px;text-align:center;
-  border:1px solid var(--border);border-radius:3px;
-  background:rgba(9,10,15,.62);backdrop-filter:blur(14px)}
-.desk-lockup{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:.03em}
-/* the real brand mark on the auth card, not typed serif glyphs */
-.auth-mark{height:40px;width:auto;margin:0 auto;color:var(--text)}
-.desk-kicker{margin:12px 0 0;justify-content:center}
+/* ---- sign-in ----
+   Split screen on a laptop: the brand and a live-looking tape on the left,
+   the form on the right. Nothing floats in a void any more. */
+.desk-auth{position:relative;min-height:100vh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);overflow:hidden}
+.auth-side{position:relative;display:flex;flex-direction:column;justify-content:space-between;
+  padding:40px 48px;border-right:1px solid var(--border);overflow:hidden;
+  background:linear-gradient(160deg,#12070a 0%,#0b0c12 60%)}
+.auth-side .about-fluid .blob{opacity:.3}
+.auth-side .about-fluid .b1{width:70vw;height:70vw;left:-30%;top:-40%}
+.auth-side .about-fluid .b2{width:60vw;height:60vw;right:-30%;top:-10%;left:auto}
+.auth-side .about-fluid .b3{width:55vw;height:55vw;left:10%;top:auto;bottom:-45%}
+.auth-side .about-fluid::after{background:linear-gradient(to bottom,rgba(11,12,18,.1),rgba(11,12,18,.85) 90%)}
+.auth-side>*{position:relative;z-index:1}
+.auth-top{display:flex;align-items:center;gap:14px}
+.auth-top .ex-mark{height:30px;width:auto;color:var(--text)}
+.auth-top .div{width:1px;height:20px;background:var(--border-2)}
+.auth-top .neu-logo{height:20px}
+.auth-hero{max-width:560px}
+.auth-hero h2{max-width:15ch;font-size:clamp(28px,3.2vw,40px);line-height:1.08;letter-spacing:-.028em;font-weight:700;text-wrap:balance}
+.auth-hero p{margin-top:14px;font-size:15px;line-height:1.55;color:var(--muted);max-width:40ch}
+.auth-tape{display:flex;flex-direction:column;gap:6px;margin-top:36px;max-width:460px}
+.auth-tape-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:12px;
+  padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-2);background:rgba(255,255,255,.02)}
+.auth-tape-cat{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.auth-tape-q{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.auth-tape-p{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--text)}
+.auth-tape-d{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums}
+.auth-foot{display:flex;gap:18px;font-size:12px;color:var(--faint)}
+.auth-main{display:flex;align-items:center;justify-content:center;padding:40px 24px;background:var(--bg)}
+.desk-card{position:relative;z-index:2;width:min(420px,100%);padding:36px 36px 28px;
+  border:1px solid var(--border);border-radius:var(--r-4);background:var(--surface);box-shadow:var(--shadow-3)}
+.auth-mark{height:34px;width:auto;color:var(--text)}
+.desk-kicker{margin:16px 0 0}
 .desk-go{width:100%;margin-top:16px}
-.desk-h1{margin:16px 0 10px;font-size:29px;font-weight:600;letter-spacing:-.015em}
-.desk-sub{margin:0 auto;max-width:40ch;font-size:14.5px;line-height:1.6;color:var(--muted)}
-.desk-field{display:block;text-align:left;margin-top:26px}
-.desk-fine{margin-top:18px;font-size:12px;color:var(--faint)}
-/* Sign-in code field: the six digits are the whole message, so they get the
-   mono face, wide tracking and centre alignment a one-time code reads best in. */
-.desk-code{font-family:var(--mono);font-size:22px;letter-spacing:.42em;text-align:center;
-  text-indent:.42em;padding-top:12px;padding-bottom:12px}
+.desk-h1{margin:6px 0 8px;font-size:24px;font-weight:700;letter-spacing:-.022em;line-height:1.15}
+.desk-sub{margin:0;font-size:13.5px;line-height:1.55;color:var(--muted)}
+.desk-field{display:block;margin-top:22px}
+.desk-fine{margin-top:18px;font-size:12px;color:var(--faint);line-height:1.5}
+.desk-code{font-family:var(--mono);font-size:24px;letter-spacing:.42em;text-align:center;
+  text-indent:.42em;height:54px}
 .desk-resend{display:flex;justify-content:center;gap:18px;margin-top:16px;flex-wrap:wrap}
 .desk-linkbtn{background:none;border:0;padding:0;cursor:pointer;font:inherit;font-size:12.5px;
   color:var(--muted);transition:color .18s ease}
-.desk-linkbtn:hover:not(:disabled){color:var(--red-bright)}
+.desk-linkbtn:hover:not(:disabled){color:var(--text)}
 .desk-linkbtn:disabled{color:var(--faint);cursor:default}
+.desk-join-msg{margin-top:12px;font-size:12.5px;line-height:1.5}
+@media(max-width:900px){
+  .desk-auth{grid-template-columns:1fr}
+  .auth-side{border-right:none;border-bottom:1px solid var(--border);padding:28px 24px;gap:22px}
+  .auth-tape{display:none}
+  .auth-hero h2{font-size:26px}
+  .auth-main{padding:28px 20px 40px}
+  .desk-card{padding:28px 24px 22px}
+}
 
-/* ---- intro ---- */
-.desk-intro{position:fixed;inset:0;background:#050609;display:flex;align-items:center;justify-content:center;z-index:50;overflow:hidden}
+/* ---- intro (unchanged: decorative, first sign-in only) ---- */
+.desk-intro{position:fixed;inset:0;background:#050609;display:flex;align-items:center;justify-content:center;z-index:var(--z-intro);overflow:hidden}
 .desk-intro-video{width:100%;height:100%;object-fit:cover}
-/* the lockup is 64px on desktop; at phone widths that overflows a 390px screen
-   once the .3em-tracked tagline sits under it */
 @media(max-width:560px){
   .desk-intro-lockup{font-size:44px}
   .desk-intro-tag{font-size:10px;letter-spacing:.2em;padding:0 20px}
@@ -135,19 +215,14 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
   .desk-intro-rings span{width:360px;height:360px;margin:-180px 0 0 -180px}
   .desk-skip{top:16px;right:16px}
 }
-/* the intro is decoration; under reduced motion DeskIntro returns null, but the
-   rules are neutralised too in case the markup is ever reused */
 @media(prefers-reduced-motion:reduce){
   .desk-intro-rings span,.desk-intro-lockup,.desk-dots i{animation:none}
   .desk-intro-lockup{transform:none;opacity:1}
 }
 .desk-intro-fallback{position:relative;text-align:center}
 .desk-intro-rings{position:absolute;left:50%;top:50%}
-/* fixed box scaled by transform. Animating width/height instead forced layout
-   on every frame, three rings at once — the single most expensive thing the app
-   was doing, and it ran behind a full-screen video. */
 .desk-intro-rings span{position:absolute;left:50%;top:50%;width:540px;height:540px;
-  margin:-270px 0 0 -270px;border:1px solid rgba(225,29,42,.4);border-radius:50%;
+  margin:-270px 0 0 -270px;border:1px solid rgba(224,33,47,.4);border-radius:50%;
   transform:scale(.167);opacity:0;will-change:transform,opacity;
   animation:deskRing 2.8s ease-out infinite}
 .desk-intro-rings span:nth-child(2){animation-delay:.95s}.desk-intro-rings span:nth-child(3){animation-delay:1.9s}
@@ -158,29 +233,20 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .desk-intro-load{margin-top:36px;font-size:13px;letter-spacing:.06em;color:var(--muted)}
 .desk-dots i{animation:deskBlink 1.4s steps(1) infinite}.desk-dots i:nth-child(2){animation-delay:.2s}.desk-dots i:nth-child(3){animation-delay:.4s}
 @keyframes deskBlink{50%{opacity:0}}
-.desk-skip{position:absolute;top:24px;right:26px;background:rgba(255,255,255,.04);border:1px solid var(--border-2);
-  color:var(--muted);font-size:12.5px;letter-spacing:.02em;padding:8px 15px;border-radius:3px;cursor:pointer;font-family:var(--mono);
+.desk-skip{position:absolute;top:24px;right:26px;background:rgba(255,255,255,.05);border:1px solid var(--border-2);
+  color:var(--muted);font-size:11px;padding:8px 14px;border-radius:var(--r-2);cursor:pointer;font-family:var(--mono);
   letter-spacing:.1em;text-transform:uppercase;transition:color .18s ease,border-color .18s ease;z-index:2}
-.desk-skip:hover{border-color:rgba(225,29,42,.6);color:#fff}
-
-
-/* The terminal shell, board rows, personal panels, bet-ticket modal and markets
-   board that used to live here were deleted with DeskMarkets/DeskPositions/
-   DeskPersonal/BetTicket. Their replacements are in styles/desk/*.css.
-   Sign-in and intro above stay until Task 14 restyles them. */
+.desk-skip:hover{border-color:var(--red-line);color:#fff}
 
 /* ---- shared chart + spark primitives (MultiLineChart, DeskSpark) ---- */
 .desk-spark{width:84px;height:26px;display:block}
 .desk-spark .desk-line{fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .desk-spark .desk-area{stroke:none}
-.desk-join-msg{margin-top:14px;font-size:13px;line-height:1.5}
 .mchart{width:100%;height:auto;display:block}
 .mchart-grid{stroke:rgba(255,255,255,.06);stroke-width:1}
 .mchart-ylabel,.mchart-xlabel{fill:var(--faint);font-family:var(--mono);font-size:10px}
 .mchart-xlabel{text-anchor:middle}
 .desk-or{display:flex;align-items:center;gap:12px;margin:18px 0 6px;color:var(--faint);font-size:12px}
 .desk-or::before,.desk-or::after{content:"";height:1px;flex:1;background:var(--border)}
-.reveal{opacity:0;transform:translateY(22px);
-  transition:opacity .7s ease,transform .7s ease}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
 .reveal.in{opacity:1;transform:none}
-

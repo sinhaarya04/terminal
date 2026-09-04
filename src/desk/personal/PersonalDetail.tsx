@@ -52,11 +52,15 @@ function MarketView({ code }: { code: string }) {
 
   return (
     <div className="pane-body">
-      <div className="kicker">
-        closes {m.closesAt != null ? formatClose(m.closesAt) : m.closes} · by {m.owner}
+      <div className="detail-meta">
+        <span className="mkt-cat">{m.isMulti ? `${m.outcomes?.length ?? 0} outcomes` : 'Yes / No'}</span>
+        <span className="sep" />
+        <span>Closes {m.closesAt != null ? formatClose(m.closesAt) : m.closes}</span>
         {m.closesAt != null && phase !== 'settled' && (
-          <span className="close-rel"> · {relativeClose(m.closesAt, now)}</span>
+          <><span className="sep" /><span className="close-rel">{relativeClose(m.closesAt, now)}</span></>
         )}
+        <span className="sep" />
+        <span>by @{m.owner}</span>
       </div>
       <h2 className="detail-h">{m.q}</h2>
 

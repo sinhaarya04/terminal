@@ -1,63 +1,40 @@
-/* shell: rail + workspace.
-   Colour and background transitions here are deliberately left alone under
-   reduced motion — they are not vestibular triggers. The rail collapse is,
-   though: it slides a whole column and translates the pull-tab, so those
-   resolve to a motionless state at the end of this file. */
-/* padding:0 / overflow:visible neutralise the legacy .desk-term rule that still
-   lives in global.css; Task 7 deletes that block and these resets with it. */
-.desk-term{display:grid;grid-template-columns:210px 1fr;min-height:100vh;
-  padding:0;overflow:visible;
-  /* same grid-track technique the accordion uses, on the column axis. Symmetric
-     duration both ways: hiding and showing the rail read as one reversible
-     gesture, which the motion scale says to keep symmetric (unlike a dropdown,
-     where close is quicker than open). */
+/* ============================================================
+   Shell: rail + main column. Desktop is one viewport tall; the rail is
+   pinned and only the main column scrolls. Phones get a bottom tab bar.
+   ============================================================ */
+.desk-term{display:grid;grid-template-columns:236px 1fr;min-height:100vh;
   transition:grid-template-columns var(--duration-fast) var(--ease-smooth-out)}
 .desk-term.rail-hidden{grid-template-columns:0px 1fr}
-/* Desktop is a fixed-height shell: the whole app is exactly one viewport tall,
-   the rail stays pinned (its wallets never scroll out of reach), and only the
-   main column scrolls its own content. Mobile keeps the growable body + fixed
-   bottom bar defined in the max-width:899px block below. */
+/* only the x axis is clipped here; the desktop rule below owns vertical
+   scrolling, and on phones the body scrolls instead */
+.desk-main{min-width:0;overflow-x:hidden;position:relative;background:var(--bg)}
 @media(min-width:900px){
   .desk-term{height:100vh;min-height:0;overflow:hidden}
-  .desk-main{height:100vh;overflow-y:auto}
+  .desk-main{height:100vh;overflow-y:auto;overscroll-behavior:contain}
 }
 
-/* pull-tab — hidden while the rail is open, slides in once it is away */
-.rail-tab{position:fixed;left:0;top:18px;z-index:70;
-  width:22px;height:40px;padding:0;cursor:pointer;
-  border:1px solid var(--border-2);border-left:none;border-radius:0 3px 3px 0;
-  background:var(--bg2);color:var(--faint);font-size:15px;line-height:1;
+/* pull-tab: only visible once the rail is away */
+.rail-tab{position:fixed;left:0;top:14px;z-index:var(--z-tab);display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:36px;padding:0;cursor:pointer;
+  border:1px solid var(--border-2);border-left:none;border-radius:0 var(--r-2) var(--r-2) 0;
+  background:var(--surface-2);color:var(--muted);
   opacity:0;transform:translateX(-100%);pointer-events:none;
   transition:opacity var(--duration-fast) var(--ease-smooth-out),
              transform var(--duration-fast) var(--ease-smooth-out),
              color .15s ease,border-color .15s ease}
 .rail-hidden .rail-tab{opacity:1;transform:translateX(0);pointer-events:auto}
-.rail-tab:hover{color:var(--red-bright);border-color:rgba(225,29,42,.6)}
-
-/* head row: lockup on the left, collapse control on the right */
-.rail-head{display:flex;align-items:center;gap:10px}
-.rail-collapse{margin-left:auto;background:none;border:none;padding:2px 4px;cursor:pointer;
-  color:var(--faint);font-size:15px;line-height:1;transition:color .15s ease}
-.rail-collapse:hover{color:var(--red-bright)}
-.desk-main{min-width:0;overflow:hidden}
+.rail-tab:hover{color:var(--text);border-color:var(--border-3)}
 
 /* ---------- rail ---------- */
-.rail{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:26px;
-  min-width:0;padding:22px 18px;border-right:1px solid var(--border)}
-/* the contents keep their full width while the track closes, so the rail slides
-   out of view instead of reflowing its text on the way */
-.rail>*:not(.rail-fluid){width:174px;flex:none}
-/* a 0px grid track still can't squeeze out the rail's own 18px padding and 1px
-   border (border-box floors at 37px), so those collapse on the same curve */
-.rail-hidden .rail{padding-left:0;padding-right:0;border-right-color:transparent}
-.rail{transition:padding var(--duration-fast) var(--ease-smooth-out),
-                 border-right-color var(--duration-fast) var(--ease-smooth-out)}
-/* the red gooey blob field, scoped to the rail: soft blurred lobes drifting
-   behind the chrome, faded out toward the bottom so the balance stays legible */
-.rail-fluid{position:absolute;inset:0;z-index:0;overflow:hidden}
-/* the global .blob blur is tuned for a full-page hero (85px across ~50vw); at
-   rail scale that flattens to nothing, so the lobes are re-tuned here: bigger
-   relative to the column, much less blur, and lifted opacity so the goo reads */
+.rail{position:relative;display:flex;flex-direction:column;gap:22px;min-width:0;overflow:hidden;
+  padding:18px 14px 16px;border-right:1px solid var(--border);background:var(--bg2);
+  transition:padding var(--duration-fast) var(--ease-smooth-out),border-right-color var(--duration-fast) var(--ease-smooth-out)}
+/* contents keep their width while the track closes so the column slides away
+   rather than reflowing its text */
+.rail>*:not(.rail-fluid){width:208px;flex:none;position:relative;z-index:1}
+/* the red gooey blob field behind the chrome: soft blurred lobes drifting at
+   the top of the column, faded out toward the wallets so they stay legible */
+.rail-fluid{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
 .rail-fluid .blob{filter:blur(38px);opacity:.55;mix-blend-mode:normal}
 .rail-fluid .b1{width:300px;height:300px;left:-46%;top:-14%;
   background:radial-gradient(circle at 42% 40%,rgba(255,70,70,.95),rgba(255,70,70,0) 66%)}
@@ -65,122 +42,137 @@
   background:radial-gradient(circle at 50% 50%,rgba(200,26,42,.9),rgba(200,26,42,0) 64%)}
 .rail-fluid .b3{width:320px;height:320px;left:-40%;top:26%;
   background:radial-gradient(circle at 50% 50%,rgba(150,18,30,.95),rgba(150,18,30,0) 62%)}
-/* fade the field out down the column so the balance and handle stay legible */
 .rail-fluid::after{content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(8,9,13,0) 0%,rgba(8,9,13,.15) 38%,rgba(8,9,13,.72) 72%,rgba(8,9,13,.94) 100%)}
-.rail>*:not(.rail-fluid){position:relative;z-index:1}
-/* lockup sits on one line: mark · hairline · NEU wordmark */
-.rail-brand{align-items:center;gap:10px}
+  background:linear-gradient(to bottom,rgba(13,15,21,0) 0%,rgba(13,15,21,.15) 38%,rgba(13,15,21,.72) 72%,rgba(13,15,21,.94) 100%)}
+.rail-hidden .rail{padding-left:0;padding-right:0;border-right-color:transparent}
+
+.rail-head{display:flex;align-items:center;gap:10px;padding:2px 6px 0}
+.rail-brand{align-items:center;gap:10px;min-width:0}
 .rail-brand .ex-mark{height:22px;width:auto;color:var(--text);flex:none}
 .rail-brand .div{height:16px}
-.rail-brand .neu-logo{height:17px}
+.rail-brand .neu-logo{height:16px}
+.rail-collapse{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:var(--r-1);background:none;border:none;cursor:pointer;
+  color:var(--faint);transition:color .15s ease,background-color .15s ease}
+.rail-collapse:hover{color:var(--text);background:var(--glass-2)}
+
+.rail-section{font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+  padding:0 10px;margin-bottom:6px}
 .rail-dests{display:flex;flex-direction:column;gap:2px}
-.rail-dest{position:relative;text-align:left;background:none;border:none;cursor:pointer;
-  font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
-  color:var(--faint);padding:9px 0 9px 13px;
-  transition:color .15s ease}
-.rail-dest:hover{color:var(--text)}
-.rail-dest.is-on{color:var(--text)}
-.rail-dest.is-on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;
-  width:1px;background:var(--red-bright)}
-.rail-badge{font-style:normal;margin-left:8px;font-size:10px;color:var(--red-bright)}
-.rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:7px;
-  padding-top:18px;border-top:1px solid var(--border)}
-.rail-bal{font-size:15px;font-weight:600;color:var(--green);letter-spacing:.01em}
+.rail-dest{position:relative;display:flex;align-items:center;gap:10px;text-align:left;
+  background:none;border:1px solid transparent;border-radius:var(--r-2);cursor:pointer;
+  font-size:13px;font-weight:500;color:var(--muted);padding:0 10px;height:36px;
+  transition:color .15s ease,background-color .15s ease,border-color .15s ease}
+.rail-dest svg{color:var(--faint);transition:color .15s ease;flex:none}
+.rail-dest:hover{color:var(--text);background:var(--glass)}
+.rail-dest:hover svg{color:var(--muted)}
+.rail-dest.is-on{color:var(--text);background:var(--surface-2);border-color:var(--border)}
+.rail-dest.is-on svg{color:var(--red-bright)}
+.rail-dest.is-on::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:2px;
+  border-radius:0 2px 2px 0;background:var(--red-bright)}
+.rail-badge{margin-left:auto;font-style:normal;font-family:var(--mono);font-size:10.5px;
+  font-variant-numeric:tabular-nums;color:var(--text);background:var(--surface-3);
+  border:1px solid var(--border);border-radius:999px;padding:1px 7px;line-height:1.4}
+
+/* wallet card: the two balances, labelled in words */
+.rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.rail-wallets{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);
+  border-radius:var(--r-3);background:var(--surface);overflow:hidden}
+.rail-wallet{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px}
+.rail-wallet+.rail-wallet{border-top:1px solid var(--border)}
+.rail-wallet em{font-style:normal;font-size:11px;font-weight:500;color:var(--faint);letter-spacing:.01em;
+  display:inline-flex;align-items:center;gap:7px}
+.rail-wallet em::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
+.rail-wallet.is-pri em::before{background:var(--lav)}
+.rail-bal{font-size:13.5px;font-weight:600;color:var(--text);letter-spacing:.01em}
+.rail-bal-pri{color:var(--text)}
+
+/* ---------- account menu ---------- */
+.acct{position:relative;z-index:2}
+.acct-trigger{display:flex;align-items:center;gap:9px;width:100%;text-align:left;cursor:pointer;
+  background:none;border:1px solid transparent;border-radius:var(--r-2);padding:6px 8px;
+  font-size:12.5px;color:var(--muted);transition:color .15s ease,background-color .15s ease,border-color .15s ease}
+.acct-trigger:hover,.acct-trigger[aria-expanded="true"]{color:var(--text);background:var(--glass);border-color:var(--border)}
+.acct-avatar{width:22px;height:22px;border-radius:6px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--red) 0%,#7a0d18 100%);color:#fff;font-size:10px;font-weight:700;letter-spacing:.02em}
+.acct-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-trigger svg{color:var(--faint);flex:none}
+.acct-menu{position:absolute;bottom:calc(100% + 6px);left:0;right:0;z-index:var(--z-menu);
+  display:flex;flex-direction:column;padding:4px;
+  border:1px solid var(--border-2);border-radius:var(--r-3);background:var(--surface-2);box-shadow:var(--shadow-3)}
+.acct-item{text-align:left;background:none;border:none;cursor:pointer;border-radius:var(--r-1);
+  padding:8px 10px;font-size:12.5px;font-weight:500;color:var(--muted);
+  transition:color .15s ease,background-color .15s ease}
+.acct-item:hover{background:var(--glass-2);color:var(--text)}
+.acct-item.is-danger:hover{color:var(--red-bright);background:var(--red-soft)}
 
 /* ---------- panes ---------- */
 .ws{display:grid;height:100vh;min-width:0}
-.ws-wide{grid-template-columns:300px minmax(0,1fr) 320px}
-.ws-mid{grid-template-columns:280px minmax(0,1fr);position:relative}
+.ws-wide{grid-template-columns:320px minmax(0,1fr) 340px}
+.ws-mid{grid-template-columns:300px minmax(0,1fr);position:relative}
 .ws-pane{min-width:0;overflow-y:auto;border-right:1px solid var(--border)}
 .ws-pane:last-child{border-right:none}
-.pane-body{padding:22px 20px}
-.pane-empty{display:flex;flex-direction:column;justify-content:center;height:60%;
-  text-align:center;color:var(--muted)}
-.pane-empty-sub{margin-top:6px;font-size:13px;color:var(--faint)}
+.ws-action{background:var(--bg2)}
+.pane-body{padding:22px 22px 28px}
+.pane-empty{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;height:60%;min-height:260px;
+  text-align:center;color:var(--muted);padding:22px}
+.pane-empty>.mono,.pane-empty-title{font-family:var(--font);font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.005em}
+.pane-empty-sub{margin-top:6px;font-size:12.5px;line-height:1.55;color:var(--faint);max-width:32ch}
+.pane-empty::before{content:"";display:block;width:36px;height:36px;border-radius:10px;margin:0 auto 14px;
+  border:1px solid var(--border-2);background:var(--surface);
+  background-image:linear-gradient(var(--border-2),var(--border-2)),linear-gradient(var(--border-2),var(--border-2));
+  background-size:14px 1px,1px 14px;background-position:center;background-repeat:no-repeat}
+.pane-empty .kicker{position:absolute;top:22px;left:22px;margin:0}
 
 /* mid: the action pane becomes a slide-over pinned to the right edge */
-.ws-mid .ws-action{position:absolute;top:0;right:0;bottom:0;width:320px;z-index:20;
-  background:var(--bg2);border-left:1px solid var(--border-2)}
+.ws-mid .ws-action{position:absolute;top:0;right:0;bottom:0;width:340px;z-index:20;
+  background:var(--bg2);border-left:1px solid var(--border-2);box-shadow:var(--shadow-3)}
 
 /* narrow: one pane at a time */
 .ws-narrow{display:block;height:auto}
 .ws-narrow .ws-pane-solo{border-right:none}
-.ws-back{display:block;width:100%;text-align:left;background:none;border:none;
-  border-bottom:1px solid var(--border);cursor:pointer;padding:13px 20px;
-  font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--faint);transition:color .15s ease}
+.ws-back{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;
+  border-bottom:1px solid var(--border);cursor:pointer;padding:12px 18px;
+  font-size:12.5px;font-weight:500;color:var(--muted);transition:color .15s ease}
 .ws-back:hover{color:var(--text)}
 
+/* ---------- phones: bottom tab bar ---------- */
 @media(max-width:899px){
-  /* the rail is a bottom tab bar on phones — collapsing it would strip the only
-     navigation, so the toggle and pull-tab are suppressed here */
-  .desk-term,.desk-term.rail-hidden{grid-template-columns:1fr;padding-bottom:56px}
-  .rail-collapse,.rail-tab{display:none}
+  .desk-term,.desk-term.rail-hidden{grid-template-columns:1fr;padding-bottom:64px}
+  .rail-collapse,.rail-tab,.rail-section{display:none}
   .rail>*:not(.rail-fluid){width:auto}
   .rail-head{display:none}
-  /* overflow must stay visible here: the account menu pops UP out of this
-     56px bar, and the desktop rule's overflow:hidden was decapitating it.
-     The gooey blobs are clipped by .rail-fluid itself instead. */
-  .rail{flex-direction:row;align-items:center;gap:12px;width:auto;overflow:visible;
-    position:fixed;bottom:0;left:0;right:0;z-index:40;
-    padding:0 14px;height:56px;border-right:none;border-top:1px solid var(--border);
-    background:var(--bg2)}
+  .rail{flex-direction:row;align-items:center;gap:6px;overflow:visible;
+    position:fixed;bottom:0;left:0;right:0;z-index:var(--z-rail);
+    padding:6px 10px calc(6px + env(safe-area-inset-bottom));height:auto;min-height:64px;
+    border-right:none;border-top:1px solid var(--border);background:rgba(13,15,21,.92);backdrop-filter:blur(14px)}
   .rail-brand{display:none}
-  /* three tabs + balance + handle share ~390px; the desktop tracking and gaps
-     don't fit, so everything tightens a step instead of wrapping or clipping */
-  .rail-dests{flex-direction:row;gap:14px}
-  .rail-dest{padding:9px 0;font-size:10px;letter-spacing:.08em}
-  .rail-dest.is-on::before{left:0;right:0;top:auto;bottom:0;width:auto;height:1px}
-  .rail-foot{margin-top:0;margin-left:auto;padding-top:0;border-top:none;
-    flex-direction:row;align-items:center;gap:10px}
-  .rail-bal{font-size:12.5px}
-  /* the trigger sits at the screen's right edge; a left-anchored menu would
-     run off it, so it hangs from the right on phones */
-  .acct-menu{left:auto;right:0}
+  .rail-dests{flex-direction:row;gap:2px;flex:1}
+  .rail-dest{flex:1;flex-direction:column;gap:4px;height:48px;padding:0 2px;font-size:9.5px;font-weight:600;
+    letter-spacing:.02em;justify-content:center;border-color:transparent}
+  .rail-dest.is-on{background:transparent;border-color:transparent}
+  .rail-dest.is-on::before{left:50%;right:auto;top:auto;bottom:-6px;width:18px;height:2px;transform:translateX(-50%);border-radius:2px 2px 0 0}
+  .rail-badge{position:absolute;top:1px;right:calc(50% - 20px);margin:0;padding:0 5px;font-size:9px;line-height:1.5}
+  .rail-foot{margin-top:0;gap:6px;flex-direction:row;align-items:center}
+  /* only the public balance fits beside four tabs; private credits live on
+     the Personal screen's own header */
+  .rail-wallets{flex-direction:row;border-radius:var(--r-2)}
+  .rail-wallet{padding:6px 8px;gap:5px}
+  .rail-wallet.is-pri{display:none}
+  .rail-foot{flex:none}
+  .rail-wallet em{font-size:0}
+  .rail-wallet em::before{width:6px;height:6px}
+  .rail-bal{font-size:12px}
+  .acct-trigger{padding:3px}
+  .acct-name,.acct-trigger>svg{display:none}
+  .acct-menu{left:auto;right:0;min-width:160px}
 }
 @media(max-width:380px){
-  .rail-dests{gap:10px}
-  .rail{gap:8px;padding:0 10px}
-  .rail-bal{font-size:11.5px}
+  .rail{padding-left:6px;padding-right:6px}
+  .rail-bal{font-size:11px}
 }
 
-/* ---------- account menu ---------- */
-.acct{position:relative}
-.acct-trigger{background:none;border:none;padding:0;text-align:left;cursor:pointer;
-  font-size:11px;letter-spacing:.06em;color:var(--faint);
-  transition:color .15s ease}
-.acct-trigger:hover,.acct-trigger[aria-expanded="true"]{color:var(--text)}
-.acct-menu{position:absolute;bottom:calc(100% + 8px);left:0;z-index:60;min-width:150px;
-  display:flex;flex-direction:column;
-  border:1px solid var(--border-2);border-radius:3px;background:var(--bg2)}
-.acct-item{text-align:left;background:none;border:none;cursor:pointer;
-  padding:10px 13px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);
-  border-bottom:1px solid rgba(255,255,255,.06);
-  transition:color .15s ease,background-color .15s ease}
-.acct-item:last-child{border-bottom:none}
-.acct-item:hover{background:rgba(255,255,255,.03);color:var(--text)}
-.acct-item.is-danger:hover{color:var(--red-bright)}
-
-/* Reduced motion: the rail must still hide and come back — it just does so
-   without the slide. Resolving to a motionless end state, not a faster one. */
 @media(prefers-reduced-motion:reduce){
   .desk-term,.rail,.rail-tab{transition:none}
-  .rail-tab{transform:none}
-  .rail-hidden .rail-tab{transform:none}
-}
-
-/* ---- the two wallets in the rail ---- */
-.rail-wallets{display:flex;flex-direction:column;gap:6px}
-.rail-wallet{display:flex;align-items:baseline;gap:8px}
-.rail-wallet em{font-style:normal;font-size:8.5px;letter-spacing:.13em;color:var(--faint);width:38px}
-/* private credits are visually their own species — lavender, never the
-   public wallet's green */
-.rail-bal-pri{color:#b9a7e8}
-@media(max-width:899px){
-  .rail-wallets{flex-direction:row;gap:12px}
-  .rail-wallet{gap:5px}
-  .rail-wallet em{width:auto}
-  .rail-bal{font-size:11.5px}
+  .rail-tab,.rail-hidden .rail-tab{transform:none}
 }

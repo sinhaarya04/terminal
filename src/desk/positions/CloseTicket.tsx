@@ -66,7 +66,7 @@ export default function CloseTicket({
       <p className="tk-q">{m?.q || row.p.marketId}</p>
 
       <label className="tk-field">
-        <span className="tk-label mono">Shares to sell (of {held.toFixed(1)} {row.p.side})</span>
+        <span className="tk-label">Shares to sell<span className="mono">of {held.toFixed(1)} {row.p.side === 'YES' ? 'Yes' : 'No'}</span></span>
         <input
           className="tk-input mono"
           type="number"
@@ -82,10 +82,10 @@ export default function CloseTicket({
         <button type="button" className="tk-chip mono" onClick={() => setSellN(null)}>All</button>
       </div>
 
-      <div className="tk-calc mono">
-        <div><span>YOU RECEIVE</span><b className="is-yes">{money(proceeds)}</b></div>
-        <div><span>COST BASIS OUT</span><b>{money(costOut)}</b></div>
-        <div><span>REALISED P&amp;L</span>
+      <div className="tk-calc">
+        <div><span>You receive</span><b className="is-yes">{money(proceeds)}</b></div>
+        <div><span>Cost basis out</span><b>{money(costOut)}</b></div>
+        <div className="is-total"><span>Realised P&amp;L</span>
           <b className={proceeds - costOut >= 0 ? 'is-yes' : 'is-no'}>
             {proceeds - costOut >= 0 ? '+' : ''}{money(round2(proceeds - costOut))}
           </b>
@@ -96,7 +96,7 @@ export default function CloseTicket({
       {err && <p className="join-msg mono is-no" role="alert">{err}</p>}
 
       <button className="btn btn-red tk-go" disabled={!m || !open || busy || amount <= 0} onClick={sell}>
-        {busy ? 'Selling…' : `Sell ${amount.toFixed(1)} ${row.p.side} · ${money(proceeds)}`}
+        {busy ? 'Selling…' : `Sell ${amount.toFixed(1)} ${row.p.side === 'YES' ? 'Yes' : 'No'} · ${money(proceeds)}`}
       </button>
     </div>
   );
