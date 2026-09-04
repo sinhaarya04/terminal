@@ -676,7 +676,7 @@
    28px/700, tight tracking. The L-marker stays on every *pane* header — this
    only promotes the one title that names the screen you're on. */
 .grid-head .kicker,.pg-head .kicker,.grid-wrap>.kicker{
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",var(--font);
+  font-family:var(--font);
   font-size:28px;font-weight:700;letter-spacing:-.022em;line-height:1.15;
   text-transform:none;color:var(--text);padding:0;gap:0}
 .grid-head .kicker::before,.pg-head .kicker::before,.grid-wrap>.kicker::before,
