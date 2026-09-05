@@ -84,7 +84,7 @@
   display:inline-flex;align-items:center;gap:7px}
 .rail-wallet em::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
 .rail-wallet.is-pri em::before{background:var(--lav)}
-.rail-bal{font-size:13.5px;font-weight:600;color:var(--text);letter-spacing:.01em}
+.rail-bal{font-family:var(--font);font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .rail-bal-pri{color:var(--text)}
 
 /* ---------- account menu ---------- */

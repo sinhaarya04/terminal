@@ -57,11 +57,11 @@ export default function Rail({
         <div className="rail-wallets">
           <span className="rail-wallet is-pub" title="Public balance: the wallet the board trades in">
             <em>Public</em>
-            <PopNumber text={money(balance)} className="rail-bal mono" />
+            <PopNumber text={money(balance)} className="rail-bal num" />
           </span>
           <span className="rail-wallet is-pri" title="Private credits: the separate wallet personal markets play in">
             <em>Private</em>
-            <PopNumber text={money(pmBalance)} className="rail-bal rail-bal-pri mono" />
+            <PopNumber text={money(pmBalance)} className="rail-bal rail-bal-pri num" />
           </span>
         </div>
         <AccountMenu />

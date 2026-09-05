@@ -29,7 +29,6 @@ export default function MarketDetail({
     <div className="pane-body">
       <div className="detail-meta">
         <span className="mkt-cat">{ev.cat}</span>
-        {ev.live && <><span className="sep" /><span className="mkt-live" style={{ marginLeft: 0 }}><span className="t-shimmer" data-text="Live">Live</span></span></>}
         <span className="sep" />
         <span>{ev.closes ? `Closes ${ev.closes}` : `Updated ${ev.updated}`}</span>
         <span className="sep" />

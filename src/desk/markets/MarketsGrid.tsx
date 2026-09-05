@@ -18,9 +18,9 @@ const KALSHI_CATS = [
   'Health', 'World', 'Crypto',
 ];
 
-type Filter = 'All' | 'Live' | Category;
+type Filter = 'All' | Category;
 type View = 'grid' | 'list';
-const FILTERS: Filter[] = ['All', 'Live', ...CATEGORIES];
+const FILTERS: Filter[] = ['All', ...CATEGORIES];
 const VIEW_KEY = 'ex.markets.view';
 
 const vol = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n));
@@ -54,7 +54,6 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
 
   const list = useMemo(() => {
     if (filter === 'All') return events;
-    if (filter === 'Live') return events.filter((e) => e.live);
     return events.filter((e) => e.cat === filter);
   }, [filter, events]);
 
@@ -82,7 +81,7 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
               className={`grid-filter ${filter === f ? 'is-on' : ''}`}
               onClick={() => setFilter(f)}
             >
-              {f === 'Live' ? <span className="t-shimmer" data-text="Live">Live</span> : f}
+              {f}
             </button>
           ))}
         </nav>
@@ -189,7 +188,6 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
     >
       <span className="mkt-top">
         <span className="mkt-cat">{ev.cat}</span>
-        {ev.live && <span className="mkt-live"><span className="t-shimmer" data-text="Live">Live</span></span>}
       </span>
 
       <span className="mkt-title">{ev.title}</span>
@@ -251,7 +249,6 @@ function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
       <span className="mrow-main">
         <span className="mrow-meta">
           <span className="mkt-cat">{ev.cat}</span>
-          {ev.live && <span className="mkt-live" style={{ marginLeft: 0 }}><span className="t-shimmer" data-text="Live">Live</span></span>}
         </span>
         <span className="mrow-title">{ev.title}</span>
       </span>
