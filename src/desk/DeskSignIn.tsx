@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import LiquidGlass from 'liquid-glass-react';
 import ExMark from '../components/ExMark';
 import BrandLockup from '../components/BrandLockup';
@@ -32,6 +32,29 @@ export default function DeskSignIn() {
   const codeRef = useRef<HTMLInputElement>(null);
   // the glass tracks the pointer across the whole form panel, not just the card
   const panelRef = useRef<HTMLDivElement>(null);
+  // liquid-glass-react centres its pane with translate(-50%, -50%), which
+  // lands on a fraction of a pixel whenever the card's height does. A
+  // composited layer on a fractional offset resamples its text and edges, so
+  // the whole card read soft. The pane is therefore held still (CSS strips
+  // its transform) inside a slot that this effect places on whole pixels.
+  const slotRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const panel = panelRef.current, slot = slotRef.current;
+    if (!panel || !slot) return;
+    const place = () => {
+      const P = panel.getBoundingClientRect();
+      const S = slot.getBoundingClientRect();
+      const px = P.left + window.scrollX, py = P.top + window.scrollY;
+      slot.style.left = `${Math.round(px + (P.width - S.width) / 2) - px}px`;
+      slot.style.top = `${Math.round(py + (P.height - S.height) / 2) - py}px`;
+      slot.style.visibility = 'visible';
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(panel);
+    ro.observe(slot);
+    return () => ro.disconnect();
+  }, [phase]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -102,17 +125,18 @@ export default function DeskSignIn() {
       {/* Apple-style liquid glass (rdev/liquid-glass-react): the red field
           bends and blurs behind the card, and the pane leans toward the
           pointer. Safari and Firefox get the blur without the refraction. */}
+      <div className="auth-glass-slot" ref={slotRef}>
       <LiquidGlass
         className="auth-glass"
         mouseContainer={panelRef}
-        displacementScale={44}
-        blurAmount={0.22}
+        displacementScale={30}
+        blurAmount={0.2}
         saturation={135}
-        aberrationIntensity={1.4}
-        elasticity={0.1}
+        aberrationIntensity={0}
+        elasticity={0}
         cornerRadius={18}
         padding="0"
-        style={{ position: 'absolute', top: '50%', left: '50%' }}
+        style={{ position: 'absolute' }}
       >
       <div className="desk-card">
         <ExMark className="auth-mark" />
@@ -174,6 +198,7 @@ export default function DeskSignIn() {
         <p className="desk-fine">A live demo. All markets settle in play money.</p>
       </div>
       </LiquidGlass>
+      </div>
       </div>
     </div>
   );

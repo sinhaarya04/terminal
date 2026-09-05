@@ -189,7 +189,10 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 /* the card sits inside liquid-glass-react's pane, which paints the blur,
    refraction and rim. The card itself only tints the glass darker so the
    form stays legible over the red field. */
-.auth-glass{z-index:2}
+.auth-glass-slot{position:absolute;top:0;left:0;z-index:2;visibility:hidden}
+/* the library positions its pane with a percentage transform; the slot above
+   owns placement instead, so the pane stays on the pixel grid */
+.auth-glass{position:relative!important;top:0!important;left:0!important;transform:none!important}
 .auth-glass .glass{background:rgba(10,11,16,.42)}
 /* the library sets a 20px system-ui font and a text shadow on its content
    layer; the card brings its own type */
