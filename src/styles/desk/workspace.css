@@ -27,7 +27,7 @@
 
 /* ---------- rail ---------- */
 .rail{position:relative;display:flex;flex-direction:column;gap:22px;min-width:0;overflow:hidden;
-  padding:18px 14px 16px;border-right:1px solid var(--border);background:var(--bg2);
+  padding:18px 14px 16px;border-right:1px solid var(--border);background:var(--bg);
   transition:padding var(--duration-fast) var(--ease-smooth-out),border-right-color var(--duration-fast) var(--ease-smooth-out)}
 /* contents keep their width while the track closes so the column slides away
    rather than reflowing its text */
@@ -43,7 +43,7 @@
 .rail-fluid .b3{width:320px;height:320px;left:-40%;top:26%;
   background:radial-gradient(circle at 50% 50%,rgba(150,18,30,.95),rgba(150,18,30,0) 62%)}
 .rail-fluid::after{content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(13,15,21,0) 0%,rgba(13,15,21,.15) 38%,rgba(13,15,21,.72) 72%,rgba(13,15,21,.94) 100%)}
+  background:linear-gradient(to bottom,rgba(5,5,6,0) 0%,rgba(5,5,6,.15) 38%,rgba(5,5,6,.72) 72%,rgba(5,5,6,.94) 100%)}
 .rail-hidden .rail{padding-left:0;padding-right:0;border-right-color:transparent}
 
 .rail-head{display:flex;align-items:center;gap:10px;padding:2px 6px 0}
@@ -77,7 +77,7 @@
 /* wallet card: the two balances, labelled in words */
 .rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
 .rail-wallets{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);
-  border-radius:var(--r-3);background:var(--surface);overflow:hidden}
+  border-radius:var(--r-3);background:transparent;overflow:hidden}
 .rail-wallet{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px}
 .rail-wallet+.rail-wallet{border-top:1px solid var(--border)}
 .rail-wallet em{font-style:normal;font-size:11px;font-weight:500;color:var(--faint);letter-spacing:.01em;
@@ -112,7 +112,7 @@
 .ws-mid{grid-template-columns:300px minmax(0,1fr);position:relative}
 .ws-pane{min-width:0;overflow-y:auto;border-right:1px solid var(--border)}
 .ws-pane:last-child{border-right:none}
-.ws-action{background:var(--bg2)}
+.ws-action{background:var(--bg)}
 .pane-body{padding:22px 22px 28px}
 .pane-empty{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;height:60%;min-height:260px;min-height:min(60dvh,420px);
   text-align:center;color:var(--muted);padding:22px}
@@ -148,7 +148,7 @@
   .rail{flex-direction:row;align-items:center;gap:6px;overflow:visible;
     position:fixed;bottom:0;left:0;right:0;z-index:var(--z-rail);
     padding:6px calc(10px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(10px + var(--safe-left));height:auto;min-height:64px;
-    border-right:none;border-top:1px solid var(--border);background:rgba(13,15,21,.92);backdrop-filter:blur(14px)}
+    border-right:none;border-top:1px solid var(--border);background:rgba(5,5,6,.92);backdrop-filter:blur(14px)}
   .rail-brand{display:none}
   .rail-dests{flex-direction:row;gap:2px;flex:1}
   .rail-dest{flex:1;flex-direction:column;gap:4px;height:48px;padding:0 2px;font-size:9.5px;font-weight:600;

@@ -13,20 +13,22 @@
   --safe-right:env(safe-area-inset-right,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
   --safe-left:env(safe-area-inset-left,0px);
-  /* ground + elevation: each step is a little lighter and a little cooler */
-  --bg:#090a0e;
-  --bg2:#0d0f15;
-  --surface:#11141b;
-  --surface-2:#161a23;
-  --surface-3:#1c212c;
-  --text:#f1f3f7;
-  --muted:#a5adbe;
-  --faint:#6e7688;
-  --glass:rgba(255,255,255,.025);
-  --glass-2:rgba(255,255,255,.045);
-  --border:rgba(255,255,255,.075);
-  --border-2:rgba(255,255,255,.13);
-  --border-3:rgba(255,255,255,.2);
+  /* ground + elevation: true black, and surfaces that barely leave it.
+     Panels are told apart by a crisp hairline, not by a grey fill — grey
+     slabs on black read as haze; a line on black reads as an edge. */
+  --bg:#050506;
+  --bg2:#070709;
+  --surface:#09090b;
+  --surface-2:#0e0e12;
+  --surface-3:#151519;
+  --text:#f4f4f6;
+  --muted:#a9adb8;
+  --faint:#70737e;
+  --glass:rgba(255,255,255,.03);
+  --glass-2:rgba(255,255,255,.05);
+  --border:rgba(255,255,255,.11);
+  --border-2:rgba(255,255,255,.17);
+  --border-3:rgba(255,255,255,.26);
   /* brand */
   --red:#e0212f;
   --red-bright:#ff4d57;
@@ -51,10 +53,11 @@
   --r-2:6px;
   --r-3:10px;
   --r-4:14px;
-  /* elevation: shadows carry the ground's blue-black, never neutral black */
-  --shadow-1:0 1px 2px rgba(3,4,8,.5);
-  --shadow-2:0 8px 24px -8px rgba(3,4,8,.65),0 2px 6px rgba(3,4,8,.4);
-  --shadow-3:0 24px 60px -16px rgba(3,4,8,.8),0 6px 18px rgba(3,4,8,.45);
+  /* elevation: on true black a shadow is just more black, so they are kept
+     to the floating things (menus, popovers, the sign-in card) */
+  --shadow-1:none;
+  --shadow-2:0 8px 24px -10px rgba(0,0,0,.7);
+  --shadow-3:0 24px 60px -16px rgba(0,0,0,.85),0 6px 18px rgba(0,0,0,.5);
   /* z scale */
   --z-rail:40;
   --z-pop:50;
@@ -71,9 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
   font-feature-settings:"cv11","ss01";text-rendering:optimizeLegibility}
 /* a single, quiet light source at the top; no colour wash across the desk */
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
-  radial-gradient(900px 420px at 50% -12%, rgba(224,33,47,.08), transparent 65%),
-  var(--bg)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--bg)}
 ::selection{background:var(--red);color:#fff}
 a{color:inherit;text-decoration:none}
 :focus-visible{outline:none;box-shadow:var(--focus)}
@@ -148,11 +149,9 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
    /terminal — the desk root
    ============================================================ */
 .desk-root{position:relative;min-height:100vh;min-height:100dvh;overflow-x:hidden;color:var(--text);
-  background:
-    radial-gradient(1300px 760px at 50% -10%, rgba(224,33,47,.22), transparent 60%),
-    radial-gradient(760px 420px at 84% -8%, rgba(224,33,47,.12), transparent 62%),
-    radial-gradient(680px 400px at 6% 3%, rgba(224,33,47,.07), transparent 60%),
-    var(--bg)}
+  /* one faint lift of red at the top edge; the wash that used to cover the
+     whole desk is what made every grey look out of focus */
+  background:radial-gradient(1100px 420px at 50% -16%, rgba(224,33,47,.10), transparent 62%),var(--bg)}
 .desk-brack{color:var(--red-bright)}
 .is-yes{color:var(--green)}.is-no{color:var(--down)}.is-flat{color:var(--faint)}
 
