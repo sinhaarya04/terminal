@@ -26,6 +26,11 @@ export type Position = {
   outcomeIdx?: number;   // multi-market positions: which outcome this holds
 };
 
+/** One repricing of a market: the YES price after an order, and the order
+ *  that moved it when this browser saw it. The chart draws these as the live
+ *  tail after the seeded history, with a marker per order. */
+export type Tick = { at: number; yes: number; dollars?: number; side?: Side; kind?: 'buy' | 'sell' };
+
 export type DeskMarket = {
   id: string;        // WEEK-01 for seeded, share code (EX-XXXX) for custom
   q: string;
@@ -33,6 +38,7 @@ export type DeskMarket = {
   yes: number;       // current YES price in cents (0-100) = crowd probability
   closes: string;
   spark: number[];   // recent price path 0-100
+  ticks?: Tick[];    // real repricings, oldest first (see Tick)
   custom?: boolean;  // true for user-created markets
   owner?: string;    // handle of the creator
   pool?: number;     // total fake $ staked in a custom market
@@ -341,7 +347,9 @@ export async function refreshLiveMarket(code: string): Promise<void> {
   try {
     const [m, feed] = await Promise.all([db.getMarketByCode(code), db.fetchActivity(code)]);
     if (!m) return;
-    const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === code ? { ...m, spark: c.spark } : c));
+    const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === code
+      ? (m.yes !== c.yes ? withTick({ ...c, ...m, spark: c.spark, ticks: c.ticks }, m.yes) : { ...m, spark: c.spark, ticks: c.ticks })
+      : c));
     // Server truth replaces this market's slice of the feed — but only when the
     // server actually answered. A failed fetch (feed null) keeps whatever this
     // browser already recorded rather than erasing it.
@@ -556,7 +564,7 @@ function applyBet(
   if (!state.markets.some((x) => x.id === m.id) && !state.custom.some((x) => x.id === m.id)) {
     state = { ...state, [m.custom ? 'custom' : 'markets']: [...(m.custom ? state.custom : state.markets), { ...m }] } as DeskState;
   }
-  bumpMarketPrice(m.id, newYes);
+  bumpMarketPrice(m.id, newYes, { dollars, side, kind: 'buy' });
   // the account's own ledger — every bet lands here, board and sim alike
   state = { ...state, trades: [{
     id: `${m.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -564,7 +572,8 @@ function applyBet(
     wallet: walletFor(m) === 'pmBalance' ? 'sim' as const : 'board' as const,
     at: Date.now(),
   }, ...state.trades].slice(0, 300) };
-  if (m.custom) recordActivity({ code: m.id, kind: 'bet', side, dollars });
+  // board and private alike: the market screen's order flow reads this feed
+  recordActivity({ code: m.id, kind: 'bet', side, dollars });
   if (m.custom) {
     state = { ...state, custom: state.custom.map((c) => (c.id === m.id ? { ...c, pool: round2((c.pool || 0) + dollars) } : c)) };
   }
@@ -686,7 +695,7 @@ export async function sellShares(m: DeskMarket, side: Side, shares: number): Pro
   }
 
   stampEngine(stored, side, -shares);
-  bumpMarketPrice(m.id, newYes);
+  bumpMarketPrice(m.id, newYes, { dollars: proceeds, side, kind: 'sell' });
   // the position shrinks; its cost basis leaves proportionally, so remaining
   // P&L still reads against what the remaining shares actually cost
   const positions = state.positions.map((p) => {
@@ -704,7 +713,7 @@ export async function sellShares(m: DeskMarket, side: Side, shares: number): Pro
     at: Date.now(),
   }, ...state.trades].slice(0, 300) };
   set({ positions, balance: round2(wallets.balance), pmBalance: round2(wallets.pmBalance) });
-  if (stored.custom) recordActivity({ code: m.id, kind: 'sell', side, dollars: proceeds });
+  recordActivity({ code: m.id, kind: 'sell', side, dollars: proceeds });
   return proceeds;
 }
 
@@ -807,9 +816,20 @@ export async function joinByCode(code: string): Promise<DeskMarket | null> {
   return m;
 }
 
-function bumpMarketPrice(id: string, newYes: number) {
-  const roll = (arr: DeskMarket[]) =>
-    arr.map((c) => (c.id === id ? { ...c, yes: newYes, spark: [...c.spark.slice(-9), newYes] } : c));
+const TICK_CAP = 240;
+
+/** Append a repricing to a market's tick tail. The first tick is preceded by
+ *  a point at the pre-order price, so the tail is a complete series on its
+ *  own for markets that have no seeded history. */
+function withTick(c: DeskMarket, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>): DeskMarket {
+  const now = Date.now();
+  const prev = c.ticks?.length ? c.ticks : [{ at: now - 1, yes: c.yes }];
+  return { ...c, yes: newYes, spark: [...c.spark.slice(-9), newYes],
+    ticks: [...prev, { at: now, yes: newYes, ...meta }].slice(-TICK_CAP) };
+}
+
+function bumpMarketPrice(id: string, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>) {
+  const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === id ? withTick(c, newYes, meta) : c));
   state = { ...state, markets: roll(state.markets), custom: roll(state.custom) };
 }
 

@@ -86,7 +86,9 @@ export default function DeskTerminal() {
                 order={order}
                 onPick={pickOutcome}
                 onSide={(sd) => setOrder((o) => (o ? { ...o, side: sd } : o))}
-                onDone={() => setOrder(null)}
+                // the outcome stays staged after a fill, so the chart and order
+                // flow keep pointing at the market that was just traded
+                onDone={() => {}}
                 onBack={() => { setEvId(null); setOrder(null); }}
               />)
             : <MarketsGrid events={events} onOpen={selectEvent} />

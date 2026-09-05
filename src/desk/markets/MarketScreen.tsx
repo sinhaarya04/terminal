@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import MarketDetail from './MarketDetail';
 import TradeTicket from './TradeTicket';
 import BoardAdmin from './BoardAdmin';
+import OrderFlow from './OrderFlow';
 import Icon from '../../components/Icon';
 import { refreshLiveMarket } from '../deskStore';
 import { useNow } from '../../lib/useNow';
@@ -43,6 +44,7 @@ export default function MarketScreen({
             onSide={onSide}
             onDone={onDone}
           />
+          {order && <OrderFlow code={order.m.id} />}
           {order && <BoardAdmin code={order.m.id} />}
         </div>
       </div>

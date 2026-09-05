@@ -1,12 +1,13 @@
 // Multi-outcome demo events for the Kalshi/Gemini-style board — E[X] colours,
 // campus/finance flavour, politics-free by club policy. Prices are illustrative.
-import type { DeskMarket, Side } from './deskStore';
+import type { DeskMarket, Side, Tick } from './deskStore';
 
 export type Outcome = {
   name: string;
   yes: number;       // YES price in cents = crowd probability
   color: string;     // chart line colour
-  path: number[];    // price path 0-100 for the chart
+  path: number[];    // seeded price history 0-100 for the chart
+  ticks?: Tick[];    // real repricings appended after `path`, one per order
   meta?: string;     // optional short text tag rendered before the outcome name
   code?: string;     // real DB market code (officer board markets); else derived
 };
@@ -204,9 +205,15 @@ export function useBoardEvents(): MarketEvent[] {
       let touched = false;
       const outcomes = ev.outcomes.map((o) => {
         const live = [...markets, ...custom].find((m) => m.id === `${ev.id}:${o.name}`);
-        if (!live || live.yes === o.yes) return o;
+        if (!live) return o;
+        if (live.yes === o.yes && !live.ticks?.length) return o;
         touched = true;
-        return { ...o, yes: live.yes, path: [...o.path.slice(0, -1), live.yes] };
+        // the seeded path ends at the pre-trade price; the tick tail starts there
+        // too, so drop the seed's last point and let the ticks take over
+        const ticks = live.ticks ?? [];
+        return ticks.length
+          ? { ...o, yes: live.yes, path: o.path.slice(0, -1), ticks }
+          : { ...o, yes: live.yes, path: [...o.path.slice(0, -1), live.yes] };
       });
       return touched ? { ...ev, outcomes } : ev;
     });
@@ -235,9 +242,12 @@ export function useBoardEvents(): MarketEvent[] {
             color: PAL[i % PAL.length], path: [Math.round(ex[i] / S * 100)],
           })) };
         }
+        // no seeded history on an officer market: the ticks are the whole line
+        const ticks = m.ticks ?? [];
         return { ...base, outcomes: [{
           name: 'Yes', code: m.id, yes: m.yes, color: '#34d399',
-          path: m.spark && m.spark.length ? m.spark : [m.yes, m.yes],
+          path: ticks.length ? [] : (m.spark && m.spark.length ? m.spark : [m.yes, m.yes]),
+          ticks,
         }] };
       });
     return [...boardEvents, ...overlaid];

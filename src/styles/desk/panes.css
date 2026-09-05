@@ -609,3 +609,34 @@ textarea.tk-input{height:auto;padding:10px 12px;resize:vertical}
 /* ---------- press feedback ---------- */
 .li:active,.lb-row:not(.lb-head):active,.mt-outcome:active,.tk-chip:active:not(:disabled),
 .tk-side:active,.qa:active,.oc-p:active,.grid-filter:active{transform:scale(.985)}
+
+/* ---------- order flow (markets/OrderFlow.tsx) ---------- */
+.of{padding:20px 22px 24px;border-top:1px solid var(--border)}
+.of-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.of-head .kicker{margin:0}
+.of-live{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+.of-live .t-shimmer{--shimmer-base:var(--red);--shimmer-highlight:#ffc2c2;--shimmer-dur:2600ms}
+.of-split{padding:12px 12px 10px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface)}
+.of-split-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px;font-weight:600}
+.of-side b{font-weight:500;font-size:12.5px;color:var(--text);margin:0 4px}
+.of-bar{display:flex;height:6px;margin:8px 0 6px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,.06);gap:2px}
+.of-bar i{display:block;height:100%;transition:width .5s var(--ease-smooth-out)}
+.of-bar .is-yes{background:var(--green)}
+.of-bar .is-no{background:var(--down)}
+.of-pct{font-size:11px;font-weight:500;color:var(--faint)}
+.of-empty{margin:14px 0 0;font-size:12.5px;line-height:1.5;color:var(--faint)}
+.of-list{list-style:none;margin:12px 0 0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);overflow:hidden}
+.of-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto 34px;align-items:center;gap:8px;
+  padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;
+  animation:of-in .4s var(--ease-smooth-out) both}
+.of-row:last-child{border-bottom:0}
+@keyframes of-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.of-row{animation:none}}
+.of-who{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.of-kind{color:var(--faint);font-size:11.5px}
+.of-amt{font-weight:500;font-variant-numeric:tabular-nums}
+.of-when{color:var(--faint);font-size:11px;text-align:right}
+.of-row.is-sell .of-kind{color:var(--muted)}
+
+/* order markers on the price chart */
+.mchart-order{transition:r .3s var(--ease-smooth-out)}

@@ -253,6 +253,8 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .mchart-grid{stroke:rgba(255,255,255,.06);stroke-width:1}
 .mchart-ylabel,.mchart-xlabel{fill:var(--faint);font-family:var(--mono);font-size:10px}
 .mchart-xlabel{text-anchor:middle}
+.mchart-seam line{stroke:rgba(255,77,87,.35);stroke-width:1;stroke-dasharray:2 3}
+.mchart-seam-label{fill:var(--red-bright);font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase}
 .desk-or{display:flex;align-items:center;gap:12px;margin:18px 0 6px;color:var(--faint);font-size:12px}
 .desk-or::before,.desk-or::after{content:"";height:1px;flex:1;background:var(--border)}
 .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
