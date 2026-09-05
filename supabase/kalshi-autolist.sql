@@ -45,8 +45,11 @@ returns text language sql immutable set search_path = public as $$
   select case p
     when 'Sports' then 'Sports'
     when 'Crypto' then 'Crypto'
-    when 'Financials' then 'Stocks'
-    when 'Companies' then 'Stocks'
+    -- Financials/Companies fold into Econ to match the board's tabs
+    -- (marketsData.ts KALSHI_CAT_MAP has no 'Stocks' category; unknown cats
+    -- fall through to the Campus catch-all).
+    when 'Financials' then 'Econ'
+    when 'Companies' then 'Econ'
     when 'Economics' then 'Econ'
     when 'Commodities' then 'Econ'
     when 'Science and Technology' then 'Tech'
