@@ -2,7 +2,7 @@
    Shell: rail + main column. Desktop is one viewport tall; the rail is
    pinned and only the main column scrolls. Phones get a bottom tab bar.
    ============================================================ */
-.desk-term{display:grid;grid-template-columns:236px 1fr;min-height:100vh;
+.desk-term{display:grid;grid-template-columns:236px 1fr;min-height:100vh;min-height:100dvh;
   transition:grid-template-columns var(--duration-fast) var(--ease-smooth-out)}
 .desk-term.rail-hidden{grid-template-columns:0px 1fr}
 /* only the x axis is clipped here; the desktop rule below owns vertical
@@ -114,7 +114,7 @@
 .ws-pane:last-child{border-right:none}
 .ws-action{background:var(--bg2)}
 .pane-body{padding:22px 22px 28px}
-.pane-empty{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;height:60%;min-height:260px;
+.pane-empty{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;height:60%;min-height:260px;min-height:min(60dvh,420px);
   text-align:center;color:var(--muted);padding:22px}
 .pane-empty>.mono,.pane-empty-title{font-family:var(--font);font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.005em}
 .pane-empty-sub{margin-top:6px;font-size:12.5px;line-height:1.55;color:var(--faint);max-width:32ch}
@@ -132,26 +132,29 @@
 .ws-narrow{display:block;height:auto}
 .ws-narrow .ws-pane-solo{border-right:none}
 .ws-back{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;
-  border-bottom:1px solid var(--border);cursor:pointer;padding:12px 18px;
+  border-bottom:1px solid var(--border);cursor:pointer;padding:12px calc(16px + var(--safe-right)) 12px calc(16px + var(--safe-left));
   font-size:12.5px;font-weight:500;color:var(--muted);transition:color .15s ease}
 .ws-back:hover{color:var(--text)}
 
 /* ---------- phones: bottom tab bar ---------- */
 @media(max-width:899px){
-  .desk-term,.desk-term.rail-hidden{grid-template-columns:1fr;padding-bottom:64px}
+  /* room under the content for the fixed bar plus the home indicator; the
+     notch is padded at the top of the main column */
+  .desk-term,.desk-term.rail-hidden{grid-template-columns:1fr;padding-bottom:calc(66px + var(--safe-bottom))}
+  .desk-main{padding-top:var(--safe-top)}
   .rail-collapse,.rail-tab,.rail-section{display:none}
   .rail>*:not(.rail-fluid){width:auto}
   .rail-head{display:none}
   .rail{flex-direction:row;align-items:center;gap:6px;overflow:visible;
     position:fixed;bottom:0;left:0;right:0;z-index:var(--z-rail);
-    padding:6px 10px calc(6px + env(safe-area-inset-bottom));height:auto;min-height:64px;
+    padding:6px calc(10px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(10px + var(--safe-left));height:auto;min-height:64px;
     border-right:none;border-top:1px solid var(--border);background:rgba(13,15,21,.92);backdrop-filter:blur(14px)}
   .rail-brand{display:none}
   .rail-dests{flex-direction:row;gap:2px;flex:1}
   .rail-dest{flex:1;flex-direction:column;gap:4px;height:48px;padding:0 2px;font-size:9.5px;font-weight:600;
     letter-spacing:.02em;justify-content:center;border-color:transparent}
   .rail-dest.is-on{background:transparent;border-color:transparent}
-  .rail-dest.is-on::before{left:50%;right:auto;top:auto;bottom:-6px;width:18px;height:2px;transform:translateX(-50%);border-radius:2px 2px 0 0}
+  .rail-dest.is-on::before{left:50%;right:auto;top:-6px;bottom:auto;width:18px;height:2px;transform:translateX(-50%);border-radius:0 0 2px 2px}
   .rail-badge{position:absolute;top:1px;right:calc(50% - 20px);margin:0;padding:0 5px;font-size:9px;line-height:1.5}
   .rail-foot{margin-top:0;gap:6px;flex-direction:row;align-items:center}
   /* only the public balance fits beside four tabs; private credits live on

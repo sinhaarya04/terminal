@@ -7,6 +7,12 @@
    the system sans at a desk-app size.
    ============================================================ */
 :root{
+  /* the phone's own chrome: notch, rounded corners, home indicator. Zero on a
+     desktop; the layout adds these to its padding rather than hard-coding. */
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-right:env(safe-area-inset-right,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);
   /* ground + elevation: each step is a little lighter and a little cooler */
   --bg:#090a0e;
   --bg2:#0d0f15;
@@ -141,7 +147,7 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 /* ============================================================
    /terminal — the desk root
    ============================================================ */
-.desk-root{position:relative;min-height:100vh;overflow-x:hidden;color:var(--text);
+.desk-root{position:relative;min-height:100vh;min-height:100dvh;overflow-x:hidden;color:var(--text);
   background:
     radial-gradient(1300px 760px at 50% -10%, rgba(224,33,47,.22), transparent 60%),
     radial-gradient(760px 420px at 84% -8%, rgba(224,33,47,.12), transparent 62%),
@@ -153,7 +159,7 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 /* ---- sign-in ----
    Split screen on a laptop: the brand and a live-looking tape on the left,
    the form on the right. Nothing floats in a void any more. */
-.desk-auth{position:relative;min-height:100vh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);overflow:hidden}
+.desk-auth{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);overflow:hidden}
 .auth-side{position:relative;display:flex;flex-direction:column;justify-content:space-between;
   padding:40px 48px;border-right:1px solid var(--border);overflow:hidden;
   background:linear-gradient(160deg,#12070a 0%,#0b0c12 60%)}
@@ -198,10 +204,11 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .desk-join-msg{margin-top:12px;font-size:12.5px;line-height:1.5}
 @media(max-width:900px){
   .desk-auth{grid-template-columns:1fr}
-  .auth-side{border-right:none;border-bottom:1px solid var(--border);padding:28px 24px;gap:22px}
+  .auth-side{border-right:none;border-bottom:1px solid var(--border);gap:22px;
+    padding:calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) 24px calc(20px + var(--safe-left))}
   .auth-tape{display:none}
   .auth-hero h2{font-size:26px}
-  .auth-main{padding:28px 20px 40px}
+  .auth-main{padding:24px calc(16px + var(--safe-right)) calc(40px + var(--safe-bottom)) calc(16px + var(--safe-left))}
   .desk-card{padding:28px 24px 22px}
 }
 
