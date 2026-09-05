@@ -159,7 +159,8 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 /* ---- sign-in ----
    Split screen on a laptop: the brand and a live-looking tape on the left,
    the form on the right. Nothing floats in a void any more. */
-.desk-auth{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);overflow:hidden}
+/* the form is the point of the page: it gets the wider column */
+.desk-auth{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);overflow:hidden}
 .auth-side{position:relative;display:flex;flex-direction:column;justify-content:center;
   padding:80px 48px 48px;border-right:1px solid var(--border);overflow:hidden;
   background:linear-gradient(160deg,#12070a 0%,#0b0c12 60%)}
@@ -174,7 +175,7 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .auth-top .ex-mark{height:30px;width:auto;color:var(--text)}
 .auth-top .div{width:1px;height:20px;background:var(--border-2)}
 .auth-top .neu-logo{height:20px}
-.auth-hero{max-width:560px}
+.auth-hero{max-width:440px}
 .auth-hero h2{max-width:15ch;font-size:clamp(28px,3.2vw,40px);line-height:1.08;letter-spacing:-.028em;font-weight:700;text-wrap:balance}
 .auth-hero p{margin-top:14px;font-size:15px;line-height:1.55;color:var(--muted);max-width:40ch}
 .auth-main{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:40px 24px;background:var(--bg)}
