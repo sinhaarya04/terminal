@@ -145,12 +145,20 @@ function OutcomeLine({ o }: { o: MarketEvent['outcomes'][number] }) {
 }
 
 // Movement since the start of the outcome's price path: the number a trader
-// glances at before the chance itself.
-function ChanceDelta({ o }: { o: Outcome }) {
-  const d = o.path.length > 1 ? Math.round(o.yes - o.path[0]) : 0;
+// glances at before the chance itself. `flip` reads it from the No side.
+function ChanceDelta({ o, flip = false }: { o: Outcome; flip?: boolean }) {
+  const raw = o.path.length > 1 ? Math.round(o.yes - o.path[0]) : 0;
+  const d = flip ? -raw : raw;
   if (!d) return <span className="mkt-chance-delta is-flat">0</span>;
   return <span className={`mkt-chance-delta ${d > 0 ? 'is-yes' : 'is-no'}`}>{d > 0 ? '+' : ''}{d}</span>;
 }
+
+// The side the crowd favours on a binary market. A 90% No market previews
+// as a red No, not a 10% Yes; ties go to Yes.
+const favoured = (yes: Outcome) => {
+  const no = yes.yes < 50;
+  return { no, label: no ? 'No' : 'Yes', pct: no ? 100 - yes.yes : yes.yes, color: no ? 'var(--down)' : 'var(--green)' };
+};
 
 function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
   const [expanded, setExpanded] = useState(false);
@@ -192,16 +200,16 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
 
       <span className="mkt-title">{ev.title}</span>
 
-      {yes ? (
+      {yes ? (() => { const f = favoured(yes); return (
         <span className="mkt-chance">
           <span>
-            <em>Chance</em>
-            <b>{yes.yes}%</b>
+            <em>{f.label}</em>
+            <b className={f.no ? 'is-no' : 'is-yes'}>{f.pct}%</b>
           </span>
-          <span className="mkt-bar"><i style={{ width: `${yes.yes}%`, background: yes.color }} /></span>
-          <ChanceDelta o={yes} />
+          <span className="mkt-bar"><i style={{ width: `${f.pct}%`, background: f.color }} /></span>
+          <ChanceDelta o={yes} flip={f.no} />
         </span>
-      ) : (
+      ); })() : (
       <span className="mkt-rows">
         {top.map((o) => <OutcomeLine key={o.name} o={o} />)}
         {expanded && rest.map((o) => <OutcomeLine key={o.name} o={o} />)}
@@ -238,8 +246,11 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
 }
 
 function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
-  const lead = [...ev.outcomes].sort((a, b) => b.yes - a.yes)[0];
-  const more = ev.outcomes.length - 1;
+  const yes = yesNo(ev);
+  // binary rows lead with the favoured side; ladders with their top outcome
+  const f = yes ? favoured(yes) : null;
+  const lead = yes ?? [...ev.outcomes].sort((a, b) => b.yes - a.yes)[0];
+  const more = yes ? 0 : ev.outcomes.length - 1;
   const quick = (side: Side) => (e: React.MouseEvent) => { e.stopPropagation(); onOpen(ev, { o: lead, side }); };
 
   return (
@@ -255,14 +266,14 @@ function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
 
       <span className="mrow-lead">
         <span className="mrow-name">
-          <i className="dot" style={{ background: lead.color }} />
-          {lead.name}
+          <i className="dot" style={{ background: f ? f.color : lead.color }} />
+          {f ? f.label : lead.name}
           {more > 0 && <em className="mrow-more mono">+{more}</em>}
         </span>
-        <span className="mrow-bar"><i style={{ width: `${lead.yes}%`, background: lead.color }} /></span>
+        <span className="mrow-bar"><i style={{ width: `${f ? f.pct : lead.yes}%`, background: f ? f.color : lead.color }} /></span>
       </span>
 
-      <span className="mrow-pct r">{lead.yes}%</span>
+      <span className={`mrow-pct r ${f ? (f.no ? 'is-no' : 'is-yes') : ''}`}>{f ? f.pct : lead.yes}%</span>
       <span className="mrow-qa">
         <button type="button" className="qa is-yes" onClick={quick('YES')} aria-label={`Buy Yes on ${lead.name}`}>Yes <b>{lead.yes}¢</b></button>
         <button type="button" className="qa is-no" onClick={quick('NO')} aria-label={`Buy No on ${lead.name}`}>No <b>{100 - lead.yes}¢</b></button>
