@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import ExMark from '../components/ExMark';
 import BrandLockup from '../components/BrandLockup';
-import { EVENTS } from './marketsData';
 import { supabase } from '../lib/supabase';
 import { isAllowedEmail, ALLOWED_DOMAIN } from '../lib/authEmail';
 
@@ -78,14 +77,6 @@ export default function DeskSignIn() {
     setPhase('idle'); setCode(''); setError(''); setNote(''); setCooldown(0);
   };
 
-  // Four board markets as a tape on the brand panel: the sign-in shows what the
-  // desk is before asking for an email. Static seeds, so nothing loads here.
-  const tape = EVENTS.slice(0, 4).map((ev) => {
-    const lead = [...ev.outcomes].sort((a, b) => b.yes - a.yes)[0];
-    const delta = lead.path.length > 1 ? Math.round(lead.yes - lead.path[0]) : 0;
-    return { id: ev.id, cat: ev.cat, title: ev.title, lead, delta };
-  });
-
   return (
     <div className="desk-auth">
       <aside className="auth-side">
@@ -96,18 +87,6 @@ export default function DeskSignIn() {
         <div className="auth-hero">
           <h2>The desk where Northeastern trades on what happens next.</h2>
           <p>Live markets on campus, sports, the economy and culture. Prices are the crowd's odds. Every account opens with $1,000 in play credits.</p>
-          <div className="auth-tape" aria-label="Sample markets">
-            {tape.map((t) => (
-              <div className="auth-tape-row" key={t.id}>
-                <span className="auth-tape-cat">{t.cat}</span>
-                <span className="auth-tape-q">{t.title}</span>
-                <span className="auth-tape-p">{t.lead.yes}%</span>
-                <span className={`auth-tape-d ${t.delta > 0 ? 'is-yes' : t.delta < 0 ? 'is-no' : 'is-flat'}`}>
-                  {t.delta > 0 ? '+' : ''}{t.delta}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
         <div className="auth-foot">
           <span>Northeastern University</span>
@@ -117,9 +96,13 @@ export default function DeskSignIn() {
       </aside>
 
       <div className="auth-main">
+      {/* the same red field as the brand panel, so the glass card has
+          something to refract */}
+      <div className="about-fluid auth-main-fluid" aria-hidden="true">
+        <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
+      </div>
       <div className="desk-card">
         <ExMark className="auth-mark" />
-        <div className="kicker desk-kicker">The Terminal</div>
 
         {phase === 'sent' || phase === 'verifying' ? (
           <>

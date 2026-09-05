@@ -367,12 +367,11 @@ textarea.tk-input{height:auto;padding:10px 12px;resize:vertical}
 .skel-auth{min-height:100vh;min-height:100dvh;display:block}
 .skel-auth .t-skel-skeleton,.skel-auth .t-skel-content{display:flex;align-items:center;justify-content:center}
 .skel-auth .t-skel-content>.desk-auth{width:100%}
-.skel-card{width:min(420px,92vw);padding:36px;border:1px solid var(--border);border-radius:var(--r-4);background:var(--surface);
+.skel-card{width:min(420px,92vw);padding:36px;border:1px solid rgba(255,255,255,.14);border-radius:var(--r-4);background:rgba(14,16,22,.52);
   display:flex;flex-direction:column;align-items:center;gap:14px}
 .skel-bar{background:rgba(255,255,255,.06);border-radius:4px;animation:t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count)}
 @media(prefers-reduced-motion:reduce){.skel-bar{animation:none}}
 .skel-lockup{width:96px;height:30px}
-.skel-kicker{width:120px;height:10px}
 .skel-h1{width:70%;height:24px;margin-top:6px}
 .skel-sub{width:88%;height:11px}
 .skel-sub.short{width:62%}
