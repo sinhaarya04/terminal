@@ -18,6 +18,7 @@ export type MarketEvent = {
   outcomes: Outcome[];
   vol: number;       // fake $ volume
   updated: string;   // "21m ago"
+  closes?: string;   // board markets with a real close: "in 3d" / "closed 2h ago"
   news?: string;     // headline blurb under the featured chart
   live?: boolean;
 };
@@ -172,6 +173,20 @@ export function outcomeToMarket(ev: MarketEvent, o: Outcome): DeskMarket {
 export const impliedMultiplier = (yes: number) => (yes > 0 ? (100 / yes) : 0);
 export type { Side };
 
+/** The Yes outcome of a binary event, or null when the event is a real
+ *  ladder. Two shapes are binary: the demo events with a literal Yes and No
+ *  pair, and officer board markets, which arrive as a single outcome named
+ *  Yes. Cards and the detail screen collapse both to one Yes / No row rather
+ *  than a Yes row and a No row that each carry both buttons. */
+export function yesOutcome(ev: MarketEvent): Outcome | null {
+  const named = (o: Outcome, n: string) => o.name.trim().toLowerCase() === n;
+  if (ev.outcomes.length === 1 && named(ev.outcomes[0], 'yes')) return ev.outcomes[0];
+  if (ev.outcomes.length !== 2) return null;
+  const y = ev.outcomes.find((o) => named(o, 'yes'));
+  const n = ev.outcomes.find((o) => named(o, 'no'));
+  return y && n ? y : null;
+}
+
 // ---- live overlay ----------------------------------------------------------
 // The static EVENTS above are seeds. Once an outcome has a real market in the
 // store (someone traded it), the store's price is the truth: the card, the
@@ -179,6 +194,7 @@ export type { Side };
 // the engine moved real meters while the board kept showing fiction.
 import { useMemo } from 'react';
 import { useDesk } from './deskStore';
+import { relativeClose } from '../lib/closeTime';
 
 export function useBoardEvents(): MarketEvent[] {
   const { markets, custom } = useDesk();
@@ -206,6 +222,7 @@ export function useBoardEvents(): MarketEvent[] {
           title: m.q,
           vol: Math.round(m.pool || 0),
           updated: m.resolved ? 'settled' : 'open',
+          closes: m.closesAt != null && !m.resolved ? relativeClose(m.closesAt, Date.now()) : undefined,
           live: !m.resolved,
         };
         if (m.isMulti && m.outcomes?.length) {

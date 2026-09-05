@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CATEGORIES, type Category, type MarketEvent } from '../marketsData';
+import { CATEGORIES, yesOutcome, type Category, type MarketEvent } from '../marketsData';
 import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMultiFromKalshi, createMultiMarket } from '../deskStore';
 import { searchKalshiCatalog, kalshiEventOptionCount, type KalshiCatalogItem } from '../terminalDb';
 import { useTilt } from '../useTilt';
@@ -38,14 +38,9 @@ function readView(): View {
 type Outcome = MarketEvent['outcomes'][number];
 export type OpenFn = (ev: MarketEvent, pick?: { o: Outcome; side: Side }) => void;
 
-// A two-outcome event whose answers are literally Yes/No gets priced quick
-// buttons on its card; anything else shows its ladder.
-const yesNo = (ev: MarketEvent): Outcome | null => {
-  if (ev.outcomes.length !== 2) return null;
-  const names = ev.outcomes.map((o) => o.name.trim().toLowerCase());
-  if (!names.includes('yes') || !names.includes('no')) return null;
-  return ev.outcomes.find((o) => o.name.trim().toLowerCase() === 'yes') ?? null;
-};
+// A binary event gets the chance figure and priced quick buttons on its card;
+// anything else shows its ladder.
+const yesNo = yesOutcome;
 
 export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[]; onOpen: OpenFn }) {
   const { isAdmin } = useDesk();
@@ -238,7 +233,7 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
 
       <span className="mkt-foot">
         <span><Icon name="signal" />{vol(ev.vol)} vol</span>
-        <span><Icon name="clock" />{ev.updated}</span>
+        <span><Icon name="clock" />{ev.closes ?? ev.updated}</span>
       </span>
     </div>
   );
@@ -276,7 +271,7 @@ function Row({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
         <button type="button" className="qa is-no" onClick={quick('NO')} aria-label={`Buy No on ${lead.name}`}>No <b>{100 - lead.yes}¢</b></button>
       </span>
       <span className="mrow-vol r">{vol(ev.vol)}</span>
-      <span className="mrow-upd r">{ev.updated}</span>
+      <span className="mrow-upd r">{ev.closes ?? ev.updated}</span>
     </div>
   );
 }
