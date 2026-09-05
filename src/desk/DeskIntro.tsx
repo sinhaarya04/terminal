@@ -4,7 +4,8 @@ import { useReducedMotion } from '../lib/useReducedMotion';
 // First-sign-in-only intro. Plays /intro.mp4 fullscreen, then calls onDone.
 // Falls back to a stylised placeholder when the video can't or shouldn't play.
 
-const VIDEO_SRC = '/intro.mp4';
+// under the deployed base path (see vite.config.ts), not the domain root
+const VIDEO_SRC = `${import.meta.env.BASE_URL}intro.mp4`;
 const FALLBACK_MS = 4200;
 
 type Conn = { saveData?: boolean; effectiveType?: string };
