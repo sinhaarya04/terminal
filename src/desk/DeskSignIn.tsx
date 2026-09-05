@@ -48,6 +48,10 @@ export default function DeskSignIn() {
       slot.style.left = `${Math.round(px + (P.width - S.width) / 2) - px}px`;
       slot.style.top = `${Math.round(py + (P.height - S.height) / 2) - py}px`;
       slot.style.visibility = 'visible';
+      // the library sizes its rim, shade and refraction map from a measurement
+      // it takes once on mount and again only on window resize. The card grows
+      // between the email and code steps, so the pane must re-measure then too.
+      window.dispatchEvent(new Event('resize'));
     };
     place();
     const ro = new ResizeObserver(place);
