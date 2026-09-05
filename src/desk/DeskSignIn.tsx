@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import LiquidGlass from 'liquid-glass-react';
 import ExMark from '../components/ExMark';
 import BrandLockup from '../components/BrandLockup';
 import { supabase } from '../lib/supabase';
@@ -29,6 +30,8 @@ export default function DeskSignIn() {
   const [code, setCode] = useState('');
   const [cooldown, setCooldown] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
+  // the glass tracks the pointer across the whole form panel, not just the card
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -86,21 +89,31 @@ export default function DeskSignIn() {
         <div className="auth-top brand"><BrandLockup /></div>
         <div className="auth-hero">
           <h2>The desk where Northeastern trades on what happens next.</h2>
-          <p>Live markets on campus, sports, the economy and culture. Prices are the crowd's odds. Every account opens with $1,000 in play credits.</p>
-        </div>
-        <div className="auth-foot">
-          <span>Northeastern University</span>
-          <span>Student-run prediction markets</span>
-          <span>Play money only</span>
+          <p>Live markets on campus, sports, the economy and culture. Prices are the crowd's odds.</p>
         </div>
       </aside>
 
-      <div className="auth-main">
+      <div className="auth-main" ref={panelRef}>
       {/* the same red field as the brand panel, so the glass card has
           something to refract */}
       <div className="about-fluid auth-main-fluid" aria-hidden="true">
         <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
       </div>
+      {/* Apple-style liquid glass (rdev/liquid-glass-react): the red field
+          bends and blurs behind the card, and the pane leans toward the
+          pointer. Safari and Firefox get the blur without the refraction. */}
+      <LiquidGlass
+        className="auth-glass"
+        mouseContainer={panelRef}
+        displacementScale={44}
+        blurAmount={0.22}
+        saturation={135}
+        aberrationIntensity={1.4}
+        elasticity={0.1}
+        cornerRadius={18}
+        padding="0"
+        style={{ position: 'absolute', top: '50%', left: '50%' }}
+      >
       <div className="desk-card">
         <ExMark className="auth-mark" />
 
@@ -160,6 +173,7 @@ export default function DeskSignIn() {
 
         <p className="desk-fine">A live demo. All markets settle in play money.</p>
       </div>
+      </LiquidGlass>
       </div>
     </div>
   );

@@ -160,8 +160,8 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
    Split screen on a laptop: the brand and a live-looking tape on the left,
    the form on the right. Nothing floats in a void any more. */
 .desk-auth{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);overflow:hidden}
-.auth-side{position:relative;display:flex;flex-direction:column;justify-content:space-between;
-  padding:40px 48px;border-right:1px solid var(--border);overflow:hidden;
+.auth-side{position:relative;display:flex;flex-direction:column;justify-content:center;
+  padding:80px 48px 48px;border-right:1px solid var(--border);overflow:hidden;
   background:linear-gradient(160deg,#12070a 0%,#0b0c12 60%)}
 .auth-side .about-fluid .blob{opacity:.3}
 .auth-side .about-fluid .b1{width:70vw;height:70vw;left:-30%;top:-40%}
@@ -169,14 +169,14 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .auth-side .about-fluid .b3{width:55vw;height:55vw;left:10%;top:auto;bottom:-45%}
 .auth-side .about-fluid::after{background:linear-gradient(to bottom,rgba(11,12,18,.1),rgba(11,12,18,.85) 90%)}
 .auth-side>*{position:relative;z-index:1}
-.auth-top{display:flex;align-items:center;gap:14px}
+/* the lockup lives in the corner, out of the hero's flow */
+.auth-top{position:absolute;top:22px;left:24px;z-index:1;display:flex;align-items:center;gap:12px}
 .auth-top .ex-mark{height:30px;width:auto;color:var(--text)}
 .auth-top .div{width:1px;height:20px;background:var(--border-2)}
 .auth-top .neu-logo{height:20px}
 .auth-hero{max-width:560px}
 .auth-hero h2{max-width:15ch;font-size:clamp(28px,3.2vw,40px);line-height:1.08;letter-spacing:-.028em;font-weight:700;text-wrap:balance}
 .auth-hero p{margin-top:14px;font-size:15px;line-height:1.55;color:var(--muted);max-width:40ch}
-.auth-foot{display:flex;gap:18px;font-size:12px;color:var(--faint)}
 .auth-main{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:40px 24px;background:var(--bg)}
 /* the red field behind the card: lobes pushed toward the corners at panel
    scale, vignetted at the edges so the card floats in a glow, not a wash */
@@ -185,13 +185,15 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .auth-main-fluid .b2{width:56vw;height:56vw;right:-26%;top:-4%;left:auto}
 .auth-main-fluid .b3{width:60vw;height:60vw;left:8%;top:auto;bottom:-40%}
 .auth-main-fluid::after{background:radial-gradient(120% 95% at 50% 45%,rgba(9,10,14,0) 40%,rgba(9,10,14,.8) 100%)}
-/* glass: the field shows through, blurred and slightly lifted, with a hairline
-   inner highlight along the top edge so the pane reads as a surface */
-.desk-card{position:relative;z-index:2;width:min(420px,100%);padding:36px 36px 28px;
-  border:1px solid rgba(255,255,255,.14);border-radius:var(--r-4);
-  background:rgba(14,16,22,.52);
-  -webkit-backdrop-filter:blur(22px) saturate(1.3);backdrop-filter:blur(22px) saturate(1.3);
-  box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 0 0 1px rgba(0,0,0,.25),var(--shadow-3)}
+/* the card sits inside liquid-glass-react's pane, which paints the blur,
+   refraction and rim. The card itself only tints the glass darker so the
+   form stays legible over the red field. */
+.auth-glass{z-index:2}
+.auth-glass .glass{background:rgba(10,11,16,.42)}
+/* the library sets a 20px system-ui font and a text shadow on its content
+   layer; the card brings its own type */
+.auth-glass .glass>div:last-child{font:inherit;text-shadow:none;color:inherit}
+.desk-card{position:relative;width:min(420px,calc(100vw - 32px));padding:36px 36px 28px;border-radius:18px}
 .auth-mark{height:34px;width:auto;color:var(--text)}
 .desk-go{width:100%;margin-top:16px}
 .desk-h1{margin:18px 0 8px;font-size:24px;font-weight:700;letter-spacing:-.022em;line-height:1.15}
@@ -208,10 +210,13 @@ h1,h2,h3{font-weight:600;letter-spacing:-.02em}
 .desk-join-msg{margin-top:12px;font-size:12.5px;line-height:1.5}
 @media(max-width:900px){
   .desk-auth{grid-template-columns:1fr}
-  .auth-side{border-right:none;border-bottom:1px solid var(--border);gap:22px;
-    padding:calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) 24px calc(20px + var(--safe-left))}
+  .auth-side{border-right:none;border-bottom:1px solid var(--border);gap:22px;justify-content:flex-start;
+    padding:calc(74px + var(--safe-top)) calc(20px + var(--safe-right)) 28px calc(20px + var(--safe-left))}
+  .auth-top{top:calc(20px + var(--safe-top));left:calc(20px + var(--safe-left))}
+  /* the glass pane is absolutely centred, so the panel must reserve its height */
+  .auth-main{min-height:calc(460px + var(--safe-bottom))}
   .auth-hero h2{font-size:26px}
-  .auth-main{padding:24px calc(16px + var(--safe-right)) calc(40px + var(--safe-bottom)) calc(16px + var(--safe-left))}
+  .auth-main{padding:24px calc(16px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left))}
   /* vw-sized lobes shrink to nothing on a phone; scale them to the panel */
   .auth-main-fluid .blob{width:120vw;height:120vw;opacity:.5}
   .auth-main-fluid .b1{left:-50%;top:-50%}
