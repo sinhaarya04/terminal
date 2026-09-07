@@ -205,6 +205,14 @@ export async function rpcSellShares(code: string, side: 'YES' | 'NO', shares: nu
 }
 
 
+/** Admin only: fix a market's wording — question and outcome names. Never
+ *  prices or quantities, so it is safe on a live market. */
+export async function rpcAdminEditMarket(code: string, question: string, outcomes: { idx: number; name: string }[]): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.rpc('term_admin_edit_market', { p_code: code, p_question: question, p_outcomes: outcomes });
+  if (error) throw error;
+}
+
 /** Admin only: delete a market outright. The server refunds every member's
  *  net stake first (unless it already settled) and sweeps its rows. */
 export async function rpcAdminDeleteMarket(code: string): Promise<void> {

@@ -4,6 +4,7 @@ import { useNow } from '../../lib/useNow';
 import { formatClose, relativeClose } from '../../lib/closeTime';
 import MultiTicket from './MultiTicket';
 import Icon from '../../components/Icon';
+import { BoardEdit, BoardRemove } from './BoardTools';
 
 // The expanded view of a multi-outcome board market: outcome ladder + live
 // prices on the left, the multi ticket docked right. Officers get a
@@ -72,6 +73,7 @@ export default function BoardMultiScreen({ code, onBack }: { code: string; onBac
                 );
               })}
             </div>
+            <BoardEdit code={code} />
             {isAdmin && phase !== 'settled' && (
               <section className="pv-block pv-settle">
                 <div className="pv-head mono">Officer · pick the winner</div>
@@ -90,6 +92,7 @@ export default function BoardMultiScreen({ code, onBack }: { code: string; onBac
                 )}
               </section>
             )}
+            <BoardRemove code={code} onDeleted={onBack} />
           </div>
         </div>
         <div className="mscreen-ticket">

@@ -833,6 +833,27 @@ function bumpMarketPrice(id: string, newYes: number, meta?: Omit<Tick, 'at' | 'y
   state = { ...state, markets: roll(state.markets), custom: roll(state.custom) };
 }
 
+/** Officer: correct a market's wording. Only the question and the outcome
+ *  names change; the engine state (prices, quantities, liquidity) is left
+ *  exactly as it is, so this is safe while the market is trading. */
+export async function adminEditMarket(code: string, question: string, outcomes: { idx: number; name: string }[]): Promise<boolean> {
+  if (!state.isAdmin) return false;
+  const m = getMarket(code);
+  const q = question.trim();
+  if (!m || q.length < 3 || outcomes.some((o) => !o.name.trim())) return false;
+  if (state.live) {
+    try { await db.rpcAdminEditMarket(code, q, outcomes.map((o) => ({ idx: o.idx, name: o.name.trim() }))); } catch { return false; }
+    if (state.userId) await hydrateLive(state.userId);
+    return true;
+  }
+  const rename = (x: DeskMarket): DeskMarket => x.id !== code ? x : {
+    ...x, q,
+    outcomes: x.outcomes?.map((o) => ({ ...o, name: outcomes.find((n) => n.idx === o.idx)?.name.trim() ?? o.name })),
+  };
+  set({ markets: state.markets.map(rename), custom: state.custom.map(rename) });
+  return true;
+}
+
 /** Officer: delete a market that should never have been listed. Live mode
  *  asks the server (which refunds stakes) and re-hydrates so balances and
  *  positions come back from the truth; guest mode mirrors the refund locally.
