@@ -143,7 +143,7 @@ const SEED_PUBLIC: DeskMarket[] = [
   { id: 'WEEK-01', cat: 'Campus', q: 'Will it snow in Boston before Thanksgiving?', yes: 62, closes: 'Nov 27', spark: [38, 41, 40, 45, 44, 51, 49, 55, 58, 62] },
   { id: 'WEEK-02', cat: 'Econ', q: 'Does the Fed cut rates at the December FOMC?', yes: 71, closes: 'Dec 10', spark: [80, 78, 74, 76, 72, 75, 74, 73, 74, 71] },
   { id: 'WEEK-03', cat: 'Sports', q: 'Huskies make the Beanpot final?', yes: 44, closes: 'Feb 02', spark: [30, 32, 35, 33, 36, 38, 37, 40, 38, 44] },
-  { id: 'WEEK-04', cat: 'Crypto', q: 'Bitcoin above $150k on Jan 1?', yes: 33, closes: 'Jan 01', spark: [52, 50, 47, 48, 44, 45, 41, 39, 41, 33] },
+  { id: 'WEEK-04', cat: 'Econ', q: 'Bitcoin above $150k on Jan 1?', yes: 33, closes: 'Jan 01', spark: [52, 50, 47, 48, 44, 45, 41, 39, 41, 33] },
   { id: 'WEEK-05', cat: 'Tech', q: 'OpenAI ships GPT-6 before the semester ends?', yes: 26, closes: 'Dec 18', spark: [20, 21, 19, 22, 24, 23, 25, 24, 24, 26] },
   { id: 'WEEK-06', cat: 'Weather', q: 'Average finals-week temperature below 30°F?', yes: 39, closes: 'Dec 12', spark: [28, 30, 29, 32, 33, 31, 34, 36, 35, 39] },
   { id: 'WEEK-07', cat: 'E[X]', q: 'Club hits 100 signed-up members by opening day?', yes: 83, closes: 'Sep 01', spark: [60, 63, 66, 65, 70, 72, 74, 78, 76, 83] },
@@ -831,6 +831,32 @@ function withTick(c: DeskMarket, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>
 function bumpMarketPrice(id: string, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>) {
   const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === id ? withTick(c, newYes, meta) : c));
   state = { ...state, markets: roll(state.markets), custom: roll(state.custom) };
+}
+
+/** Officer: delete a market that should never have been listed. Live mode
+ *  asks the server (which refunds stakes) and re-hydrates so balances and
+ *  positions come back from the truth; guest mode mirrors the refund locally.
+ *  Returns false when this account isn't an officer or the server refused. */
+export async function adminDeleteMarket(code: string): Promise<boolean> {
+  if (!state.isAdmin) return false;
+  const m = getMarket(code);
+  if (!m) return false;
+  if (state.live) {
+    try { await db.rpcAdminDeleteMarket(code); } catch { return false; }
+    if (state.userId) await hydrateLive(state.userId);
+    return true;
+  }
+  const open = state.positions.filter((p) => p.marketId === code && !p.settled);
+  const refund = m.resolved ? 0 : round2(open.reduce((a, p) => a + p.cost, 0));
+  const wallet = walletFor(m);
+  set({
+    [wallet]: round2(state[wallet] + refund),
+    positions: state.positions.filter((p) => p.marketId !== code),
+    markets: state.markets.filter((x) => x.id !== code),
+    custom: state.custom.filter((x) => x.id !== code),
+    activity: state.activity.filter((a) => a.code !== code),
+  } as Partial<DeskState>);
+  return true;
 }
 
 /** Resolve a market id to its current record (public or custom). */

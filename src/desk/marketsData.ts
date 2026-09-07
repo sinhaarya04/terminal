@@ -26,14 +26,14 @@ export type MarketEvent = {
 };
 
 export type Category =
-  | 'Sports' | 'Crypto' | 'Econ' | 'Tech' | 'Weather' | 'Campus' | 'Culture';
+  | 'Sports' | 'Econ' | 'Tech' | 'Weather' | 'Campus' | 'Culture';
 
-export const CATEGORIES: Category[] = ['Sports', 'Crypto', 'Econ', 'Tech', 'Weather', 'Campus', 'Culture'];
+export const CATEGORIES: Category[] = ['Sports', 'Econ', 'Tech', 'Weather', 'Campus', 'Culture'];
 
 // Kalshi's own category names don't match the board's tabs; fold them in so a
 // picked market lands under the right filter instead of defaulting to Campus.
 const KALSHI_CAT_MAP: Record<string, Category> = {
-  Sports: 'Sports', Crypto: 'Crypto', Economics: 'Econ', Financials: 'Econ', Companies: 'Econ',
+  Sports: 'Sports', Crypto: 'Econ', Economics: 'Econ', Financials: 'Econ', Companies: 'Econ',
   'Science and Technology': 'Tech', 'Climate and Weather': 'Weather', Entertainment: 'Culture',
   Politics: 'Culture', Elections: 'Culture', World: 'Culture', Health: 'Culture',
   Social: 'Culture', Transportation: 'Culture',

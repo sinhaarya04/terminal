@@ -45,7 +45,7 @@ export default function MarketScreen({
             onDone={onDone}
           />
           {order && <OrderFlow code={order.m.id} />}
-          {order && <BoardAdmin code={order.m.id} />}
+          {order && <BoardAdmin code={order.m.id} onDeleted={onBack} />}
         </div>
       </div>
     </div>

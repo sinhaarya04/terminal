@@ -205,6 +205,14 @@ export async function rpcSellShares(code: string, side: 'YES' | 'NO', shares: nu
 }
 
 
+/** Admin only: delete a market outright. The server refunds every member's
+ *  net stake first (unless it already settled) and sweeps its rows. */
+export async function rpcAdminDeleteMarket(code: string): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.rpc('term_admin_delete_market', { p_code: code });
+  if (error) throw error;
+}
+
 /** Admin only: create a public board market. Server rejects non-admins. */
 export async function rpcAdminCreateBoardMarket(
   input: { q: string; cat: string; yes: number; closesAt?: number },

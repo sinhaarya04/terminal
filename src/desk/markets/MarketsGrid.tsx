@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, yesOutcome, type Category, type MarketEvent } from '../marketsData';
-import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMultiFromKalshi, createMultiMarket } from '../deskStore';
+import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMultiFromKalshi, createMultiMarket, adminDeleteMarket } from '../deskStore';
 import { searchKalshiCatalog, kalshiEventOptionCount, type KalshiCatalogItem } from '../terminalDb';
 import { useTilt } from '../useTilt';
 import Icon from '../../components/Icon';
@@ -160,6 +160,38 @@ const favoured = (yes: Outcome) => {
   return { no, label: no ? 'No' : 'Yes', pct: no ? 100 - yes.yes : yes.yes, color: no ? 'var(--down)' : 'var(--green)' };
 };
 
+// Officer-only: a remove control on the card itself, so a batch of mislisted
+// markets can be cleared from the board without opening each one. Two taps:
+// the first turns the card head into a confirm line, the second deletes.
+// Stakes are refunded server-side before the market goes.
+function CardRemove({ code }: { code: string }) {
+  const { isAdmin } = useDesk();
+  const [arm, setArm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+  if (!isAdmin) return null;
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+  if (!arm) {
+    return (
+      <button type="button" className="mkt-remove" aria-label="Remove this market"
+        onClick={(e) => { stop(e); setArm(true); }}>
+        <Icon name="close" size={13} />
+      </button>
+    );
+  }
+  return (
+    <span className="mkt-remove-confirm" onClick={stop}>
+      <span>{err ? 'Could not remove.' : busy ? 'Removing…' : 'Refund and remove?'}</span>
+      <button type="button" className="btn btn-no btn-sm" disabled={busy}
+        onClick={async (e) => { stop(e); setBusy(true); const ok = await adminDeleteMarket(code); if (!ok) { setErr(true); setBusy(false); } }}>
+        Remove
+      </button>
+      <button type="button" className="btn btn-quiet btn-sm" disabled={busy}
+        onClick={(e) => { stop(e); setArm(false); setErr(false); }}>Keep</button>
+    </span>
+  );
+}
+
 function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
   const [expanded, setExpanded] = useState(false);
   const tilt = useTilt(4);
@@ -196,6 +228,7 @@ function Card({ ev, onOpen }: { ev: MarketEvent; onOpen: OpenFn }) {
     >
       <span className="mkt-top">
         <span className="mkt-cat">{ev.cat}</span>
+        <CardRemove code={ev.id} />
       </span>
 
       <span className="mkt-title">{ev.title}</span>
