@@ -17,7 +17,12 @@
 
 export type Quantities = { qYes: number; qNo: number };
 
-export const DEFAULT_B = 100;
+// Liquidity. Price impact scales as 1/b: at b=100 a $25 order on a fresh
+// 50/50 market moved it 11 points, which made the first few trades on every
+// market swing it. At 400 the same order moves it about 3 points and a $100
+// order about 11. Payout is parimutuel from the pot, so b bounds nothing but
+// sensitivity. Mirrored server-side by term_default_b() in terminal-schema.sql.
+export const DEFAULT_B = 400;
 
 /** The LMSR cost meter, with the log-sum-exp trick so a big lopsided market
  *  can't overflow into Infinity − Infinity = NaN. */

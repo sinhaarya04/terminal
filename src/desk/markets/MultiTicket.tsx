@@ -28,7 +28,7 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
   const chosen = outs.find((o) => o.idx === idx);
   const q = outs.map((o) => o.pq);
   const iPos = outs.findIndex((o) => o.idx === idx);
-  const shares = iPos >= 0 ? lmsr.sharesForSpendN(q, iPos, amount, live.b ?? 100) : 0;
+  const shares = iPos >= 0 ? lmsr.sharesForSpendN(q, iPos, amount, live.b ?? lmsr.DEFAULT_B) : 0;
   const potAfter = (live.pool || 0) + amount;
   const winSharesAfter = (chosen?.sq ?? 0) + shares;
   const cutIfWins = winSharesAfter > 0 ? shares * (potAfter / winSharesAfter) : 0;

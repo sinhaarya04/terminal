@@ -50,6 +50,15 @@ alter table public.term_markets add column if not exists pq_no  numeric not null
 alter table public.term_markets add column if not exists sq_yes numeric not null default 0;
 alter table public.term_markets add column if not exists sq_no  numeric not null default 0;
 alter table public.term_markets add column if not exists b      numeric not null default 100;
+-- ---------- liquidity ----------
+-- Price impact scales as 1/b. At 100 a $25 order moved a fresh 50/50 market
+-- 11 points; at 400 it moves about 3 and a $100 order about 11. Payout is
+-- parimutuel from the pot, so b bounds nothing but sensitivity. Every create
+-- RPC reads this; the client mirrors it as DEFAULT_B in src/lib/lmsr.ts.
+create or replace function public.term_default_b() returns numeric
+language sql immutable as $$ select 400::numeric $$;
+alter table public.term_markets alter column b set default 400;
+
 alter table public.term_markets add column if not exists c0     numeric not null default 0;
 -- 'VOID' = the winning side held zero shares; stakes were refunded.
 alter table public.term_markets drop constraint if exists term_markets_resolved_check;
@@ -183,7 +192,7 @@ declare
   v_handle text;
   v_p numeric := greatest(0.02, least(0.98, p_yes / 100.0));
   v_off numeric;
-  v_pqy numeric; v_pqn numeric; v_b numeric := 100;
+  v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b();
   i int;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
@@ -218,7 +227,7 @@ returns void language plpgsql security definer set search_path = public as $$
 declare
   v_p numeric := greatest(0.02, least(0.98, p_yes / 100.0));
   v_off numeric;
-  v_pqy numeric; v_pqn numeric; v_b numeric := 100;
+  v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b();
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
   -- seed the engine from the card's displayed price, like private creation;
@@ -365,7 +374,7 @@ declare
   v_uid uuid := auth.uid(); v_admin boolean; v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   v_p numeric := greatest(0.02, least(0.98, p_yes/100.0));
-  v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := 100; i int;
+  v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b(); i int;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   select is_admin into v_admin from public.term_profiles where id = v_uid;
@@ -597,7 +606,7 @@ declare
   v_cat public.term_kalshi_catalog%rowtype;
   v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  v_p numeric; v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := 100;
+  v_p numeric; v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b();
   v_q text; i int;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
@@ -750,7 +759,7 @@ declare
   v_admin boolean; v_handle text;
   v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  v_b numeric := 100;
+  v_b numeric := public.term_default_b();
   v_n int; v_all_me boolean; v_any_linked boolean;
   v_cat text; v_question text; v_closes_at timestamptz;
   v_sum numeric := 0; v_lo numeric; i int; r record;

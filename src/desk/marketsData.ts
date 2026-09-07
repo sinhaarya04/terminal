@@ -1,6 +1,7 @@
 // Multi-outcome demo events for the Kalshi/Gemini-style board — E[X] colours,
 // campus/finance flavour, politics-free by club policy. Prices are illustrative.
 import type { DeskMarket, Side, Tick } from './deskStore';
+import { DEFAULT_B } from '../lib/lmsr';
 
 export type Outcome = {
   name: string;
@@ -123,7 +124,7 @@ export function useBoardEvents(): MarketEvent[] {
         };
         if (m.isMulti && m.outcomes?.length) {
           // softmax prices across the real outcomes
-          const b = m.b ?? 100;
+          const b = m.b ?? DEFAULT_B;
           const ex = m.outcomes.map((o) => Math.exp(o.pq / b));
           const S = ex.reduce((a, v) => a + v, 0);
           return { ...base, outcomes: m.outcomes.map((o, i) => ({

@@ -386,7 +386,7 @@ export function walletFor(m: DeskMarket): 'balance' | 'pmBalance' {
 /** Live prices (cents) for a multi market's outcomes — softmax, sums to 100. */
 export function outcomePrices(m: DeskMarket): number[] {
   if (!m.outcomes?.length) return [];
-  const b = m.b ?? 100;
+  const b = m.b ?? lmsr.DEFAULT_B;
   return lmsr.pricesN(m.outcomes.map((o) => o.pq), b).map((p) => Math.round(p * 100));
 }
 
