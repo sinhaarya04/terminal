@@ -40,6 +40,10 @@ export default function MultiLineChart({ outcomes }: { outcomes: Outcome[] }) {
   const tickN = Math.max(...lines.map((l) => l.o.ticks?.length ?? 0), 0);
   const split = liveN && seedN > 1 ? 0.66 : 0;
   const seamX = padL + split * iw;
+  const firstTick = lines.flatMap((l) => l.o.ticks ?? []).sort((p, q) => p.at - q.at)[0];
+  const firstTickLabel = firstTick
+    ? new Date(firstTick.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
   const x = (i: number, n: number) => {
     if (!split) return padL + (i / Math.max(1, n - 1)) * iw;
     if (i < seedN) return padL + (i / Math.max(1, seedN - 1)) * split * iw;
@@ -92,14 +96,22 @@ export default function MultiLineChart({ outcomes }: { outcomes: Outcome[] }) {
         );
       })}
 
-      {TIME_LABELS.map((t, i) => {
-        // the seeded clock labels span the seed's width; "now" sits at the end
-        const lx = padL + (i / (TIME_LABELS.length - 1)) * (split ? split * iw : iw);
-        return (
-          <text key={t} x={lx} y={h - 6} className="mchart-xlabel">{t}</text>
-        );
-      })}
-      {split > 0 && <text x={padL + iw} y={h - 6} className="mchart-xlabel">now</text>}
+      {seedN > 1 ? (
+        <>
+          {TIME_LABELS.map((t, i) => {
+            // the seeded clock labels span the seed's width; "now" sits at the end
+            const lx = padL + (i / (TIME_LABELS.length - 1)) * (split ? split * iw : iw);
+            return <text key={t} x={lx} y={h - 6} className="mchart-xlabel">{t}</text>;
+          })}
+          {split > 0 && <text x={padL + iw} y={h - 6} className="mchart-xlabel">now</text>}
+        </>
+      ) : (
+        // a market with only real ticks: label when it opened and now
+        <>
+          <text x={padL} y={h - 6} className="mchart-xlabel" style={{ textAnchor: 'start' }}>{firstTickLabel}</text>
+          <text x={padL + iw} y={h - 6} className="mchart-xlabel" style={{ textAnchor: 'end' }}>now</text>
+        </>
+      )}
     </svg>
   );
 }
