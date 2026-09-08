@@ -9,7 +9,12 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
   const desk = useDesk();
   const live = (getMarket(market.id) ?? market);
   const [idx, setIdx] = useState<number>(live.outcomes?.[0]?.idx ?? 1);
-  const [amount, setAmount] = useState(25);
+  // Raw text, not a number: a controlled number input paints "0" the moment
+  // the field is cleared, so typing 12 into it read "012". Empty text is a
+  // zero-dollar order, which the Buy button already refuses.
+  const [amountText, setAmountText] = useState('25');
+  const amount = Math.max(0, Number(amountText) || 0);
+  const setAmount = (v: number) => setAmountText(String(v));
   const [busy, setBusy] = useState(false);
 
   if (marketPhase(live) !== 'open') {
@@ -62,7 +67,7 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
         <span className="tk-label">Amount<span className="mono">{live.custom ? 'Private' : 'Public'} {money(balance)}</span></span>
         <span className="tk-amount">
           <input className={`tk-input mono ${tooMuch ? 'is-error' : ''}`} type="number" min={1}
-            value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} />
+            value={amountText} placeholder="0" onChange={(e) => setAmountText(e.target.value)} />
         </span>
       </label>
       <div className="tk-chips">

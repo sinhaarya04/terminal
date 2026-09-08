@@ -21,7 +21,12 @@ export default function TradeTicket({
   const desk = useDesk();
   const balance = market ? desk[walletFor(market)] : desk.balance;
   const now = useNow();
-  const [amount, setAmount] = useState(25);
+  // Raw text, not a number: a controlled number input paints "0" the moment
+  // the field is cleared, so typing 12 into it read "012". Empty text is a
+  // zero-dollar order, which the Buy button already refuses.
+  const [amountText, setAmountText] = useState('25');
+  const amount = Math.max(0, Number(amountText) || 0);
+  const setAmount = (v: number) => setAmountText(String(v));
   const [busy, setBusy] = useState(false);
   // Monotonic nonce: overspending by the same amount twice produces an
   // identical error state, so an effect keyed only on `tooMuch` would never
@@ -127,8 +132,9 @@ export default function TradeTicket({
             className={`tk-input mono t-input ${tooMuch ? 'is-error' : ''}`}
             type="number"
             min={1}
-            value={amount}
-            onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
+            value={amountText}
+            placeholder="0"
+            onChange={(e) => setAmountText(e.target.value)}
           />
         </span>
         <span className="t-error-msg tk-err" role="alert">Not enough credits.</span>
