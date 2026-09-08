@@ -267,7 +267,9 @@ export async function searchKalshiCatalog(
     .select('ticker,event_ticker,event_title,sub_title,category,yes_odds,close_time,event_mutually_exclusive')
     .is('added_market_code', null)
     .eq('status', 'active')
-    .gt('close_time', new Date().toISOString())
+    // a market closing inside the next 12 hours resolves before members could
+    // trade it; hourly weather and crypto ladders otherwise crowd the top
+    .gt('close_time', new Date(Date.now() + 12 * 3_600_000).toISOString())
     // the club only lists markets resolving within ~5 months; the sync purges
     // beyond this too, the filter just keeps the picker honest between runs
     .lte('close_time', new Date(Date.now() + 150 * 86_400_000).toISOString())

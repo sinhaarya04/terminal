@@ -403,12 +403,14 @@ function ManualCreate({ onDone }: { onDone: () => void }) {
 
 const CAP = 50;
 
-// One rendered picker row: either a single binary market, or a mutually-
-// exclusive Kalshi event collapsed into a single "Add event" row.
+// One rendered picker row: a single binary market, or a Kalshi event
+// collapsed into one row. An `exclusive` event ("who wins") adds as one
+// multi-outcome market; a non-exclusive one (a temperature or price ladder,
+// one strike per market) expands so an officer can pick the strike to add.
 type BinaryEntry = { kind: 'binary'; item: KalshiCatalogItem };
 type EventEntry = {
   kind: 'event'; eventTicker: string; eventTitle: string; category: string;
-  options: KalshiCatalogItem[]; lead: KalshiCatalogItem;
+  options: KalshiCatalogItem[]; lead: KalshiCatalogItem; exclusive: boolean;
 };
 type PickerEntry = BinaryEntry | EventEntry;
 
@@ -425,6 +427,8 @@ function KalshiPicker() {
   const seq = useRef(0);
   // True option counts per event (the page is capped, so grouping under-counts).
   const [counts, setCounts] = useState<Record<string, number>>({});
+  // ladders opened to show their strikes
+  const [openLadders, setOpenLadders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q), 250);
@@ -441,43 +445,44 @@ function KalshiPicker() {
       .finally(() => { if (run === seq.current) setLoading(false); });
   }, [cat, debounced]);
 
-  // Group the returned page: mutually-exclusive events collapse to one "Add
-  // event" row (the whole event becomes one multi market); everything else
-  // stays a per-market binary "Add" row. Grouping is within the fetched page,
-  // matching the server-side .limit — the "refine your search" hint covers the
-  // rest. Rows arrive ordered by odds ascending, so an event's lead is its max.
+  // Group the returned page by event. A mutually-exclusive event collapses to
+  // one "Add event" row (the whole event becomes one multi market). A
+  // non-exclusive event with several markets on the page is a ladder — every
+  // strike of the same question — and collapses to one expandable row so the
+  // list reads as questions, not as forty copies of "Temperature in Miami".
+  // A lone non-exclusive market stays a plain binary "Add" row. Grouping is
+  // within the fetched page, matching the server-side .limit.
   const entries = useMemo<PickerEntry[]>(() => {
     const groups = new Map<string, KalshiCatalogItem[]>();
-    const order: ({ t: 'b'; item: KalshiCatalogItem } | { t: 'e'; ticker: string })[] = [];
+    const order: string[] = [];
     for (const r of rows) {
-      if (r.eventMutuallyExclusive && r.eventTicker) {
-        const g = groups.get(r.eventTicker);
-        if (g) { g.push(r); }
-        else { groups.set(r.eventTicker, [r]); order.push({ t: 'e', ticker: r.eventTicker }); }
-      } else {
-        order.push({ t: 'b', item: r });
-      }
+      const key = r.eventTicker || r.ticker;
+      const g = groups.get(key);
+      if (g) g.push(r);
+      else { groups.set(key, [r]); order.push(key); }
     }
-    return order.map<PickerEntry>((o) => {
-      if (o.t === 'b') return { kind: 'binary', item: o.item };
-      const options = groups.get(o.ticker)!;
-      const lead = options.reduce((a, b) => (b.yesOdds > a.yesOdds ? b : a), options[0]);
-      return { kind: 'event', eventTicker: o.ticker, eventTitle: options[0].eventTitle, category: options[0].category, options, lead };
+    return order.map<PickerEntry>((key) => {
+      const options = groups.get(key)!;
+      const first = options[0];
+      if (!first.eventMutuallyExclusive && options.length === 1) return { kind: 'binary', item: first };
+      const lead = options.reduce((a, b) => (b.yesOdds > a.yesOdds ? b : a), first);
+      return {
+        kind: 'event', eventTicker: first.eventTicker, eventTitle: first.eventTitle, category: first.category,
+        options, lead, exclusive: !!first.eventMutuallyExclusive,
+      };
     });
   }, [rows]);
 
   // Fetch the true option count for each mutually-exclusive event on the page.
   useEffect(() => {
-    const evTickers = [...new Set(
-      rows.filter((r) => r.eventMutuallyExclusive && r.eventTicker).map((r) => r.eventTicker as string),
-    )];
+    const evTickers = entries.filter((e): e is EventEntry => e.kind === 'event').map((e) => e.eventTicker);
     if (!evTickers.length) { setCounts({}); return; }
     let cancelled = false;
     Promise.all(evTickers.map(async (t) => [t, await kalshiEventOptionCount(t)] as const))
       .then((pairs) => { if (!cancelled) setCounts(Object.fromEntries(pairs)); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [rows]);
+  }, [entries]);
 
   const addBinary = async (item: KalshiCatalogItem) => {
     setPending(item.ticker);
@@ -537,7 +542,7 @@ function KalshiPicker() {
         ) : rows.length === 0 ? (
           <p className="kalshi-hint mono">No open markets match — widen the category or search.</p>
         ) : (
-          entries.map((e) => (e.kind === 'event' ? (
+          entries.map((e) => (e.kind === 'event' && e.exclusive ? (
             <div className="kalshi-row" key={`ev-${e.eventTicker}`}>
               <span className="kalshi-main">
                 <span className="kalshi-title">{e.eventTitle}</span>
@@ -552,6 +557,37 @@ function KalshiPicker() {
                 disabled={pending === e.eventTicker} onClick={() => addEvent(e)}>
                 {pending === e.eventTicker ? 'Adding…' : 'Add event'}
               </button>
+            </div>
+          ) : e.kind === 'event' ? (
+            <div className={`kalshi-ladder ${openLadders.has(e.eventTicker) ? 'is-open' : ''}`} key={`ld-${e.eventTicker}`}>
+              <div className="kalshi-row">
+                <span className="kalshi-main">
+                  <span className="kalshi-title">{e.eventTitle}</span>
+                  <span className="kalshi-sub mono">
+                    <span className="kalshi-tag">{e.category}</span>
+                    <span className="kalshi-opt">{e.options.length} strikes</span>
+                    {e.lead.closeTime && <span className="kalshi-opt">closes {relativeClose(Date.parse(e.lead.closeTime))}</span>}
+                  </span>
+                </span>
+                <button className="btn btn-quiet kalshi-add" type="button"
+                  aria-expanded={openLadders.has(e.eventTicker)}
+                  onClick={() => setOpenLadders((s) => { const n = new Set(s); if (n.has(e.eventTicker)) n.delete(e.eventTicker); else n.add(e.eventTicker); return n; })}>
+                  <Icon name={openLadders.has(e.eventTicker) ? 'chevron-up' : 'chevron-down'} size={13} />
+                  {openLadders.has(e.eventTicker) ? 'Hide strikes' : 'Choose a strike'}
+                </button>
+              </div>
+              {openLadders.has(e.eventTicker) && e.options.map((o) => (
+                <div className="kalshi-row kalshi-strike" key={o.ticker}>
+                  <span className="kalshi-main">
+                    <span className="kalshi-title">{o.subTitle ?? o.ticker}</span>
+                  </span>
+                  <span className="kalshi-odds mono">{Math.round(o.yesOdds)}&#162;</span>
+                  <button className="btn btn-red kalshi-add" type="button"
+                    disabled={pending === o.ticker} onClick={() => addBinary(o)}>
+                    {pending === o.ticker ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="kalshi-row" key={e.item.ticker}>

@@ -27,6 +27,12 @@ const PACE_MS = 250;
 const STATE_KEY = "kalshi-sync.cursor";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Kalshi titles arrive with stray leading spaces and trailing newlines
+const clean = (v: unknown): string | null => {
+  if (v == null) return null;
+  const t = String(v).replace(/\s+/g, " ").trim();
+  return t.length ? t : null;
+};
 
 // One paced Kalshi GET with backoff on 429. Null when the API keeps refusing.
 async function kget(u: URL, budgetLeft: () => number): Promise<any | null> {
@@ -91,10 +97,10 @@ Deno.serve(async (req) => {
           ticker: m.ticker,
           event_ticker: et || null,
           series_ticker: e.series_ticker ?? null,
-          title: e.title ?? m.title ?? null,
-          sub_title: m.yes_sub_title ?? m.title ?? null,
-          category: e.category ?? null,
-          event_title: e.title ?? null,
+          title: clean(e.title ?? m.title),
+          sub_title: clean(m.yes_sub_title ?? m.title),
+          category: clean(e.category),
+          event_title: clean(e.title),
           event_mutually_exclusive: e.mutually_exclusive ?? null,
           yes_odds: mid != null ? Math.round(mid * 100) : null,
           status: m.status ?? null,
@@ -128,6 +134,10 @@ Deno.serve(async (req) => {
   const { data: purged } = await supabase.from("term_kalshi_catalog")
     .delete().gt("close_time", horizonIso).is("added_market_code", null).select("ticker");
   stats.purged = purged?.length ?? 0;
+  // parlay shards that an older sync imported ("Exotics") never belong in the picker
+  const { data: shards } = await supabase.from("term_kalshi_catalog")
+    .delete().like("event_ticker", "KXMVE%").is("added_market_code", null).select("ticker");
+  stats.purged += shards?.length ?? 0;
 
   return json({ ok: true, ms: Date.now() - started, ...stats });
 });

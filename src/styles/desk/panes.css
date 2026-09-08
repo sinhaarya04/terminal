@@ -649,3 +649,11 @@ textarea.tk-input{height:auto;padding:10px 12px;resize:vertical}
 .mkt-top:has(.mkt-remove-confirm) .mkt-cat{display:none}
 .mkt-remove-confirm .btn-sm{height:24px;padding:0 9px;font-size:11px}
 @media(hover:none){.mkt-remove{opacity:1}}
+
+/* ---------- Kalshi ladders (one question, many strikes) ---------- */
+.kalshi-ladder{border-bottom:1px solid var(--border)}
+.kalshi-ladder>.kalshi-row{border-bottom:none}
+.kalshi-ladder.is-open>.kalshi-row{background:var(--glass)}
+.kalshi-strike{padding-left:28px;border-top:1px solid var(--border);border-bottom:none;background:transparent}
+.kalshi-strike .kalshi-title{font-size:13px;color:var(--muted)}
+.kalshi-ladder .btn-quiet.kalshi-add{gap:6px}
