@@ -149,7 +149,6 @@ export default function DeskSignIn() {
           <>
             <h1 className="desk-h1">Enter your code.</h1>
             <p className="desk-sub">We sent a 6-digit code to {email.trim()}. It's good for one sign-in and expires in an hour.</p>
-            <p className="desk-sub">Give it up to 40 seconds to arrive, and check your junk folder if it doesn't show up.</p>
 
             <form className="desk-field" onSubmit={verifyCode}>
               <span className="tk-label mono">Sign-in code</span>
@@ -171,6 +170,7 @@ export default function DeskSignIn() {
               </button>
               <button type="button" className="desk-linkbtn" onClick={restart}>Use a different email</button>
             </div>
+            <p className="desk-fine desk-hint">Give it up to 40 seconds to arrive, and check your junk folder if it doesn't show up.</p>
           </>
         ) : (
           <>
