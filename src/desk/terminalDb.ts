@@ -2,7 +2,7 @@
 // signed-in Northeastern account). Guest/demo mode never calls any of this and
 // stays entirely in localStorage (see deskStore.ts).
 import { supabase } from '../lib/supabase';
-import type { DeskMarket } from './deskStore';
+import type { DeskMarket, Tick } from './deskStore';
 
 export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean; isAdmin: boolean };
 
@@ -164,6 +164,29 @@ export async function fetchActivity(code: string): Promise<{
     dollars: r.dollars != null ? Number(r.dollars) : undefined,
     at: Date.parse(r.created_at),
   }));
+}
+
+type HistoryRow = { market_code: string; yes: number | string; ts: string; kind: string; outcome_idx: number | null };
+
+/** The server's line for each of these markets: one row per repricing
+ *  (term_log_tick fires on every price change, the first row is the open),
+ *  oldest first. Only the binary rows — multi markets have no chart yet.
+ *  Newest 1000 rows across the batch, so a long-lived board can't push a
+ *  quiet market's open off the end. null = couldn't ask, same as the feed. */
+export async function fetchPriceHistory(codes: string[]): Promise<Map<string, Tick[]> | null> {
+  if (!supabase || !codes.length) return null;
+  const { data, error } = await supabase.from('term_price_history')
+    .select('market_code,yes,ts,kind,outcome_idx')
+    .in('market_code', codes).is('outcome_idx', null)
+    .order('ts', { ascending: false }).limit(1000);
+  if (error) return null;
+  const out = new Map<string, Tick[]>();
+  for (const r of (data ?? []) as HistoryRow[]) {
+    const tick: Tick = { at: Date.parse(r.ts), yes: Number(r.yes) };
+    if (r.kind === 'open') tick.kind = 'open';
+    out.set(r.market_code, [tick, ...(out.get(r.market_code) ?? [])]);
+  }
+  return out;
 }
 
 /** Record that this account joined a market (once per user per market). */

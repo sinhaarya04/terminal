@@ -29,7 +29,9 @@ export type Position = {
 /** One repricing of a market: the YES price after an order, and the order
  *  that moved it when this browser saw it. The chart draws these as the live
  *  tail after the seeded history, with a marker per order. */
-export type Tick = { at: number; yes: number; dollars?: number; side?: Side; kind?: 'buy' | 'sell' };
+// kind 'open' is the server's first row for a market — a point on the line,
+// never an order marker.
+export type Tick = { at: number; yes: number; dollars?: number; side?: Side; kind?: 'buy' | 'sell' | 'open' };
 
 export type DeskMarket = {
   id: string;        // WEEK-01 for seeded, share code (EX-XXXX) for custom
@@ -283,11 +285,17 @@ export async function hydrateLive(userId: string) {
     }
     return { ...p, outcomeIdx: p.outcomeIdx, settled: { outcome: mk.resolved, payout } };
   });
+  // The chart line lives on the server — term_price_history has a row for
+  // every repricing — so it is pulled here for everything this desk can see.
+  // Before this, a refresh flattened every market to five copies of its
+  // current price and the line was rebuilt only from this browser's orders.
+  const history = await db.fetchPriceHistory([...markets, ...mine].map((m) => m.id));
+  const withLine = (m: DeskMarket) => withHistory(m, history?.get(m.id));
   state = {
     ...state, live: true, userId,
     user: { handle: profile.handle }, isAdmin: profile.isAdmin, seenIntro: profile.seenIntro,
     balance: profile.balance, pmBalance: profile.pmBalance,
-    positions, markets, custom: mine, joined: mine.map((m) => m.id),
+    positions, markets: markets.map(withLine), custom: mine.map(withLine), joined: mine.map((m) => m.id),
     // The server has no activity table yet, so live mode starts with an empty
     // feed rather than inventing one. Local events still append as you play.
     activity: [],
@@ -345,11 +353,25 @@ function recordActivity(e: Omit<Activity, 'id' | 'at' | 'handle'> & { handle?: s
 export async function refreshLiveMarket(code: string): Promise<void> {
   if (!state.live) return;
   try {
-    const [m, feed] = await Promise.all([db.getMarketByCode(code), db.fetchActivity(code)]);
+    const [m, feed, history] = await Promise.all([
+      db.getMarketByCode(code), db.fetchActivity(code), db.fetchPriceHistory([code]),
+    ]);
     if (!m) return;
-    const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === code
-      ? (m.yes !== c.yes ? withTick({ ...c, ...m, spark: c.spark, ticks: c.ticks }, m.yes) : { ...m, spark: c.spark, ticks: c.ticks })
-      : c));
+    const line = history?.get(code);
+    // The feed knows the order behind each repricing (size, side); the history
+    // rows only know the price. Pairing them puts everyone's order markers on
+    // the line, not just the ones this browser placed itself.
+    const orders: TickMeta[] = (feed ?? [])
+      .filter((a) => (a.kind === 'bet' || a.kind === 'sell') && a.dollars != null)
+      .map((a) => ({ at: a.at, dollars: a.dollars!, side: a.side, kind: a.kind === 'sell' ? 'sell' : 'buy' }));
+    const roll = (arr: DeskMarket[]) => arr.map((c) => {
+      if (c.id !== code) return c;
+      const next = { ...c, ...m, spark: c.spark, ticks: c.ticks };
+      // server line when it answered; otherwise the old local nudge, so a
+      // failed fetch degrades to what this browser saw rather than a flat line
+      if (line?.length) return withHistory(next, line, orders);
+      return m.yes !== c.yes ? withTick(next, m.yes) : next;
+    });
     // Server truth replaces this market's slice of the feed — but only when the
     // server actually answered. A failed fetch (feed null) keeps whatever this
     // browser already recorded rather than erasing it.
@@ -826,6 +848,42 @@ function withTick(c: DeskMarket, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>
   const prev = c.ticks?.length ? c.ticks : [{ at: now - 1, yes: c.yes }];
   return { ...c, yes: newYes, spark: [...c.spark.slice(-9), newYes],
     ticks: [...prev, { at: now, yes: newYes, ...meta }].slice(-TICK_CAP) };
+}
+
+/** An order that may explain a server tick: what this browser placed (a local
+ *  tick, which also knows the price it landed at) or a feed row (which doesn't). */
+export type TickMeta = { at: number; yes?: number; dollars: number; side?: Side; kind?: Tick['kind'] };
+
+/** The server's line, with each repricing wearing the order that caused it
+ *  when one is known. A candidate explains at most one tick: the nearest one
+ *  within 20s (server rows and feed rows share a clock; this browser's own
+ *  ticks are stamped from its clock, hence the slack) at the same price when
+ *  the candidate knows the price. Anything unexplained stays a plain point. */
+export function mergeTicks(server: Tick[], candidates: TickMeta[] = []): Tick[] {
+  const spare = [...candidates];
+  const merged = server.map((s) => {
+    let best = -1, gap = 20_000;
+    spare.forEach((c, i) => {
+      if (c.yes != null && c.yes !== s.yes) return;
+      const d = Math.abs(c.at - s.at);
+      if (d < gap) { gap = d; best = i; }
+    });
+    if (best < 0) return s;
+    const [c] = spare.splice(best, 1);
+    return { ...s, dollars: c.dollars, side: c.side, kind: c.kind ?? 'buy' };
+  });
+  return merged.slice(-TICK_CAP);
+}
+
+/** Replace a market's line with the server's, keeping the order metadata from
+ *  the local tail and any extra candidates. The spark is the line's last ten
+ *  points; a market with only its open row keeps whatever spark it had. */
+function withHistory(m: DeskMarket, line: Tick[] | undefined, extra: TickMeta[] = []): DeskMarket {
+  if (!line?.length) return m;
+  const local: TickMeta[] = (m.ticks ?? []).filter((t): t is Tick & { dollars: number } => t.dollars != null);
+  const ticks = mergeTicks(line, [...local, ...extra]);
+  const path = ticks.map((t) => t.yes);
+  return { ...m, ticks, spark: path.length >= 2 ? path.slice(-10) : m.spark };
 }
 
 function bumpMarketPrice(id: string, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>) {
