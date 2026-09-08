@@ -23,7 +23,8 @@ export default function MultiLineChart({ outcomes }: { outcomes: Outcome[] }) {
   const min = Math.max(0, Math.min(...all) - 6);
   const max = Math.min(100, Math.max(...all) + 6);
   const span = max - min || 1;
-  const liveN = lines.reduce((n, l) => n + (l.o.ticks?.length ?? 0), 0);
+  // orders, not points: the server line's open row is a tick with no order
+  const liveN = lines.reduce((n, l) => n + (l.o.ticks ?? []).filter((t) => t.dollars != null).length, 0);
 
   // A screen reader gets nothing from the polylines, so the label carries the
   // reading: who is in the market, where each sits now, and which way it moved.
