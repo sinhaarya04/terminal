@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import BrandLockup from '../components/BrandLockup';
 import PopNumber from '../components/PopNumber';
 import AccountMenu from './AccountMenu';
@@ -26,7 +25,10 @@ export default function Rail({
         <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
       </div>
       <div className="rail-head">
-        <Link to="/" className="brand rail-brand" aria-label="Back to E[X]"><BrandLockup /></Link>
+        {/* a real navigation, not a router link: the desk lives at
+            e-x.club/terminal, proxied from the landing site, so "/" is the
+            landing page and must leave this app */}
+        <a href="/" className="brand rail-brand" aria-label="Back to E[X]"><BrandLockup /></a>
         <button className="rail-collapse mono" onClick={onToggle}
           aria-label="Hide navigation" aria-expanded={open} aria-controls="desk-rail"><Icon name="chevron-left" /></button>
       </div>
