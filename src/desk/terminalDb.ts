@@ -267,7 +267,14 @@ export async function searchKalshiCatalog(
     .select('ticker,event_ticker,event_title,sub_title,category,yes_odds,close_time,event_mutually_exclusive')
     .is('added_market_code', null)
     .eq('status', 'active')
-    .gt('close_time', new Date().toISOString());
+    .gt('close_time', new Date().toISOString())
+    // the club only lists markets resolving within ~5 months; the sync purges
+    // beyond this too, the filter just keeps the picker honest between runs
+    .lte('close_time', new Date(Date.now() + 150 * 86_400_000).toISOString())
+    // Kalshi's near-term feed is mostly zero-volume micro props (player lines,
+    // minor-league games); a small volume floor keeps the picker to markets
+    // real people are trading
+    .gte('volume', 100);
   if (cat) query = query.eq('category', cat);
   const term = q.trim();
   if (term) query = query.ilike('event_title', `%${term}%`);
