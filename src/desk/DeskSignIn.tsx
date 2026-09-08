@@ -113,7 +113,7 @@ export default function DeskSignIn() {
         <div className="about-fluid" aria-hidden="true">
           <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
         </div>
-        <div className="auth-top brand"><BrandLockup /></div>
+        <a href="https://www.e-x.club/" className="auth-top brand" aria-label="Back to e-x.club"><BrandLockup /></a>
         <div className="auth-hero">
           <h2>The desk where Northeastern trades on what happens next.</h2>
           <p>Live markets on campus, sports, the economy and culture. Prices are the crowd's odds.</p>
