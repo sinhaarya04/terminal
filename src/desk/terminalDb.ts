@@ -254,9 +254,10 @@ type KalshiRow = {
   event_mutually_exclusive: boolean | null;
 };
 
-/** Search the Kalshi catalog (~14k rows) server-side. Only active, not-yet-added
- *  markets come back, capped at 50 rows and ordered by opening odds. `cat` empty
- *  means all categories; `q` empty means no title filter. */
+/** Search the Kalshi catalog (~14k rows) server-side. Only active, not-yet-added,
+ *  still-open markets come back, capped at 50 rows and ordered by close time so
+ *  the ones resolving soonest lead. `cat` empty means all categories; `q` empty
+ *  means no title filter. */
 export async function searchKalshiCatalog(
   cat: string, q: string, limit = 50,
 ): Promise<KalshiCatalogItem[]> {
@@ -265,11 +266,15 @@ export async function searchKalshiCatalog(
     .from('term_kalshi_catalog')
     .select('ticker,event_ticker,event_title,sub_title,category,yes_odds,close_time,event_mutually_exclusive')
     .is('added_market_code', null)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .gt('close_time', new Date().toISOString());
   if (cat) query = query.eq('category', cat);
   const term = q.trim();
   if (term) query = query.ilike('event_title', `%${term}%`);
-  const { data, error } = await query.order('yes_odds').limit(limit);
+  const { data, error } = await query
+    .order('close_time', { ascending: true, nullsFirst: false })
+    .order('yes_odds')
+    .limit(limit);
   if (error) throw error;
   return ((data ?? []) as KalshiRow[]).map((r) => ({
     ticker: r.ticker, eventTicker: r.event_ticker, eventTitle: r.event_title, subTitle: r.sub_title,

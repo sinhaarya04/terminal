@@ -8,7 +8,7 @@ import type { Side } from '../deskStore';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
 import OutcomeEditor, { type OutcomeDraft } from '../../components/OutcomeEditor';
-import { endOfDay } from '../../lib/closeTime';
+import { endOfDay, relativeClose } from '../../lib/closeTime';
 
 // The Kalshi catalog carries its own coarse taxonomy, distinct from the desk's
 // seven board categories. An empty value means "every category".
@@ -544,6 +544,7 @@ function KalshiPicker() {
                 <span className="kalshi-sub mono">
                   <span className="kalshi-tag">{e.category}</span>
                   <span className="kalshi-opt">{counts[e.eventTicker] ?? e.options.length} options</span>
+                  {e.lead.closeTime && <span className="kalshi-opt">closes {relativeClose(Date.parse(e.lead.closeTime))}</span>}
                 </span>
               </span>
               <span className="kalshi-odds mono">{Math.round(e.lead.yesOdds)}&#162;</span>
@@ -559,6 +560,7 @@ function KalshiPicker() {
                 <span className="kalshi-sub mono">
                   <span className="kalshi-tag">{e.item.category}</span>
                   {e.item.subTitle && <span className="kalshi-opt">{e.item.subTitle}</span>}
+                  {e.item.closeTime && <span className="kalshi-opt">closes {relativeClose(Date.parse(e.item.closeTime))}</span>}
                 </span>
               </span>
               <span className="kalshi-odds mono">{Math.round(e.item.yesOdds)}&#162;</span>
