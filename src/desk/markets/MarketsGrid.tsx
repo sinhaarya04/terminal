@@ -115,7 +115,7 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
       ) : (
         <div className="mlist">
           <div className="mlist-head mono" aria-hidden="true">
-            <span>Market</span><span>Top outcome</span><span className="r">Chance</span><span>Trade</span><span className="r">Volume</span><span className="r">Updated</span>
+            <span>Market</span><span>Top outcome</span><span className="r">Chance</span><span>Trade</span><span className="r">Volume</span><span className="r">Closes</span>
           </div>
           {list.map((ev) => <Row key={ev.id} ev={ev} onOpen={onOpen} />)}
         </div>
