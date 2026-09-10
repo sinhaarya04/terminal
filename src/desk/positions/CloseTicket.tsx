@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { sellShares, getMarket, engineOf, marketPhase, money, round2 } from '../deskStore';
+import { sellShares, sellMulti, getMarket, engineOf, marketPhase, money, round2 } from '../deskStore';
 import * as lmsr from '../../lib/lmsr';
 import type { PositionRow } from './PositionsList';
 
@@ -43,17 +43,30 @@ export default function CloseTicket({
   const held = row.p.shares;
   const amount = Math.min(sellN ?? held, held);
 
+  // Multi positions hold one outcome of N, so they sell back to the N-outcome
+  // meter through term_sell_multi; the binary RPC refuses them.
+  const outcomeIdx = row.p.outcomeIdx;
+  const isMulti = outcomeIdx != null;
+  const outcome = isMulti ? m?.outcomes?.find((o) => o.idx === outcomeIdx) : undefined;
+  const sideLabel = isMulti ? (outcome?.name ?? `#${outcomeIdx}`) : row.p.side;
+
   let proceeds = 0;
   if (m && open && amount > 0) {
-    const eng = engineOf(m);
-    proceeds = round2(lmsr.proceedsForSell({ qYes: eng.qYes, qNo: eng.qNo }, row.p.side, amount, eng.b));
+    if (isMulti) {
+      const outs = m.outcomes ?? [];
+      const iPos = outs.findIndex((o) => o.idx === outcomeIdx);
+      if (iPos >= 0) proceeds = round2(lmsr.proceedsForSellN(outs.map((o) => o.pq), iPos, amount, m.b ?? lmsr.DEFAULT_B));
+    } else {
+      const eng = engineOf(m);
+      proceeds = round2(lmsr.proceedsForSell({ qYes: eng.qYes, qNo: eng.qNo }, row.p.side, amount, eng.b));
+    }
   }
   const costOut = held > 0 ? round2(row.p.cost * (amount / held)) : 0;
 
   const sell = async () => {
     if (!m || busy || amount <= 0) return;
     setBusy(true);
-    const got = await sellShares(m, row.p.side, amount);
+    const got = isMulti ? await sellMulti(m, outcomeIdx, amount) : await sellShares(m, row.p.side, amount);
     setBusy(false);
     if (got == null) { setErr('Could not sell — the market may have closed.'); return; }
     setErr('');
@@ -66,7 +79,7 @@ export default function CloseTicket({
       <p className="tk-q">{m?.q || row.p.marketId}</p>
 
       <label className="tk-field">
-        <span className="tk-label mono">Shares to sell (of {held.toFixed(1)} {row.p.side})</span>
+        <span className="tk-label mono">Shares to sell (of {held.toFixed(1)} {sideLabel})</span>
         <input
           className="tk-input mono"
           type="number"
@@ -96,7 +109,7 @@ export default function CloseTicket({
       {err && <p className="join-msg mono is-no" role="alert">{err}</p>}
 
       <button className="btn btn-red tk-go" disabled={!m || !open || busy || amount <= 0} onClick={sell}>
-        {busy ? 'Selling…' : `Sell ${amount.toFixed(1)} ${row.p.side} · ${money(proceeds)}`}
+        {busy ? 'Selling…' : `Sell ${amount.toFixed(1)} ${sideLabel} · ${money(proceeds)}`}
       </button>
     </div>
   );

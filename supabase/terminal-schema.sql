@@ -309,6 +309,7 @@ begin
 
   select * into m from public.term_markets where code = p_code for update;
   if m is null then raise exception 'no such market'; end if;
+  if m.is_multi then raise exception 'use term_sell_multi'; end if;
   if m.resolved is not null then raise exception 'market already settled'; end if;
   if m.closes_at is not null and now() >= m.closes_at then raise exception 'market closed'; end if;
 
@@ -412,6 +413,7 @@ begin
 
   select * into m from public.term_markets where code = p_code for update;
   if m is null or m.owner is null then raise exception 'no such market'; end if;
+  if m.is_multi then raise exception 'use term_resolve_multi'; end if;
   if m.owner <> v_uid then raise exception 'only the owner can settle this market'; end if;
   if m.resolved is not null then raise exception 'already settled'; end if;
 
