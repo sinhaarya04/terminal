@@ -37,8 +37,10 @@ with the subject `{{ .Token }} is your one-time code · E[X]`:
 | Reset password | Terminal, set-a-password path | `resetPasswordForEmail` |
 | Magic Link | Showdown, every sign-in | `signInWithOtp` |
 
-Reset password is the one most likely to still carry a link, since the terminal
-did not use it before passwords.
+Check all three, not just the ones the terminal is new to. On 2026-09-10 the
+Confirm signup template turned out to still carry a link despite this doc
+saying otherwise; the auth log gives it away as a GET on `/verify` answering
+303, where a code arrives as a POST answering 200.
 
 **Sign In / Providers → Email.**
 
