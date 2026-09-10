@@ -534,13 +534,10 @@ grant execute on function public.term_set_seen_intro() to authenticated;
 -- ---------- leaderboard ----------
 -- Ranks the PUBLIC board wallet only (personal fun-money is excluded). Exposes
 -- handle + public balance for every member past RLS, never email or pm_balance.
--- Ranks EQUITY: cash plus open public positions marked at the live price. Cash
--- alone read every open bet as a loss until it settled (2026-09-10). Binary
--- marks at the stored cents price (what the desk shows); multi marks at the
--- softmax of the outcome quantities, max-shifted so exp() can't overflow.
--- Settled and voided markets contribute nothing — payout or refund is already
--- in cash. Applied as migration term_leaderboard_equity; body in
--- supabase/leaderboard-equity.sql.
+-- Ranks EQUITY: cash plus open public positions valued by the pot rule (see
+-- the `marked` CTE). Cash alone read every open bet as a loss until it
+-- settled; shares x price assumed a $1/share payout the engine never makes.
+-- Body in supabase/leaderboard-equity.sql.
 drop function if exists public.term_leaderboard();
 create or replace function public.term_leaderboard()
 returns table (rank int, handle text, balance numeric, equity numeric, pnl numeric, brier numeric, n_settled int, is_me boolean)
@@ -554,20 +551,31 @@ language sql security definer set search_path = public stable as $$
     from public.term_bets b join public.term_markets m on m.code=b.market_code
     where b.shares>0 and m.resolved in ('YES','NO','MULTI') group by b.user_id),
   held as (
-    select b.user_id, b.market_code, b.side, b.outcome_idx, sum(b.shares) as sh
+    select b.user_id, b.market_code, b.side, b.outcome_idx, sum(b.shares) as sh, sum(b.cost) as cost
     from public.term_bets b join public.term_markets m on m.code=b.market_code
     where m.resolved is null and not m.is_private
     group by 1,2,3,4 having sum(b.shares) > 1e-9),
   sm as (
-    select o.market_code, o.idx,
+    select o.market_code, o.idx, o.sq,
       exp((o.pq - mx.mx)/m.b) / sum(exp((o.pq - mx.mx)/m.b)) over (partition by o.market_code) as price
     from public.term_market_outcomes o
     join public.term_markets m on m.code=o.market_code
     join (select market_code, max(pq) as mx from public.term_market_outcomes group by 1) mx on mx.market_code=o.market_code),
+  -- the pot rule: a holding is worth P(win) x its share of the pot, plus the
+  -- refund it gets back if the other side holds nothing (a void). Summed over
+  -- a market this is exactly the pool, so equity is conserved like cash.
   marked as (
-    select h.user_id,
-      sum(h.sh * case when m.is_multi then coalesce(sm.price,0)
-                      when h.side='YES' then m.yes/100.0 else 1 - m.yes/100.0 end) as open_val
+    select h.user_id, sum(
+      case when m.is_multi then
+        coalesce(sm.price,0) * m.pool * h.sh / nullif(sm.sq,0)
+        + coalesce((select sum(o2.price) from sm o2 where o2.market_code=h.market_code and o2.idx<>h.outcome_idx and o2.sq<=1e-9),0) * h.cost
+      when h.side='YES' then
+        (m.yes/100.0) * m.pool * h.sh / nullif(m.sq_yes,0)
+        + (1-m.yes/100.0) * case when m.sq_no<=1e-9 then h.cost else 0 end
+      else
+        (1-m.yes/100.0) * m.pool * h.sh / nullif(m.sq_no,0)
+        + (m.yes/100.0) * case when m.sq_yes<=1e-9 then h.cost else 0 end
+      end) as open_val
     from held h join public.term_markets m on m.code=h.market_code
     left join sm on sm.market_code=h.market_code and sm.idx=h.outcome_idx
     group by 1),
@@ -735,6 +743,35 @@ end;
 $function$;
 revoke all on function public.term_resolve_from_oracle(text, text) from public;
 revoke all on function public.term_resolve_from_oracle(text, text) from anon, authenticated;
+
+-- ---------- oracle: void a board market ----------
+-- For a Kalshi market that settled as something other than yes/no, or a
+-- multi event whose winner isn't one of the listed outcomes. Every member's
+-- net stake comes back (sells are negative bet rows, so sum(cost) is what
+-- they are still out) and the market closes as VOID. Idempotent. System-only:
+-- the resolve edge function calls it with the service role.
+create or replace function public.term_void_from_oracle(p_market_code text)
+returns void language plpgsql security definer set search_path = public as $$
+declare m record;
+begin
+  select * into m from public.term_markets where code = p_market_code for update;
+  if m is null then raise exception 'no such market'; end if;
+  if m.owner is not null then raise exception 'not a board market'; end if;
+  if m.resolved is not null then return; end if;
+  if m.is_private then
+    update public.term_profiles p set pm_balance = p.pm_balance + r.refund
+      from (select user_id, sum(cost) as refund from public.term_bets
+             where market_code = p_market_code group by user_id) r where p.id = r.user_id;
+  else
+    update public.term_profiles p set balance = p.balance + r.refund
+      from (select user_id, sum(cost) as refund from public.term_bets
+             where market_code = p_market_code group by user_id) r where p.id = r.user_id;
+  end if;
+  update public.term_markets set resolved = 'VOID', resolved_at = now() where code = p_market_code;
+  insert into public.term_activity (market_code, handle, kind) values (p_market_code, 'oracle', 'resolve');
+end;
+$$;
+revoke all on function public.term_void_from_oracle(text) from public, anon, authenticated;
 
 -- Write lockdown across ALL term_ tables (defense in depth): RLS already denies
 -- direct client writes and these revokes remove the underlying grants too, so a

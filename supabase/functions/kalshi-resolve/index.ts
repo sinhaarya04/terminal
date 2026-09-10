@@ -113,13 +113,21 @@ async function resolveOne(
     const result = String(market.result ?? "").toLowerCase();
 
     if (!SETTLED_STATUSES.has(status)) return { resolved: false };
-    if (result !== "yes" && result !== "no") return { resolved: false };
 
     // Record the settlement onto the catalog row.
     await supabase
       .from("term_kalshi_catalog")
       .update({ status, result })
       .eq("ticker", ticker);
+
+    // Settled as something other than yes/no (scratched, voided by Kalshi):
+    // there is no side to pay, so refund every stake instead of leaving the
+    // pot locked forever.
+    if (result !== "yes" && result !== "no") {
+      const { error: vErr } = await supabase.rpc("term_void_from_oracle", { p_market_code: code });
+      if (vErr) return { resolved: false, error: vErr.message };
+      return { resolved: true };
+    }
 
     // Pay out the board market via the system oracle RPC (idempotent).
     const { error: rpcErr } = await supabase.rpc("term_resolve_from_oracle", {
@@ -178,9 +186,15 @@ async function resolveMulti(
       if (result === "yes") winners.push(o.idx);
     }
 
-    // Only resolve a fully-settled, single-winner event.
+    // Only pay out a fully-settled, single-winner event. Fully settled with
+    // no winner among the listed outcomes (or, impossibly, two) means the
+    // pot can't be paid, so it goes back to everyone.
     if (!allSettled) return { resolved: false };
-    if (winners.length !== 1) return { resolved: false };
+    if (winners.length !== 1) {
+      const { error: vErr } = await supabase.rpc("term_void_from_oracle", { p_market_code: code });
+      if (vErr) return { resolved: false, error: vErr.message };
+      return { resolved: true };
+    }
 
     const { error: rpcErr } = await supabase.rpc("term_resolve_multi_from_oracle", {
       p_market_code: code,

@@ -964,10 +964,32 @@ function genCode(): string {
   return `EX-${s}`;
 }
 
-/** Current mark-to-market value of a position at a market's live price. */
+/** What a position is worth now, by the rule the engine actually pays:
+ *  P(win) x this holding's share of the pot, plus the refund it gets if the
+ *  other side holds nothing (the market would void). Summed over a market
+ *  this is exactly the pool. Shares x price would assume a $1/share payout
+ *  that the parimutuel pot never makes. Falls back to the price mark when a
+ *  market lacks pot data (guest mode, or a card not yet hydrated). */
 export function positionValue(p: Position, m: DeskMarket | undefined): number {
   if (p.settled) return p.settled.payout;   // final, not a live mark
   if (!m) return p.cost;
-  const price = p.side === 'YES' ? m.yes : 100 - m.yes;
-  return round2(p.shares * (price / 100));
+  const pool = m.pool ?? 0;
+  if (m.isMulti && m.outcomes?.length && p.outcomeIdx != null) {
+    const b = m.b ?? lmsr.DEFAULT_B;
+    const ex = m.outcomes.map((o) => Math.exp(o.pq / b));
+    const S = ex.reduce((a, v) => a + v, 0);
+    const mine = m.outcomes.find((o) => o.idx === p.outcomeIdx);
+    if (!mine || !(mine.sq > 0)) return p.cost;
+    const i = m.outcomes.indexOf(mine);
+    const pWin = ex[i] / S;
+    const pVoid = m.outcomes.reduce((a, o, j) => a + (o.idx !== p.outcomeIdx && !(o.sq > 0) ? ex[j] / S : 0), 0);
+    return round2(pWin * pool * p.shares / mine.sq + pVoid * p.cost);
+  }
+  const pYes = m.yes / 100;
+  const pWin = p.side === 'YES' ? pYes : 1 - pYes;
+  if (m.sqYes == null || m.sqNo == null) return round2(p.shares * pWin);
+  const sqMine = p.side === 'YES' ? m.sqYes : m.sqNo;
+  const sqOther = p.side === 'YES' ? m.sqNo : m.sqYes;
+  if (!(sqMine > 0)) return p.cost;
+  return round2(pWin * pool * p.shares / sqMine + (sqOther > 0 ? 0 : (1 - pWin) * p.cost));
 }
