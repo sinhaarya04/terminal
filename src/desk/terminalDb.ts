@@ -409,13 +409,14 @@ export async function rpcResolveMulti(code: string, idx: number): Promise<void> 
   if (error) throw error;
 }
 
-export type LeaderRow = { rank: number; handle: string; balance: number; pnl: number; brier: number | null; nSettled: number; isMe: boolean };
+export type LeaderRow = { rank: number; handle: string; balance: number; equity: number; pnl: number; brier: number | null; nSettled: number; isMe: boolean };
 
-/** Public board standings — handle + PUB balance + net P&L, ranked. */
+/** Public board standings — handle, PUB cash, equity (cash + open positions
+ *  at the live price) and net P&L from $1,000, ranked by equity. */
 export async function fetchLeaderboard(): Promise<LeaderRow[]> {
   if (!supabase) return [];
   const { data } = await supabase.rpc('term_leaderboard');
-  return ((data ?? []) as { rank: number; handle: string; balance: number; pnl: number; brier: number | null; n_settled: number; is_me: boolean }[])
-    .map((r) => ({ rank: r.rank, handle: r.handle, balance: Number(r.balance), pnl: Number(r.pnl),
+  return ((data ?? []) as { rank: number; handle: string; balance: number; equity: number; pnl: number; brier: number | null; n_settled: number; is_me: boolean }[])
+    .map((r) => ({ rank: r.rank, handle: r.handle, balance: Number(r.balance), equity: Number(r.equity), pnl: Number(r.pnl),
       brier: r.brier != null ? Number(r.brier) : null, nSettled: r.n_settled, isMe: !!r.is_me }));
 }
