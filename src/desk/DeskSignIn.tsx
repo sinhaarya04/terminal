@@ -329,6 +329,7 @@ export default function DeskSignIn() {
               </button>
               <button type="button" className="desk-linkbtn" onClick={() => go('signup')}>Use a different email</button>
             </div>
+            <p className="desk-fine desk-hint">Give it up to 40 seconds to arrive, and check your spam folder if it doesn't show up.</p>
           </>
         ) : mode === 'reset' ? (
           <>
@@ -379,6 +380,7 @@ export default function DeskSignIn() {
               </button>
               <button type="button" className="desk-linkbtn" onClick={() => go('reset')}>Use a different email</button>
             </div>
+            <p className="desk-fine desk-hint">Give it up to 40 seconds to arrive, and check your spam folder if it doesn't show up.</p>
           </>
         )}
 
