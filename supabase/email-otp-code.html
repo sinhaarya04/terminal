@@ -1,8 +1,9 @@
 <!--
   E[X] · One-time code auth email (Supabase)
-  Paste into BOTH: Supabase Dashboard → Authentication → Emails →
-    · Magic link       (returning accounts)
-    · Confirm signup   (first sign-in creates the account)
+  Paste into ALL THREE: Supabase Dashboard → Authentication → Emails →
+    · Confirm signup   (the terminal's one-time address check at signup)
+    · Reset password   (the terminal's set-a-password code)
+    · Magic link       (Showdown's per-visit sign-in code)
   Suggested subject: {{ .Token }} is your one-time code · E[X]
   Vars used: {{ .Token }}, {{ .Email }}
 

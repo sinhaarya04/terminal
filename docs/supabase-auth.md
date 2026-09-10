@@ -1,95 +1,104 @@
 # Supabase auth for the desk
 
-The terminal signs members in with a **6-digit email code**, not a magic link.
-Guest mode never touches Supabase.
+The terminal signs members in with **email + password**. Email is touched
+exactly twice in an account's life: a 6-digit code proves the address when the
+account is created, and a code unlocks setting a new password. Every other
+sign-in is a password check with no mail involved. There is no guest mode.
 
-Project ref: `dtgciwhecaqwnddzepiz`.
+Project ref: `dtgciwhecaqwnddzepiz`. The auth project is shared with Showdown,
+which still signs in with a per-visit code through `signInWithOtp`; nothing
+here changes that.
 
-## Why a code and not a link
+## Why every email carries a code and never a link
 
 Northeastern mail runs on Microsoft 365, and Defender for Office 365 **Safe
 Links** fetches every URL in an inbound message to scan it for phishing. A
 Supabase `{{ .ConfirmationURL }}` is single-use: the scanner's fetch verifies
-the token, and by the time a person clicks, the link is spent. The result is a
-sign-in that fails for everyone on Outlook with "Token has expired or is
-invalid" — while working fine on Gmail, which is why it looks intermittent.
+the token, and by the time a person clicks, the link is spent. That is why
+magic links failed for everyone on Outlook while working on Gmail.
 
 A one-time code is never a URL, so there is nothing for a scanner to consume.
-This is Supabase's own recommended workaround for prefetching mail providers.
+Whether a mail contains a link or a code is decided **entirely by the email
+template** — `{{ .Token }}` sends a code, `{{ .ConfirmationURL }}` sends a
+link. They are the same secret, so if a template still has the URL anywhere,
+Safe Links burns the code too. The URL must be gone, not just accompanied by a
+code.
 
 ## Required dashboard config
 
-The client sends `signInWithOtp({ email })`. Whether the mail contains a link
-or a code is decided **entirely by the email template** — `{{ .Token }}` sends
-a code, `{{ .ConfirmationURL }}` sends a link. If a template still has a
-confirmation URL, that link goes out and Safe Links burns the token, taking the
-code down with it (they are the same token). So the URL must be gone, not just
-accompanied by a code.
+All under https://supabase.com/dashboard/project/dtgciwhecaqwnddzepiz/auth.
 
-Edit both templates under **Authentication → Emails → Templates**
-(https://supabase.com/dashboard/project/dtgciwhecaqwnddzepiz/auth/templates):
+**Emails → Templates.** Paste `supabase/email-otp-code.html` into all three,
+with the subject `{{ .Token }} is your one-time code · E[X]`:
 
-- **Magic Link** — used when the address already has an account.
-- **Confirm signup** — used the first time an address signs in, because the
-  client leaves `shouldCreateUser` at its default of `true`.
+| Template | Who sends it | Client call |
+| --- | --- | --- |
+| Confirm signup | Terminal, at account creation | `signUp` |
+| Reset password | Terminal, set-a-password path | `resetPasswordForEmail` |
+| Magic Link | Showdown, every sign-in | `signInWithOtp` |
 
-Both should carry the code and no anchor tag:
+Reset password is the one most likely to still carry a link, since the terminal
+did not use it before passwords.
 
-```html
-<h2>Your E[X] Terminal sign-in code</h2>
-<p>Enter this code on the sign-in screen:</p>
-<p style="font-size:28px;letter-spacing:8px;font-family:monospace"><strong>{{ .Token }}</strong></p>
-<p>It expires in an hour and can only be used once. If you didn't ask for it, ignore this email.</p>
-```
+**Sign In / Providers → Email.**
 
-Put the code in the subject too, so it's readable from the notification:
-`{{ .Token }} is your E[X] Terminal code`.
+- *Confirm email* **on**. `signUp` then returns a user with no session, and the
+  account cannot sign in until the code is verified. Turning this off would let
+  anyone claim any Northeastern address.
+- *Minimum password length* **8**. The client checks this before sending, but
+  the server is the enforcement.
+- *Email OTP expiration* 3600s (the default) is fine.
 
-Same change via the Management API, if you'd rather not click through:
-
-```bash
-export SUPABASE_ACCESS_TOKEN="..."   # https://supabase.com/dashboard/account/tokens
-curl -X PATCH "https://api.supabase.com/v1/projects/dtgciwhecaqwnddzepiz/config/auth" \
-  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "mailer_subjects_magic_link": "{{ .Token }} is your E[X] Terminal code",
-    "mailer_templates_magic_link_content": "<h2>Your E[X] Terminal sign-in code</h2><p>Enter this code on the sign-in screen:</p><p style=\"font-size:28px;letter-spacing:8px;font-family:monospace\"><strong>{{ .Token }}</strong></p><p>It expires in an hour and can only be used once.</p>",
-    "mailer_subjects_confirmation": "{{ .Token }} is your E[X] Terminal code",
-    "mailer_templates_confirmation_content": "<h2>Your E[X] Terminal sign-in code</h2><p>Enter this code on the sign-in screen:</p><p style=\"font-size:28px;letter-spacing:8px;font-family:monospace\"><strong>{{ .Token }}</strong></p><p>It expires in an hour and can only be used once.</p>"
-  }'
-```
-
-Two other settings worth checking while you're in there:
-
-- **Authentication → Sign In / Providers → Email → Email OTP Expiration** —
-  3600s (one hour) is the default and is fine. Supabase caps it at 86400s to
-  limit brute-force exposure.
-- If a custom SMTP provider is ever added, **turn its click/open tracking off**.
-  Tracking rewrites URLs in outgoing mail; with a code-only template there are
-  no URLs to rewrite today, but it would break any link added later.
+**SMTP.** Postmark is the custom provider. Keep its click and open tracking
+off: tracking rewrites URLs in outgoing mail, and while a code-only template
+has none today, it would break any link added later.
 
 ## Rate limits
 
-A fresh code can be requested once every 60 seconds per address. `DeskSignIn`
-disables its resend button for that long so the button can't fire a request
-that is guaranteed to bounce.
+A fresh code can be requested once every 60 seconds per address.
+`DeskSignIn` disables its resend button for that long so it can't fire a
+request that is guaranteed to bounce.
 
 ## Client flow
 
-`src/desk/DeskSignIn.tsx` runs two steps against the same page — no redirect, so
-no redirect-URL allowlist entry is needed:
+`src/desk/DeskSignIn.tsx` is one card with five modes, all on the same page —
+no redirect, so no redirect-URL allowlist entry is needed and no call passes
+`emailRedirectTo`.
 
-1. `supabase.auth.signInWithOtp({ email })` — sends the code. No
-   `emailRedirectTo`, since nothing in the mail is clickable.
-2. `supabase.auth.verifyOtp({ email, token, type: 'email' })` — `'email'` is
-   correct for both a first-time signup and a returning sign-in.
+| Mode | Calls | Then |
+| --- | --- | --- |
+| `signin` | `signInWithPassword({ email, password })` | session lands |
+| `signup` | `signUp({ email, password })` | `verify` |
+| `verify` | `verifyOtp({ email, token, type: 'email' })`; resend via `resend({ type: 'signup', email })` | session lands |
+| `reset` | `resetPasswordForEmail(email)` | `reset-verify` |
+| `reset-verify` | `verifyOtp({ email, token, type: 'recovery' })`, then `updateUser({ password })` | session lands |
 
-On success the session lands, `Desk.tsx`'s `onAuthStateChange` calls
-`hydrateLive`, and the card is replaced by the terminal.
+Two Supabase behaviours the card leans on:
+
+- With *Confirm email* on, `signUp` for an address that already has an account
+  returns an obfuscated user whose `identities` array is empty, not an error.
+  The card reads that as "sign in instead".
+- `signInWithPassword` answers `Email not confirmed` for an account that signed
+  up but never entered its code. The card re-sends the code and jumps to
+  `verify`.
+
+In `reset-verify` the session lands after the first call, and `Desk.tsx`'s
+`onAuthStateChange` may already have swapped the card for the terminal when
+the second finishes. If `updateUser` fails, the card signs out again and keeps
+the message in a module-level slot that the freshly mounted card shows once.
+
+On any successful sign-in, `Desk.tsx` calls `hydrateLive`, and the card is
+replaced by the terminal.
+
+## Members from before passwords
+
+Accounts created under the old code-only flow have no password. "Forgot or
+never set a password?" runs the `reset` path, which is the same thing as
+setting a first one. The account is the same `auth.users` row, so balance and
+positions carry over. No migration.
 
 ## Domain gate
 
 `src/lib/authEmail.ts` blocks anything that isn't `northeastern.edu` (or a
-subdomain) before the request goes out. That is a UX courtesy only — anything in
-the browser can be bypassed, so the real gate has to be server-side in Supabase.
+subdomain) before the request goes out. That is a UX courtesy only — the real
+gate is the `enforce_northeastern_email` trigger in Supabase.
