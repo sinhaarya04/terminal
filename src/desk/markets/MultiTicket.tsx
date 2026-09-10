@@ -9,7 +9,12 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
   const desk = useDesk();
   const live = (getMarket(market.id) ?? market);
   const [idx, setIdx] = useState<number>(live.outcomes?.[0]?.idx ?? 1);
-  const [amount, setAmount] = useState(25);
+  // Raw text, not a number: a controlled number input paints "0" the moment
+  // the field is cleared, so typing 12 into it read "012". Empty text is a
+  // zero-dollar order, which the Buy button already refuses.
+  const [amountText, setAmountText] = useState('25');
+  const amount = Math.max(0, Number(amountText) || 0);
+  const setAmount = (v: number) => setAmountText(String(v));
   const [busy, setBusy] = useState(false);
 
   if (marketPhase(live) !== 'open') {
@@ -28,7 +33,7 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
   const chosen = outs.find((o) => o.idx === idx);
   const q = outs.map((o) => o.pq);
   const iPos = outs.findIndex((o) => o.idx === idx);
-  const shares = iPos >= 0 ? lmsr.sharesForSpendN(q, iPos, amount, live.b ?? 100) : 0;
+  const shares = iPos >= 0 ? lmsr.sharesForSpendN(q, iPos, amount, live.b ?? lmsr.DEFAULT_B) : 0;
   const potAfter = (live.pool || 0) + amount;
   const winSharesAfter = (chosen?.sq ?? 0) + shares;
   const cutIfWins = winSharesAfter > 0 ? shares * (potAfter / winSharesAfter) : 0;
@@ -46,7 +51,7 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
     <div className="pane-body">
       <div className="kicker">Ticket</div>
       <p className="tk-q">{live.q}</p>
-      <div className="tk-code mono">{live.id} · {outs.length} outcomes</div>
+      <div className="tk-code"><span className="mono">{live.id}</span><span className="mkt-cat">{outs.length} outcomes</span></div>
 
       <div className="mt-outcomes" role="radiogroup" aria-label="Outcome">
         {outs.map((o, i) => (
@@ -59,9 +64,11 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
       </div>
 
       <label className={`tk-field t-input-wrap ${tooMuch ? 'is-error' : ''}`}>
-        <span className="tk-label mono">Amount ($)</span>
-        <input className={`tk-input mono ${tooMuch ? 'is-error' : ''}`} type="number" min={1}
-          value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} />
+        <span className="tk-label">Amount<span className="mono">{live.custom ? 'Private' : 'Public'} {money(balance)}</span></span>
+        <span className="tk-amount">
+          <input className={`tk-input mono ${tooMuch ? 'is-error' : ''}`} type="number" min={1}
+            value={amountText} placeholder="0" onChange={(e) => setAmountText(e.target.value)} />
+        </span>
       </label>
       <div className="tk-chips">
         {[10, 25, 50, 100].map((v) => (
@@ -69,12 +76,12 @@ export default function MultiTicket({ market, onDone }: { market: DeskMarket; on
         ))}
       </div>
 
-      <div className="tk-calc mono">
-        <div><span>PRICE</span><b>{iPos >= 0 ? prices[iPos] : 0}¢</b></div>
-        <div><span>SHARES</span><b>{shares.toFixed(1)}</b></div>
-        <div><span>COST</span><b>{money(amount)}</b></div>
-        <div><span>CUT IF IT WINS</span><b className="is-yes">{money(cutIfWins)}</b></div>
-        <div><span>{live.custom ? 'PRI' : 'PUB'} BALANCE AFTER</span>
+      <div className="tk-calc">
+        <div><span>Price</span><b>{iPos >= 0 ? prices[iPos] : 0}¢</b></div>
+        <div><span>Shares</span><b>{shares.toFixed(1)}</b></div>
+        <div><span>Cost</span><b>{money(amount)}</b></div>
+        <div><span>Cut if it wins</span><b className="is-yes">{money(cutIfWins)}</b></div>
+        <div className="is-total"><span>{live.custom ? 'Private' : 'Public'} balance after</span>
           <b className={tooMuch ? 'is-no' : ''}>{money(Math.max(0, balance - amount))}</b></div>
       </div>
 

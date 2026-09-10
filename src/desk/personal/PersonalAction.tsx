@@ -3,6 +3,7 @@ import TradeTicket from '../markets/TradeTicket';
 import MultiTicket from '../markets/MultiTicket';
 import { useDesk, marketPhase, type DeskMarket, type Side } from '../deskStore';
 import { useNow } from '../../lib/useNow';
+import Icon from '../../components/Icon';
 
 export default function PersonalAction({
   created, market, onDone,
@@ -28,7 +29,7 @@ export default function PersonalAction({
       <div className="pane-body">
         <div className="kicker">Share this code</div>
         <button type="button" className="code-pill" onClick={copy} title="Copy code">
-          {created.id}<span className="code-pill-hint">{copied ? 'copied' : 'copy'}</span>
+          {created.id}<span className="code-pill-hint"><Icon name={copied ? 'check' : 'copy'} size={13} />{copied ? 'Copied' : 'Copy'}</span>
         </button>
         <p className="pane-empty-sub">Anyone with this code can join and bet.</p>
       </div>

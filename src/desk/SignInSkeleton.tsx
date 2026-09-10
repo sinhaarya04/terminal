@@ -10,7 +10,6 @@ export default function SignInSkeleton({ ready }: { ready: boolean }) {
       <div className="t-skel-skeleton" aria-hidden="true">
         <div className="skel-card">
           <div className="skel-bar skel-lockup" />
-          <div className="skel-bar skel-kicker" />
           <div className="skel-bar skel-h1" />
           <div className="skel-bar skel-sub" />
           <div className="skel-bar skel-sub short" />

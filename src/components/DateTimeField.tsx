@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import Icon from './Icon';
 import { endOfDay, startOfDay, daysToSunday, formatClose } from '../lib/closeTime';
 
 // A date + time picker built in-house rather than <input type="datetime-local">,
@@ -97,7 +98,7 @@ export default function DateTimeField({
         <span className={value == null ? 'dt-placeholder' : ''}>
           {value == null ? 'Pick a close time' : formatClose(value)}
         </span>
-        <span className="dt-caret" aria-hidden="true">▾</span>
+        <span className="dt-caret" aria-hidden="true"><Icon name="chevron-down" size={14} /></span>
       </button>
 
       {open && (
@@ -123,10 +124,10 @@ export default function DateTimeField({
           <div className="dt-cal">
             <div className="dt-cal-head">
               <button type="button" className="dt-nav" aria-label="Previous month"
-                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
+                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><Icon name="chevron-left" size={14} /></button>
               <span className="dt-month mono">{MONTHS[month.getMonth()]} {month.getFullYear()}</span>
               <button type="button" className="dt-nav" aria-label="Next month"
-                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
+                onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><Icon name="chevron-right" size={14} /></button>
             </div>
 
             <div className="dt-dow mono" aria-hidden="true">

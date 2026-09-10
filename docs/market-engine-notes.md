@@ -5,7 +5,9 @@ The terminal's private markets run the club's hybrid engine:
 platform notes; the operative rules are:
 
 - Pricing: C(q_yes,q_no) = b·ln(e^(q_yes/b) + e^(q_no/b)); a trade costs ΔC;
-  the quoted price is the softmax slope. b = 100.
+  the quoted price is the softmax slope. b = 400 for every new market since
+  2026-09-07 (was 100: a $25 order moved a fresh market 11 points). One
+  source each side: DEFAULT_B in src/lib/lmsr.ts, term_default_b() in SQL.
 - Payout: at resolution the pot (C(now) − C(at open)) is split across the
   winning side's REAL held shares. Points are conserved exactly — profit can
   only come from other players, never be minted.

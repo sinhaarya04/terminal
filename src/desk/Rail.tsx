@@ -1,11 +1,12 @@
-import { Link } from 'react-router-dom';
 import BrandLockup from '../components/BrandLockup';
 import PopNumber from '../components/PopNumber';
 import AccountMenu from './AccountMenu';
+import Icon, { type IconName } from '../components/Icon';
 import { useDesk, money } from './deskStore';
 
 export type Destination = 'Markets' | 'Positions' | 'Personal' | 'Leaderboard';
 export const DESTINATIONS: Destination[] = ['Markets', 'Positions', 'Personal', 'Leaderboard'];
+const ICONS: Record<Destination, IconName> = { Markets: 'markets', Positions: 'positions', Personal: 'personal', Leaderboard: 'leaderboard' };
 
 export default function Rail({
   active, onChange, open, onToggle,
@@ -24,12 +25,15 @@ export default function Rail({
         <span className="blob b1" /><span className="blob b2" /><span className="blob b3" />
       </div>
       <div className="rail-head">
-        <Link to="/" className="brand rail-brand" aria-label="Back to E[X]"><BrandLockup /></Link>
+        {/* the mark always goes home to the club site, whichever host the
+            desk is being served from */}
+        <a href="https://www.e-x.club/" className="brand rail-brand" aria-label="Back to e-x.club"><BrandLockup /></a>
         <button className="rail-collapse mono" onClick={onToggle}
-          aria-label="Hide navigation" aria-expanded={open} aria-controls="desk-rail">‹</button>
+          aria-label="Hide navigation" aria-expanded={open} aria-controls="desk-rail"><Icon name="chevron-left" /></button>
       </div>
 
       <div className="rail-dests">
+        <div className="rail-section" aria-hidden="true">Desk</div>
         {DESTINATIONS.map((d) => (
           <button
             key={d}
@@ -38,6 +42,7 @@ export default function Rail({
             className={`rail-dest ${active === d ? 'is-on' : ''}`}
             onClick={() => onChange(d)}
           >
+            <Icon name={ICONS[d]} />
             {d}
             {d === 'Positions' && positions.length > 0 && (
               <em className="rail-badge mono">{positions.length}</em>
@@ -51,13 +56,13 @@ export default function Rail({
             platform credits, personal markets in their own sim money — the
             two never feed each other */}
         <div className="rail-wallets">
-          <span className="rail-wallet">
-            <em className="mono">PUB</em>
-            <PopNumber text={money(balance)} className="rail-bal mono" />
+          <span className="rail-wallet is-pub" title="Public balance: the wallet the board trades in">
+            <em>Public</em>
+            <PopNumber text={money(balance)} className="rail-bal num" />
           </span>
-          <span className="rail-wallet">
-            <em className="mono">PRI</em>
-            <PopNumber text={money(pmBalance)} className="rail-bal rail-bal-pri mono" />
+          <span className="rail-wallet is-pri" title="Private credits: the separate wallet personal markets play in">
+            <em>Private</em>
+            <PopNumber text={money(pmBalance)} className="rail-bal rail-bal-pri num" />
           </span>
         </div>
         <AccountMenu />

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDesk, signOut, resetDesk } from './deskStore';
 import { supabase } from '../lib/supabase';
+import Icon from '../components/Icon';
 
 // `{open && <Menu/>}` would unmount the node instantly, leaving nothing to
 // transition out. Four phases keep it mounted through the close, and the
@@ -58,12 +59,14 @@ export default function AccountMenu() {
   return (
     <div className="acct" ref={wrapRef}>
       <button
-        className="acct-trigger mono"
+        className="acct-trigger"
         onClick={toggle}
         aria-expanded={phase === 'open'}
         aria-haspopup="menu"
       >
-        @{user?.handle}
+        <span className="acct-avatar" aria-hidden="true">{(user?.handle ?? '?').slice(0, 2).toUpperCase()}</span>
+        <span className="acct-name">@{user?.handle}</span>
+        <Icon name="chevron-up" size={14} />
       </button>
 
       {mounted && (

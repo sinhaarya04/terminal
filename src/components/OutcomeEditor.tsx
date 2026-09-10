@@ -2,6 +2,8 @@
 // add/remove rows, capped at what the engine allows (12). Opening odds are left
 // uniform — officers/creators can seed them, but for a club "who wins" the even
 // open is the honest default and the price discovers from there.
+import Icon from './Icon';
+
 export type OutcomeDraft = { name: string };
 
 export default function OutcomeEditor({
@@ -23,11 +25,11 @@ export default function OutcomeEditor({
             onChange={(e) => set(i, e.target.value)}
           />
           <button type="button" className="oe-del" aria-label={`Remove outcome ${i + 1}`}
-            disabled={outcomes.length <= 2} onClick={() => remove(i)}>×</button>
+            disabled={outcomes.length <= 2} onClick={() => remove(i)}><Icon name="close" size={14} /></button>
         </div>
       ))}
       {outcomes.length < 12 && (
-        <button type="button" className="oe-add mono" onClick={add}>+ Add outcome</button>
+        <button type="button" className="oe-add" onClick={add}><Icon name="plus" size={13} />Add outcome</button>
       )}
     </div>
   );

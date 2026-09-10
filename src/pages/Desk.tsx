@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useDesk, markIntroSeen, hydrateLive, exitLive } from '../desk/deskStore';
+import { useDesk, markIntroSeen, hydrateLive, exitLive, previewSignIn } from '../desk/deskStore';
 import { supabase } from '../lib/supabase';
 import SignInSkeleton from '../desk/SignInSkeleton';
 import DeskIntro from '../desk/DeskIntro';
@@ -17,9 +17,20 @@ export default function Desk() {
   const [introDone, setIntroDone] = useState(false);
   const [checking, setChecking] = useState(!!supabase);
 
+  // Dev preview: `/terminal?preview` opens a guest desk without an account so
+  // the UI can be worked on locally. Stripped from production by the DEV guard.
+  // The auth watcher is skipped too — its "no session" callback would reset
+  // the guest desk straight back to signed-out.
+  const preview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview');
+  useEffect(() => {
+    if (!preview) return;
+    previewSignIn();
+    setChecking(false);
+  }, [preview]);
+
   // Watch the Supabase session and enter/leave live mode accordingly.
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || preview) return;
     let done = false;
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) await hydrateLive(data.session.user.id);
@@ -31,7 +42,7 @@ export default function Desk() {
       setChecking(false);
     });
     return () => { done = true; sub.subscription.unsubscribe(); };
-  }, []);
+  }, [preview]);
 
   // Avoid a signed-out flash while the first Supabase session check runs: the
   // skeleton holds the card's shape, then cross-fades to the real form.

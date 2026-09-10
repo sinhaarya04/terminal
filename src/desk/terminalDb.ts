@@ -2,7 +2,7 @@
 // signed-in Northeastern account). Guest/demo mode never calls any of this and
 // stays entirely in localStorage (see deskStore.ts).
 import { supabase } from '../lib/supabase';
-import type { DeskMarket } from './deskStore';
+import type { DeskMarket, Tick } from './deskStore';
 
 export type LiveProfile = { handle: string; balance: number; pmBalance: number; seenIntro: boolean; isAdmin: boolean };
 
@@ -166,6 +166,29 @@ export async function fetchActivity(code: string): Promise<{
   }));
 }
 
+type HistoryRow = { market_code: string; yes: number | string; ts: string; kind: string; outcome_idx: number | null };
+
+/** The server's line for each of these markets: one row per repricing
+ *  (term_log_tick fires on every price change, the first row is the open),
+ *  oldest first. Only the binary rows — multi markets have no chart yet.
+ *  Newest 1000 rows across the batch, so a long-lived board can't push a
+ *  quiet market's open off the end. null = couldn't ask, same as the feed. */
+export async function fetchPriceHistory(codes: string[]): Promise<Map<string, Tick[]> | null> {
+  if (!supabase || !codes.length) return null;
+  const { data, error } = await supabase.from('term_price_history')
+    .select('market_code,yes,ts,kind,outcome_idx')
+    .in('market_code', codes).is('outcome_idx', null)
+    .order('ts', { ascending: false }).limit(1000);
+  if (error) return null;
+  const out = new Map<string, Tick[]>();
+  for (const r of (data ?? []) as HistoryRow[]) {
+    const tick: Tick = { at: Date.parse(r.ts), yes: Number(r.yes) };
+    if (r.kind === 'open') tick.kind = 'open';
+    out.set(r.market_code, [tick, ...(out.get(r.market_code) ?? [])]);
+  }
+  return out;
+}
+
 /** Record that this account joined a market (once per user per market). */
 export async function rpcLogJoin(code: string): Promise<void> {
   if (!supabase) return;
@@ -205,6 +228,22 @@ export async function rpcSellShares(code: string, side: 'YES' | 'NO', shares: nu
 }
 
 
+/** Admin only: fix a market's wording — question and outcome names. Never
+ *  prices or quantities, so it is safe on a live market. */
+export async function rpcAdminEditMarket(code: string, question: string, outcomes: { idx: number; name: string }[]): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.rpc('term_admin_edit_market', { p_code: code, p_question: question, p_outcomes: outcomes });
+  if (error) throw error;
+}
+
+/** Admin only: delete a market outright. The server refunds every member's
+ *  net stake first (unless it already settled) and sweeps its rows. */
+export async function rpcAdminDeleteMarket(code: string): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.rpc('term_admin_delete_market', { p_code: code });
+  if (error) throw error;
+}
+
 /** Admin only: create a public board market. Server rejects non-admins. */
 export async function rpcAdminCreateBoardMarket(
   input: { q: string; cat: string; yes: number; closesAt?: number },
@@ -238,9 +277,10 @@ type KalshiRow = {
   event_mutually_exclusive: boolean | null;
 };
 
-/** Search the Kalshi catalog (~14k rows) server-side. Only active, not-yet-added
- *  markets come back, capped at 50 rows and ordered by opening odds. `cat` empty
- *  means all categories; `q` empty means no title filter. */
+/** Search the Kalshi catalog (~14k rows) server-side. Only active, not-yet-added,
+ *  still-open markets come back, capped at 50 rows and ordered by close time so
+ *  the ones resolving soonest lead. `cat` empty means all categories; `q` empty
+ *  means no title filter. */
 export async function searchKalshiCatalog(
   cat: string, q: string, limit = 50,
 ): Promise<KalshiCatalogItem[]> {
@@ -249,11 +289,24 @@ export async function searchKalshiCatalog(
     .from('term_kalshi_catalog')
     .select('ticker,event_ticker,event_title,sub_title,category,yes_odds,close_time,event_mutually_exclusive')
     .is('added_market_code', null)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    // a market closing inside the next 12 hours resolves before members could
+    // trade it; hourly weather and crypto ladders otherwise crowd the top
+    .gt('close_time', new Date(Date.now() + 12 * 3_600_000).toISOString())
+    // the club only lists markets resolving within ~5 months; the sync purges
+    // beyond this too, the filter just keeps the picker honest between runs
+    .lte('close_time', new Date(Date.now() + 150 * 86_400_000).toISOString())
+    // Kalshi's near-term feed is mostly zero-volume micro props (player lines,
+    // minor-league games); a small volume floor keeps the picker to markets
+    // real people are trading
+    .gte('volume', 100);
   if (cat) query = query.eq('category', cat);
   const term = q.trim();
   if (term) query = query.ilike('event_title', `%${term}%`);
-  const { data, error } = await query.order('yes_odds').limit(limit);
+  const { data, error } = await query
+    .order('close_time', { ascending: true, nullsFirst: false })
+    .order('yes_odds')
+    .limit(limit);
   if (error) throw error;
   return ((data ?? []) as KalshiRow[]).map((r) => ({
     ticker: r.ticker, eventTicker: r.event_ticker, eventTitle: r.event_title, subTitle: r.sub_title,

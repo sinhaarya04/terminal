@@ -6,6 +6,7 @@ import {
 import { useNow } from '../../lib/useNow';
 import { useTilt } from '../useTilt';
 import { formatClose, relativeClose } from '../../lib/closeTime';
+import Icon from '../../components/Icon';
 
 // The Personal tab's home: sim wallet + P&L up top, then a compact grid of
 // every market this account is in, ending on the tile that makes a new one.
@@ -39,15 +40,15 @@ export default function PersonalGrid({
   return (
     <div className="grid-wrap">
       <div className="pg-head">
-        <div className="kicker">Personal · {custom.length} market{custom.length === 1 ? '' : 's'}</div>
-        <div className="pg-stats mono">
+        <div className="kicker">Personal<span className="title-count">{custom.length}</span></div>
+        <div className="pg-stats">
           <span className="pg-stat" title="Personal markets play in private credits — a separate wallet from your public balance. Winnings here never touch the public board, and going broke here never touches it either.">
-            <em>PRI BALANCE</em>
-            <b className="is-yes">{money(pmBalance)}</b>
+            <em>Private credits</em>
+            <b className="mono">{money(pmBalance)}</b>
           </span>
           <span className="pg-stat">
-            <em>P&amp;L</em>
-            <b className={pnl >= 0 ? 'is-yes' : 'is-no'}>{pnl >= 0 ? '+' : ''}{money(pnl)}</b>
+            <em>Open P&amp;L</em>
+            <b className={`mono ${pnl >= 0 ? 'is-yes' : 'is-no'}`}>{pnl >= 0 ? '+' : ''}{money(pnl)}</b>
           </span>
         </div>
         <form className="pg-join" onSubmit={join}>
@@ -59,13 +60,13 @@ export default function PersonalGrid({
             aria-label="Join with a code"
             onChange={(e) => { setCode(e.target.value.toUpperCase()); setMsg(null); }}
           />
-          <button className="btn btn-red pg-join-go" type="submit" disabled={!code.trim()}>Join</button>
+          <button className="btn btn-ghost pg-join-go" type="submit" disabled={!code.trim()}>Join</button>
         </form>
       </div>
       {msg && <p className="join-msg mono is-no" role="alert">{msg.text}</p>}
       <p className="pg-note">
-        Personal markets play in <b>private credits</b> (PRI) — separate from the public
-        balance (PUB) in the rail. The two never mix: winnings here stay here.
+        Personal markets play in <b>private credits</b>, a separate wallet from the public
+        balance in the rail. The two never mix: winnings here stay here.
       </p>
 
       <div className="grid">
@@ -81,8 +82,8 @@ export default function PersonalGrid({
               </div>
               <div className="mkt-title">{m.q}</div>
               <div className="pg-price mono">
-                <span>YES {m.yes}¢</span>
-                <span className="pg-pool">{money(m.pool || 0)} pool</span>
+                <span><span className="is-yes">Yes</span> {m.yes}¢ <span className="pg-pool">/ No {100 - m.yes}¢</span></span>
+                <span className="pg-pool">{money(m.pool || 0)} pot</span>
               </div>
               <div className="mkt-foot">
                 <span>by {m.owner}</span>
@@ -97,8 +98,8 @@ export default function PersonalGrid({
         })}
 
         <button className="mkt pg-new" onClick={onNew} aria-label="Create a new market">
-          <span className="pg-plus" aria-hidden="true">＋</span>
-          <span className="pg-new-label mono">New market</span>
+          <span className="pg-plus" aria-hidden="true"><Icon name="plus" /></span>
+          <span className="pg-new-label">New market</span>
         </button>
       </div>
     </div>

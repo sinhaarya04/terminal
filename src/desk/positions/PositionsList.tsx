@@ -26,10 +26,13 @@ export default function PositionsList({
   }
 
   return (
-    <div className="pane-body">
-      <div className="kicker">
-        Portfolio · {rows.filter((r) => !r.p.settled).length} open
-        {rows.some((r) => r.p.settled) && ` · ${rows.filter((r) => r.p.settled).length} settled`}
+    <div>
+      <div className="list-head">
+        <div className="kicker">Portfolio</div>
+        <span className="head-note mono">
+          {rows.filter((r) => !r.p.settled).length} open
+          {rows.some((r) => r.p.settled) && ` · ${rows.filter((r) => r.p.settled).length} settled`}
+        </span>
       </div>
       {rows.map((r) => {
         const m = getMarket(r.p.marketId);
@@ -39,11 +42,12 @@ export default function PositionsList({
             className={`li ${selectedKey === r.key ? 'is-on' : ''}`}
             onClick={() => onSelect(r)}
           >
-            <em className="li-code mono">
-              {r.p.marketId} · {r.p.outcomeIdx != null
-                ? <span className="is-yes">{getMarket(r.p.marketId)?.outcomes?.find((o) => o.idx === r.p.outcomeIdx)?.name ?? `#${r.p.outcomeIdx}`}</span>
-                : <span className={r.p.side === 'YES' ? 'is-yes' : 'is-no'}>{r.p.side}</span>}
-              {r.p.settled && <b className="li-settled is-flat">closed</b>}
+            <em className="li-code">
+              {r.p.outcomeIdx != null
+                ? <span className="side-chip is-yes">{getMarket(r.p.marketId)?.outcomes?.find((o) => o.idx === r.p.outcomeIdx)?.name ?? `#${r.p.outcomeIdx}`}</span>
+                : <span className={`side-chip ${r.p.side === 'YES' ? 'is-yes' : 'is-no'}`}>{r.p.side === 'YES' ? 'Yes' : 'No'}</span>}
+              <span>{r.p.marketId}</span>
+              {r.p.settled && <b className="li-settled">closed</b>}
             </em>
             <span className={`li-q ${r.p.settled ? 'is-dim' : ''}`}>{m?.q || r.p.marketId}</span>
             <span className={`li-pnl mono ${r.pnl >= 0 ? 'is-yes' : 'is-no'}`}>

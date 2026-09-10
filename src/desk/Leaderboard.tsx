@@ -14,26 +14,33 @@ export default function Leaderboard() {
   useEffect(() => { let on = true; void fetchLeaderboard().then((r) => on && setRows(r)); return () => { on = false; }; }, [now]);
 
   if (!live) {
-    return <div className="grid-wrap"><div className="kicker">Leaderboard</div>
-      <p className="pane-empty-sub" style={{ marginTop: 16 }}>The leaderboard ranks real board accounts — sign in to see it.</p></div>;
+    return (
+      <div className="grid-wrap">
+        <div className="kicker">Leaderboard</div>
+        <div className="pane-empty">
+          <p className="pane-empty-title">Standings need a live account</p>
+          <p className="pane-empty-sub">The leaderboard ranks real board accounts. Sign in with your Northeastern email to see it.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="grid-wrap lb-wrap">
       <div className="grid-head">
-        <div className="kicker">Leaderboard · {rows?.length ?? '…'}</div>
-        <span className="lb-note mono">public board · ranked by balance · P&L from $1,000</span>
+        <div className="kicker">Leaderboard<span className="title-count">{rows?.length ?? '…'}</span></div>
+        <span className="lb-note">Public board · ranked by balance · P&amp;L from $1,000</span>
       </div>
       <div className="lb">
-        <div className="lb-row lb-head mono">
-          <span>#</span><span>MEMBER</span><span className="lb-r">BALANCE</span>
-          <span className="lb-r">P&amp;L</span><span className="lb-r" title="Brier score: mean squared error of the prices you took vs what actually happened. 0 is perfect, lower is sharper — calibration, not luck.">BRIER</span>
-          <span className="lb-r">BETS</span>
+        <div className="lb-row lb-head">
+          <span>#</span><span>Member</span><span className="lb-r">Balance</span>
+          <span className="lb-r">P&amp;L</span><span className="lb-r" title="Brier score: mean squared error of the prices you took vs what actually happened. 0 is perfect, lower is sharper — calibration, not luck.">Brier</span>
+          <span className="lb-r">Bets</span>
         </div>
         {(rows ?? []).map((r) => (
           <div key={r.handle} className={`lb-row ${r.isMe ? 'is-me' : ''} ${r.rank <= 3 ? 'is-top' : ''}`}>
             <span className="lb-rank mono">{r.rank}</span>
-            <span className="lb-name">@{r.handle}{r.isMe && <em className="lb-you mono">you</em>}</span>
+            <span className="lb-name">@{r.handle}{r.isMe && <em className="lb-you">you</em>}</span>
             <span className="lb-bal mono lb-r">{money(r.balance)}</span>
             <span className={`lb-pnl mono lb-r ${r.pnl > 0 ? 'is-yes' : r.pnl < 0 ? 'is-no' : 'is-flat'}`}>
               {r.pnl > 0 ? '+' : ''}{money(r.pnl)}

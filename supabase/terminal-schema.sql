@@ -50,6 +50,15 @@ alter table public.term_markets add column if not exists pq_no  numeric not null
 alter table public.term_markets add column if not exists sq_yes numeric not null default 0;
 alter table public.term_markets add column if not exists sq_no  numeric not null default 0;
 alter table public.term_markets add column if not exists b      numeric not null default 100;
+-- ---------- liquidity ----------
+-- Price impact scales as 1/b. At 100 a $25 order moved a fresh 50/50 market
+-- 11 points; at 400 it moves about 3 and a $100 order about 11. Payout is
+-- parimutuel from the pot, so b bounds nothing but sensitivity. Every create
+-- RPC reads this; the client mirrors it as DEFAULT_B in src/lib/lmsr.ts.
+create or replace function public.term_default_b() returns numeric
+language sql immutable as $$ select 400::numeric $$;
+alter table public.term_markets alter column b set default 400;
+
 alter table public.term_markets add column if not exists c0     numeric not null default 0;
 -- 'VOID' = the winning side held zero shares; stakes were refunded.
 alter table public.term_markets drop constraint if exists term_markets_resolved_check;
@@ -183,7 +192,7 @@ declare
   v_handle text;
   v_p numeric := greatest(0.02, least(0.98, p_yes / 100.0));
   v_off numeric;
-  v_pqy numeric; v_pqn numeric; v_b numeric := 100;
+  v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b();
   i int;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
@@ -218,7 +227,7 @@ returns void language plpgsql security definer set search_path = public as $$
 declare
   v_p numeric := greatest(0.02, least(0.98, p_yes / 100.0));
   v_off numeric;
-  v_pqy numeric; v_pqn numeric; v_b numeric := 100;
+  v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b();
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
   -- seed the engine from the card's displayed price, like private creation;
@@ -365,7 +374,7 @@ declare
   v_uid uuid := auth.uid(); v_admin boolean; v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   v_p numeric := greatest(0.02, least(0.98, p_yes/100.0));
-  v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := 100; i int;
+  v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b(); i int;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
   select is_admin into v_admin from public.term_profiles where id = v_uid;
@@ -597,7 +606,7 @@ declare
   v_cat public.term_kalshi_catalog%rowtype;
   v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  v_p numeric; v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := 100;
+  v_p numeric; v_off numeric; v_pqy numeric; v_pqn numeric; v_b numeric := public.term_default_b();
   v_q text; i int;
 begin
   if v_uid is null then raise exception 'not signed in'; end if;
@@ -750,7 +759,7 @@ declare
   v_admin boolean; v_handle text;
   v_code text;
   v_alpha text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  v_b numeric := 100;
+  v_b numeric := public.term_default_b();
   v_n int; v_all_me boolean; v_any_linked boolean;
   v_cat text; v_question text; v_closes_at timestamptz;
   v_sum numeric := 0; v_lo numeric; i int; r record;
@@ -897,3 +906,152 @@ create trigger term_kalshi_import_unlisted
 -- ingest-log table (created by the ingest pipeline) inherits the same write
 -- lockdown as every other term_ table.
 revoke insert, update, delete, truncate on public.term_ingest_log from anon, authenticated;
+
+
+-- ---------- order flow: log public-board bets and sells to the feed ----------
+-- term_place_bet / term_sell_shares only write term_activity for private
+-- markets. The board's order-flow panel needs the same rows for public
+-- markets, so an AFTER INSERT trigger on term_bets fills them in. Private
+-- markets keep their in-RPC rows (the trigger skips them to avoid doubles).
+--
+-- Apply once against the live project (also mirrored in terminal-schema.sql):
+--   supabase db query --linked -f supabase/order-flow-trigger.sql
+create or replace function public.term_log_public_bet()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_private boolean; v_handle text;
+begin
+  select is_private into v_private from public.term_markets where code = new.market_code;
+  if coalesce(v_private, false) then return new; end if;
+  select handle into v_handle from public.term_profiles where id = new.user_id;
+  insert into public.term_activity (market_code, handle, kind, side, dollars)
+  values (new.market_code, coalesce(v_handle, 'member'),
+          case when new.shares < 0 then 'sell' else 'bet' end,
+          new.side, abs(new.cost));
+  return new;
+end;
+$$;
+drop trigger if exists term_bets_log_public on public.term_bets;
+create trigger term_bets_log_public
+  after insert on public.term_bets
+  for each row execute function public.term_log_public_bet();
+
+-- ---------- officer: delete a market outright ----------
+-- For markets that should never have been listed. Every member's net stake in
+-- it is refunded first (sells are negative bet rows, so sum(cost) per member
+-- is exactly what they are still out), then every dependent row goes. A
+-- market that already settled has already paid out, so nothing is refunded
+-- there — the delete only removes its history.
+--   supabase db query --linked -f supabase/admin-delete-market.sql
+create or replace function public.term_admin_delete_market(p_code text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := auth.uid();
+  v_admin boolean;
+  m record;
+  r record;
+begin
+  if v_uid is null then raise exception 'not signed in'; end if;
+  select is_admin into v_admin from public.term_profiles where id = v_uid;
+  if not coalesce(v_admin, false) then raise exception 'officers only'; end if;
+
+  select * into m from public.term_markets where code = p_code for update;
+  if m is null then raise exception 'no such market'; end if;
+
+  if m.resolved is null then
+    for r in
+      select user_id, sum(cost) as paid from public.term_bets
+      where market_code = p_code group by user_id
+    loop
+      if m.is_private then
+        update public.term_profiles set pm_balance = pm_balance + r.paid where id = r.user_id;
+      else
+        update public.term_profiles set balance = balance + r.paid where id = r.user_id;
+      end if;
+    end loop;
+  end if;
+
+  delete from public.term_bets            where market_code = p_code;
+  delete from public.term_activity        where market_code = p_code;
+  delete from public.term_price_history   where market_code = p_code;
+  delete from public.term_market_outcomes where market_code = p_code;
+  delete from public.term_markets         where code = p_code;
+end;
+$$;
+revoke all on function public.term_admin_delete_market(text) from public, anon;
+grant execute on function public.term_admin_delete_market(text) to authenticated;
+
+-- ---------- officer: fix the wording of a market ----------
+-- Title and outcome names only. Prices, quantities, liquidity, close time and
+-- resolution are never touched here, so a live market can be corrected
+-- without moving its odds. Outcomes arrive as [{"idx":0,"name":"..."}].
+--   supabase db query --linked -f supabase/admin-edit-market.sql
+create or replace function public.term_admin_edit_market(p_code text, p_question text, p_outcomes jsonb default '[]'::jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := auth.uid();
+  v_admin boolean;
+  m record;
+  o record;
+begin
+  if v_uid is null then raise exception 'not signed in'; end if;
+  select is_admin into v_admin from public.term_profiles where id = v_uid;
+  if not coalesce(v_admin, false) then raise exception 'officers only'; end if;
+
+  select * into m from public.term_markets where code = p_code for update;
+  if m is null then raise exception 'no such market'; end if;
+
+  if length(trim(p_question)) < 3 or length(p_question) > 120 then raise exception 'question must be 3-120 characters'; end if;
+  update public.term_markets set question = trim(p_question) where code = p_code;
+
+  for o in select (e->>'idx')::int as idx, trim(e->>'name') as name from jsonb_array_elements(coalesce(p_outcomes, '[]'::jsonb)) e loop
+    if o.name is null or length(o.name) < 1 or length(o.name) > 40 then raise exception 'outcome names must be 1-40 characters'; end if;
+    update public.term_market_outcomes set name = o.name where market_code = p_code and idx = o.idx;
+  end loop;
+end;
+$$;
+revoke all on function public.term_admin_edit_market(text, text, jsonb) from public, anon;
+grant execute on function public.term_admin_edit_market(text, text, jsonb) to authenticated;
+
+-- ---------- sync bookkeeping ----------
+-- One row per resumable job. kalshi-sync stores the Kalshi feed cursor it
+-- stopped at so the next run continues instead of re-walking from the top.
+--   supabase db query --linked -f supabase/sync-state.sql
+create table if not exists public.term_sync_state (
+  key        text primary key,
+  value      text not null default '',
+  updated_at timestamptz not null default now()
+);
+alter table public.term_sync_state enable row level security;
+revoke all on public.term_sync_state from anon, authenticated;
+-- the catalog sync runs every 20 minutes now: one walk of the feed takes a few
+-- runs, and the cursor hand-off makes each run pick up where the last stopped
+update cron.job set schedule = '*/20 * * * *' where jobname = 'kalshi-sync-hourly';
+
+-- ---------- price history: the chart line ----------
+-- One row per repricing, written by the tick triggers above (term_log_tick on
+-- term_markets, term_log_tick_multi on term_market_outcomes); the first row
+-- for a market is its open. The desk reads it on sign-in and on the 30s
+-- market refresh, so the line survives a reload instead of living only in
+-- the browser that placed the orders.
+--   supabase db query --linked -f supabase/price-history-read.sql
+create table if not exists public.term_price_history (
+  id          bigint generated by default as identity primary key,
+  market_code text not null,
+  yes         numeric not null,
+  yes_bid     numeric,
+  yes_ask     numeric,
+  ts          timestamptz not null default now(),
+  pq_yes      numeric,
+  pq_no       numeric,
+  b           numeric,
+  outcome_idx integer,                       -- null for binary rows
+  kind        text not null default 'trade'  -- 'open' | 'trade'
+);
+create index if not exists term_price_history_code_ts_idx on public.term_price_history (market_code, ts desc);
+alter table public.term_price_history enable row level security;
+-- readable wherever the market row is: term_markets' own RLS decides
+drop policy if exists term_price_history_public_read on public.term_price_history;
+drop policy if exists term_price_history_read on public.term_price_history;
+create policy term_price_history_read on public.term_price_history
+  for select to anon, authenticated
+  using (exists (select 1 from public.term_markets m where m.code = term_price_history.market_code));

@@ -26,6 +26,13 @@ export type Position = {
   outcomeIdx?: number;   // multi-market positions: which outcome this holds
 };
 
+/** One repricing of a market: the YES price after an order, and the order
+ *  that moved it when this browser saw it. The chart draws these as the live
+ *  tail after the seeded history, with a marker per order. */
+// kind 'open' is the server's first row for a market — a point on the line,
+// never an order marker.
+export type Tick = { at: number; yes: number; dollars?: number; side?: Side; kind?: 'buy' | 'sell' | 'open' };
+
 export type DeskMarket = {
   id: string;        // WEEK-01 for seeded, share code (EX-XXXX) for custom
   q: string;
@@ -33,6 +40,7 @@ export type DeskMarket = {
   yes: number;       // current YES price in cents (0-100) = crowd probability
   closes: string;
   spark: number[];   // recent price path 0-100
+  ticks?: Tick[];    // real repricings, oldest first (see Tick)
   custom?: boolean;  // true for user-created markets
   owner?: string;    // handle of the creator
   pool?: number;     // total fake $ staked in a custom market
@@ -137,7 +145,7 @@ const SEED_PUBLIC: DeskMarket[] = [
   { id: 'WEEK-01', cat: 'Campus', q: 'Will it snow in Boston before Thanksgiving?', yes: 62, closes: 'Nov 27', spark: [38, 41, 40, 45, 44, 51, 49, 55, 58, 62] },
   { id: 'WEEK-02', cat: 'Econ', q: 'Does the Fed cut rates at the December FOMC?', yes: 71, closes: 'Dec 10', spark: [80, 78, 74, 76, 72, 75, 74, 73, 74, 71] },
   { id: 'WEEK-03', cat: 'Sports', q: 'Huskies make the Beanpot final?', yes: 44, closes: 'Feb 02', spark: [30, 32, 35, 33, 36, 38, 37, 40, 38, 44] },
-  { id: 'WEEK-04', cat: 'Crypto', q: 'Bitcoin above $150k on Jan 1?', yes: 33, closes: 'Jan 01', spark: [52, 50, 47, 48, 44, 45, 41, 39, 41, 33] },
+  { id: 'WEEK-04', cat: 'Econ', q: 'Bitcoin above $150k on Jan 1?', yes: 33, closes: 'Jan 01', spark: [52, 50, 47, 48, 44, 45, 41, 39, 41, 33] },
   { id: 'WEEK-05', cat: 'Tech', q: 'OpenAI ships GPT-6 before the semester ends?', yes: 26, closes: 'Dec 18', spark: [20, 21, 19, 22, 24, 23, 25, 24, 24, 26] },
   { id: 'WEEK-06', cat: 'Weather', q: 'Average finals-week temperature below 30°F?', yes: 39, closes: 'Dec 12', spark: [28, 30, 29, 32, 33, 31, 34, 36, 35, 39] },
   { id: 'WEEK-07', cat: 'E[X]', q: 'Club hits 100 signed-up members by opening day?', yes: 83, closes: 'Sep 01', spark: [60, 63, 66, 65, 70, 72, 74, 78, 76, 83] },
@@ -277,11 +285,17 @@ export async function hydrateLive(userId: string) {
     }
     return { ...p, outcomeIdx: p.outcomeIdx, settled: { outcome: mk.resolved, payout } };
   });
+  // The chart line lives on the server — term_price_history has a row for
+  // every repricing — so it is pulled here for everything this desk can see.
+  // Before this, a refresh flattened every market to five copies of its
+  // current price and the line was rebuilt only from this browser's orders.
+  const history = await db.fetchPriceHistory([...markets, ...mine].map((m) => m.id));
+  const withLine = (m: DeskMarket) => withHistory(m, history?.get(m.id));
   state = {
     ...state, live: true, userId,
     user: { handle: profile.handle }, isAdmin: profile.isAdmin, seenIntro: profile.seenIntro,
     balance: profile.balance, pmBalance: profile.pmBalance,
-    positions, markets, custom: mine, joined: mine.map((m) => m.id),
+    positions, markets: markets.map(withLine), custom: mine.map(withLine), joined: mine.map((m) => m.id),
     // The server has no activity table yet, so live mode starts with an empty
     // feed rather than inventing one. Local events still append as you play.
     activity: [],
@@ -299,6 +313,14 @@ export function exitLive() {
 export function signOut() {
   if (state.live) { exitLive(); return; }
   set({ user: null });
+}
+
+/** Dev-only preview: a guest desk (localStorage, no Supabase) so the signed-in
+ *  screens can be viewed and styled without a Northeastern account. Guarded by
+ *  the caller on `import.meta.env.DEV`; a production build never reaches it. */
+export function previewSignIn(handle = 'preview') {
+  if (state.live) return;
+  set({ user: { handle }, seenIntro: true });
 }
 
 export async function markIntroSeen() {
@@ -331,9 +353,25 @@ function recordActivity(e: Omit<Activity, 'id' | 'at' | 'handle'> & { handle?: s
 export async function refreshLiveMarket(code: string): Promise<void> {
   if (!state.live) return;
   try {
-    const [m, feed] = await Promise.all([db.getMarketByCode(code), db.fetchActivity(code)]);
+    const [m, feed, history] = await Promise.all([
+      db.getMarketByCode(code), db.fetchActivity(code), db.fetchPriceHistory([code]),
+    ]);
     if (!m) return;
-    const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === code ? { ...m, spark: c.spark } : c));
+    const line = history?.get(code);
+    // The feed knows the order behind each repricing (size, side); the history
+    // rows only know the price. Pairing them puts everyone's order markers on
+    // the line, not just the ones this browser placed itself.
+    const orders: TickMeta[] = (feed ?? [])
+      .filter((a) => (a.kind === 'bet' || a.kind === 'sell') && a.dollars != null)
+      .map((a) => ({ at: a.at, dollars: a.dollars!, side: a.side, kind: a.kind === 'sell' ? 'sell' : 'buy' }));
+    const roll = (arr: DeskMarket[]) => arr.map((c) => {
+      if (c.id !== code) return c;
+      const next = { ...c, ...m, spark: c.spark, ticks: c.ticks };
+      // server line when it answered; otherwise the old local nudge, so a
+      // failed fetch degrades to what this browser saw rather than a flat line
+      if (line?.length) return withHistory(next, line, orders);
+      return m.yes !== c.yes ? withTick(next, m.yes) : next;
+    });
     // Server truth replaces this market's slice of the feed — but only when the
     // server actually answered. A failed fetch (feed null) keeps whatever this
     // browser already recorded rather than erasing it.
@@ -370,7 +408,7 @@ export function walletFor(m: DeskMarket): 'balance' | 'pmBalance' {
 /** Live prices (cents) for a multi market's outcomes — softmax, sums to 100. */
 export function outcomePrices(m: DeskMarket): number[] {
   if (!m.outcomes?.length) return [];
-  const b = m.b ?? 100;
+  const b = m.b ?? lmsr.DEFAULT_B;
   return lmsr.pricesN(m.outcomes.map((o) => o.pq), b).map((p) => Math.round(p * 100));
 }
 
@@ -548,7 +586,7 @@ function applyBet(
   if (!state.markets.some((x) => x.id === m.id) && !state.custom.some((x) => x.id === m.id)) {
     state = { ...state, [m.custom ? 'custom' : 'markets']: [...(m.custom ? state.custom : state.markets), { ...m }] } as DeskState;
   }
-  bumpMarketPrice(m.id, newYes);
+  bumpMarketPrice(m.id, newYes, { dollars, side, kind: 'buy' });
   // the account's own ledger — every bet lands here, board and sim alike
   state = { ...state, trades: [{
     id: `${m.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -556,7 +594,8 @@ function applyBet(
     wallet: walletFor(m) === 'pmBalance' ? 'sim' as const : 'board' as const,
     at: Date.now(),
   }, ...state.trades].slice(0, 300) };
-  if (m.custom) recordActivity({ code: m.id, kind: 'bet', side, dollars });
+  // board and private alike: the market screen's order flow reads this feed
+  recordActivity({ code: m.id, kind: 'bet', side, dollars });
   if (m.custom) {
     state = { ...state, custom: state.custom.map((c) => (c.id === m.id ? { ...c, pool: round2((c.pool || 0) + dollars) } : c)) };
   }
@@ -678,7 +717,7 @@ export async function sellShares(m: DeskMarket, side: Side, shares: number): Pro
   }
 
   stampEngine(stored, side, -shares);
-  bumpMarketPrice(m.id, newYes);
+  bumpMarketPrice(m.id, newYes, { dollars: proceeds, side, kind: 'sell' });
   // the position shrinks; its cost basis leaves proportionally, so remaining
   // P&L still reads against what the remaining shares actually cost
   const positions = state.positions.map((p) => {
@@ -696,7 +735,7 @@ export async function sellShares(m: DeskMarket, side: Side, shares: number): Pro
     at: Date.now(),
   }, ...state.trades].slice(0, 300) };
   set({ positions, balance: round2(wallets.balance), pmBalance: round2(wallets.pmBalance) });
-  if (stored.custom) recordActivity({ code: m.id, kind: 'sell', side, dollars: proceeds });
+  recordActivity({ code: m.id, kind: 'sell', side, dollars: proceeds });
   return proceeds;
 }
 
@@ -799,10 +838,104 @@ export async function joinByCode(code: string): Promise<DeskMarket | null> {
   return m;
 }
 
-function bumpMarketPrice(id: string, newYes: number) {
-  const roll = (arr: DeskMarket[]) =>
-    arr.map((c) => (c.id === id ? { ...c, yes: newYes, spark: [...c.spark.slice(-9), newYes] } : c));
+const TICK_CAP = 240;
+
+/** Append a repricing to a market's tick tail. The first tick is preceded by
+ *  a point at the pre-order price, so the tail is a complete series on its
+ *  own for markets that have no seeded history. */
+function withTick(c: DeskMarket, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>): DeskMarket {
+  const now = Date.now();
+  const prev = c.ticks?.length ? c.ticks : [{ at: now - 1, yes: c.yes }];
+  return { ...c, yes: newYes, spark: [...c.spark.slice(-9), newYes],
+    ticks: [...prev, { at: now, yes: newYes, ...meta }].slice(-TICK_CAP) };
+}
+
+/** An order that may explain a server tick: what this browser placed (a local
+ *  tick, which also knows the price it landed at) or a feed row (which doesn't). */
+export type TickMeta = { at: number; yes?: number; dollars: number; side?: Side; kind?: Tick['kind'] };
+
+/** The server's line, with each repricing wearing the order that caused it
+ *  when one is known. A candidate explains at most one tick: the nearest one
+ *  within 20s (server rows and feed rows share a clock; this browser's own
+ *  ticks are stamped from its clock, hence the slack) at the same price when
+ *  the candidate knows the price. Anything unexplained stays a plain point. */
+export function mergeTicks(server: Tick[], candidates: TickMeta[] = []): Tick[] {
+  const spare = [...candidates];
+  const merged = server.map((s) => {
+    let best = -1, gap = 20_000;
+    spare.forEach((c, i) => {
+      if (c.yes != null && c.yes !== s.yes) return;
+      const d = Math.abs(c.at - s.at);
+      if (d < gap) { gap = d; best = i; }
+    });
+    if (best < 0) return s;
+    const [c] = spare.splice(best, 1);
+    return { ...s, dollars: c.dollars, side: c.side, kind: c.kind ?? 'buy' };
+  });
+  return merged.slice(-TICK_CAP);
+}
+
+/** Replace a market's line with the server's, keeping the order metadata from
+ *  the local tail and any extra candidates. The spark is the line's last ten
+ *  points; a market with only its open row keeps whatever spark it had. */
+function withHistory(m: DeskMarket, line: Tick[] | undefined, extra: TickMeta[] = []): DeskMarket {
+  if (!line?.length) return m;
+  const local: TickMeta[] = (m.ticks ?? []).filter((t): t is Tick & { dollars: number } => t.dollars != null);
+  const ticks = mergeTicks(line, [...local, ...extra]);
+  const path = ticks.map((t) => t.yes);
+  return { ...m, ticks, spark: path.length >= 2 ? path.slice(-10) : m.spark };
+}
+
+function bumpMarketPrice(id: string, newYes: number, meta?: Omit<Tick, 'at' | 'yes'>) {
+  const roll = (arr: DeskMarket[]) => arr.map((c) => (c.id === id ? withTick(c, newYes, meta) : c));
   state = { ...state, markets: roll(state.markets), custom: roll(state.custom) };
+}
+
+/** Officer: correct a market's wording. Only the question and the outcome
+ *  names change; the engine state (prices, quantities, liquidity) is left
+ *  exactly as it is, so this is safe while the market is trading. */
+export async function adminEditMarket(code: string, question: string, outcomes: { idx: number; name: string }[]): Promise<boolean> {
+  if (!state.isAdmin) return false;
+  const m = getMarket(code);
+  const q = question.trim();
+  if (!m || q.length < 3 || outcomes.some((o) => !o.name.trim())) return false;
+  if (state.live) {
+    try { await db.rpcAdminEditMarket(code, q, outcomes.map((o) => ({ idx: o.idx, name: o.name.trim() }))); } catch { return false; }
+    if (state.userId) await hydrateLive(state.userId);
+    return true;
+  }
+  const rename = (x: DeskMarket): DeskMarket => x.id !== code ? x : {
+    ...x, q,
+    outcomes: x.outcomes?.map((o) => ({ ...o, name: outcomes.find((n) => n.idx === o.idx)?.name.trim() ?? o.name })),
+  };
+  set({ markets: state.markets.map(rename), custom: state.custom.map(rename) });
+  return true;
+}
+
+/** Officer: delete a market that should never have been listed. Live mode
+ *  asks the server (which refunds stakes) and re-hydrates so balances and
+ *  positions come back from the truth; guest mode mirrors the refund locally.
+ *  Returns false when this account isn't an officer or the server refused. */
+export async function adminDeleteMarket(code: string): Promise<boolean> {
+  if (!state.isAdmin) return false;
+  const m = getMarket(code);
+  if (!m) return false;
+  if (state.live) {
+    try { await db.rpcAdminDeleteMarket(code); } catch { return false; }
+    if (state.userId) await hydrateLive(state.userId);
+    return true;
+  }
+  const open = state.positions.filter((p) => p.marketId === code && !p.settled);
+  const refund = m.resolved ? 0 : round2(open.reduce((a, p) => a + p.cost, 0));
+  const wallet = walletFor(m);
+  set({
+    [wallet]: round2(state[wallet] + refund),
+    positions: state.positions.filter((p) => p.marketId !== code),
+    markets: state.markets.filter((x) => x.id !== code),
+    custom: state.custom.filter((x) => x.id !== code),
+    activity: state.activity.filter((a) => a.code !== code),
+  } as Partial<DeskState>);
+  return true;
 }
 
 /** Resolve a market id to its current record (public or custom). */
