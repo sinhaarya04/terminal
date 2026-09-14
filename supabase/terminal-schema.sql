@@ -1120,3 +1120,17 @@ drop policy if exists term_price_history_read on public.term_price_history;
 create policy term_price_history_read on public.term_price_history
   for select to anon, authenticated
   using (exists (select 1 from public.term_markets m where m.code = term_price_history.market_code));
+
+-- ---------- the board's all-time volume ----------
+-- Every dollar traded through the engine on every market still listed: buys
+-- and sells (|cost|, since sells are negative rows), binary and multi, public
+-- and private. Security definer because bet rows are owner-readable only.
+-- Standalone copy with the apply command: supabase/total-volume.sql
+create or replace function public.term_total_volume()
+returns table (volume numeric, trades bigint)
+language sql security definer set search_path = public stable as $$
+  select coalesce(sum(abs(cost)), 0)::numeric as volume, count(*)::bigint as trades
+  from public.term_bets;
+$$;
+revoke all on function public.term_total_volume() from public, anon;
+grant execute on function public.term_total_volume() to authenticated;

@@ -420,3 +420,16 @@ export async function fetchLeaderboard(): Promise<LeaderRow[]> {
     .map((r) => ({ rank: r.rank, handle: r.handle, balance: Number(r.balance), equity: Number(r.equity), pnl: Number(r.pnl),
       brier: r.brier != null ? Number(r.brier) : null, nSettled: r.n_settled, isMe: !!r.is_me }));
 }
+
+export type TotalVolume = { volume: number; trades: number };
+
+/** Every dollar traded through the engine since the first market, across every
+ *  market: buys plus sells, binary and multi, public and private. Null when
+ *  the server can't answer, so a stale figure can stay on screen. */
+export async function fetchTotalVolume(): Promise<TotalVolume | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('term_total_volume');
+  if (error) return null;
+  const r = (data as { volume: number | string; trades: number | string }[] | null)?.[0];
+  return r ? { volume: Number(r.volume), trades: Number(r.trades) } : null;
+}

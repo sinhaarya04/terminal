@@ -19,6 +19,21 @@
 .head-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
 .head-note{font-size:12px;color:var(--faint)}
 
+/* ---------- the board's volume ticker ----------
+   Lives in the Markets header, hugging the officer controls: a pulsing dot
+   for "live", the all-time dollar figure, one line of context. */
+.vol-ticker{display:flex;align-items:center;gap:12px;margin-left:auto;min-width:0;
+  padding:8px 14px 8px 12px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface)}
+.vol-ticker+.head-actions{margin-left:0}
+.vol-ticker-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none;
+  box-shadow:0 0 0 0 rgba(52,211,153,.55);animation:vol-live 2.2s ease-out infinite}
+@keyframes vol-live{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.vol-ticker-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.vol-ticker em{font-style:normal;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.vol-ticker-v{display:block;font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums}
+.vol-ticker-sub{font-size:11.5px;color:var(--faint);line-height:1.3;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.vol-ticker-dot{animation:none}}
+
 /* ---------- toolbar: filters + view toggle ---------- */
 .grid-bar{display:flex;align-items:center;gap:14px;margin-bottom:18px}
 .grid-filters{display:flex;flex-wrap:wrap;gap:6px;min-width:0;flex:1}

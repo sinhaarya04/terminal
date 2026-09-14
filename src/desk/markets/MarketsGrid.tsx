@@ -4,6 +4,7 @@ import { useDesk, adminCreateBoardMarket, adminCreateFromKalshi, adminCreateMult
 import { searchKalshiCatalog, kalshiEventOptionCount, type KalshiCatalogItem } from '../terminalDb';
 import { useTilt } from '../useTilt';
 import Icon from '../../components/Icon';
+import VolumeTicker from './VolumeTicker';
 import type { Side } from '../deskStore';
 import DateTimeField from '../../components/DateTimeField';
 import CategorySelect from '../../components/CategorySelect';
@@ -61,6 +62,7 @@ export default function MarketsGrid({ events, onOpen }: { events: MarketEvent[];
     <div className="grid-wrap">
       <div className="grid-head">
         <div className="kicker">Markets<span className="title-count">{list.length}</span></div>
+        <VolumeTicker />
         <div className="head-actions">
           {isAdmin && (
             <button className={`btn ${adminOpen ? 'btn-ghost' : 'btn-red'} admin-new`} onClick={() => setAdminOpen((o) => !o)}>
