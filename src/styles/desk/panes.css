@@ -22,14 +22,15 @@
 /* ---------- the board's volume ticker ----------
    Lives in the Markets header, hugging the officer controls: the all-time
    dollar figure and one line of context. "Live" is said by a simmer, not a
-   dot: the figure breathes a faint green glow on a slow cycle, and the panel
-   warms with it, so the eye reads motion without anything blinking. */
+   dot: the figure breathes a faint red glow on a slow cycle, and the panel
+   warms with it, so the eye reads motion without anything blinking. Kept
+   faint on purpose: it should register only once you look at it. */
 .vol-ticker{position:relative;display:flex;align-items:center;gap:12px;margin-left:auto;min-width:0;overflow:hidden;
   padding:8px 14px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);
   animation:vol-simmer-box 4.2s ease-in-out infinite}
 .vol-ticker::before{content:"";position:absolute;inset:-40% -10% auto;height:180%;pointer-events:none;
-  background:radial-gradient(60% 55% at 50% 50%,rgba(52,211,153,.14),transparent 70%);
-  opacity:.5;animation:vol-simmer-heat 4.2s ease-in-out infinite}
+  background:radial-gradient(60% 55% at 50% 50%,rgba(224,33,47,.09),transparent 70%);
+  opacity:.35;animation:vol-simmer-heat 4.2s ease-in-out infinite}
 .vol-ticker+.head-actions{margin-left:0}
 .vol-ticker-body{position:relative;display:flex;flex-direction:column;gap:2px;min-width:0}
 .vol-ticker em{font-style:normal;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
