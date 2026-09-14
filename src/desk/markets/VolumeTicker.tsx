@@ -32,7 +32,6 @@ export default function VolumeTicker() {
   const count = v.trades.toLocaleString('en-US');
   return (
     <div className="vol-ticker">
-      <span className="vol-ticker-dot" aria-hidden="true" />
       <div className="vol-ticker-body">
         <em>All-time volume</em>
         <PopNumber text={money(v.volume)} className="vol-ticker-v num" />
